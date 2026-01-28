@@ -1,0 +1,1325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>大学篮球经理</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
+    <script src="js/configs/scholarshipConfig.js"></script>
+    <script src="js/utils/performanceOptimizer.js"></script>
+    <script src="js/utils/performanceBenchmark.js"></script>
+    <script src="js/modules/accountManager.js"></script>
+    <script src="js/accountUI.js"></script>
+</head>
+<body>
+    <!-- 账号管理界面 -->
+    <div id="account-screen" class="account-screen">
+        <div class="account-content">
+            <div class="account-logo">🏀</div>
+            <h1 class="account-title">大学篮球经理</h1>
+            <p class="account-subtitle">管理你的游戏数据</p>
+            
+            <div class="account-tabs">
+                <button class="account-tab active" data-tab="login">登录</button>
+                <button class="account-tab" data-tab="register">注册</button>
+                <button class="account-tab" data-tab="manage">账号管理</button>
+            </div>
+
+            <!-- 登录表单 -->
+            <div class="account-form" id="login-form">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="login-username" placeholder="请输入用户名">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="login-password" placeholder="请输入密码">
+                </div>
+                <button class="account-btn primary" onclick="login()">登录</button>
+            </div>
+
+            <!-- 注册表单 -->
+            <div class="account-form" id="register-form" style="display: none;">
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" id="register-username" placeholder="请输入用户名">
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="register-password" placeholder="请输入密码">
+                </div>
+                <div class="form-group">
+                    <label>确认密码</label>
+                    <input type="password" id="register-confirm-password" placeholder="请再次输入密码">
+                </div>
+                <div class="form-group">
+                    <label>邮箱（可选）</label>
+                    <input type="email" id="register-email" placeholder="请输入邮箱">
+                </div>
+                <button class="account-btn primary" onclick="register()">注册</button>
+            </div>
+
+            <!-- 账号管理 -->
+            <div class="account-form" id="manage-form" style="display: none;">
+                <div class="account-list" id="account-list"></div>
+                <div class="account-actions">
+                    <button class="account-btn secondary" onclick="showImportExport()">导入/导出数据</button>
+                    <button class="account-btn danger" onclick="clearAllData()">清除所有数据</button>
+                </div>
+            </div>
+
+            <!-- 导入/导出 -->
+            <div class="account-form" id="import-export-form" style="display: none;">
+                <h3>数据管理</h3>
+                <div class="data-actions">
+                    <div class="data-action">
+                        <span class="data-action-icon">📤</span>
+                        <div class="data-action-content">
+                            <h4>导出数据</h4>
+                            <p>将当前账号的游戏数据导出为JSON文件</p>
+                            <button class="account-btn primary" onclick="exportCurrentAccount()">导出当前账号</button>
+                            <button class="account-btn secondary" onclick="exportAllAccounts()">导出所有账号</button>
+                        </div>
+                    </div>
+                    <div class="data-action">
+                        <span class="data-action-icon">📥</span>
+                        <div class="data-action-content">
+                            <h4>导入数据</h4>
+                            <p>从JSON文件导入游戏数据</p>
+                            <input type="file" id="import-file" accept=".json" onchange="importAccountData()">
+                            <button class="account-btn primary" onclick="document.getElementById('import-file').click()">选择文件导入</button>
+                        </div>
+                    </div>
+                </div>
+                <button class="account-btn secondary" onclick="showManageTab()">返回</button>
+            </div>
+
+            <div id="account-message" class="account-message"></div>
+        </div>
+    </div>
+
+    <!-- 启动画面 -->
+    <div id="start-screen" class="start-screen" style="display: none;">
+        <div class="start-content">
+            <div class="start-logo">🏀</div>
+            <h1 class="start-title">大学篮球经理</h1>
+            <p class="start-subtitle">管理你的大学篮球队，追逐冠军梦想</p>
+            
+            <div class="start-buttons">
+                <button class="start-btn primary" id="btn-continue" onclick="continueGame()">
+                    <span class="btn-icon">▶️</span>
+                    <span class="btn-text">继续游戏</span>
+                </button>
+                <button class="start-btn secondary" onclick="startNewGame()">
+                    <span class="btn-icon">✨</span>
+                    <span class="btn-text">新游戏</span>
+                </button>
+                <button class="start-btn tertiary" onclick="logout()">
+                    <span class="btn-icon">🚪</span>
+                    <span class="btn-text">退出登录</span>
+                </button>
+            </div>
+            
+            <div class="start-warning" id="start-warning" style="display: none;">
+                ⚠️ 开始新游戏将覆盖当前存档
+            </div>
+        </div>
+    </div>
+
+    <div id="app" style="display: none;">
+        <header>
+            <h1>大学篮球经理</h1>
+            <div id="game-info">
+                <span id="current-date"></span>
+                <span id="team-name" class="editable-team-name" onclick="editTeamName()" title="点击修改球队名称"></span>
+                <span id="funds"></span>
+                <span id="scholarships"></span>
+            </div>
+        </header>
+
+        <nav id="main-nav">
+            <button id="team-management-btn" class="nav-btn active">球队管理</button>
+            <button id="schedule-btn" class="nav-btn">赛程</button>
+            <button id="training-btn" class="nav-btn">训练</button>
+            <button id="player-development-btn" class="nav-btn">球员培养</button>
+            <button id="market-btn" class="nav-btn">球员招募</button>
+            <button id="scouting-btn" class="nav-btn">球探分析</button>
+            <button id="coach-market-btn" class="nav-btn">教练市场</button>
+            <button id="finance-btn" class="nav-btn">财务管理</button>
+            <button id="standings-btn" class="nav-btn">排名</button>
+        </nav>
+
+        <main>
+            <!-- Pixi.js Canvas容器 -->
+            <div id="pixi-canvas" class="pixi-container"></div>
+            <!-- 球队管理界面 -->
+            <section id="team-management" class="screen active">
+                <div class="team-header">
+                    <div class="team-header-content">
+                        <div class="team-logo-large">🏀</div>
+                        <div class="team-title">
+                            <h1 id="team-university-name" class="editable-team-name" onclick="editTeamName()" title="点击修改球队名称">大学名称</h1>
+                            <div class="team-subtitle">男子篮球队</div>
+                        </div>
+                    </div>
+                    <div class="team-season-badge">
+                        <span id="team-season">2024-25赛季</span>
+                    </div>
+                </div>
+
+                <div class="team-info-grid">
+                    <!-- 教练信息卡片 -->
+                    <div class="team-info-card coach-card">
+                        <div class="card-header">
+                            <span class="card-icon">👨‍🏫</span>
+                            <span class="card-title">主教练</span>
+                        </div>
+                        <div class="coach-info-content" id="coach-info">
+                            <div class="coach-avatar" id="coach-avatar">👔</div>
+                            <div class="coach-details">
+                                <div class="coach-name" id="coach-name">待定</div>
+                                <div class="coach-title" id="coach-title">暂无</div>
+                                <div class="coach-rating">
+                                    <span class="rating-label">执教能力</span>
+                                    <span class="rating-value" id="coach-rating">-</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="coach-specialties" id="coach-specialties">
+                            <!-- 教练特点标签动态生成 -->
+                        </div>
+                    </div>
+
+                    <!-- 球队统计卡片 -->
+                    <div class="team-info-card stats-card">
+                        <div class="card-header">
+                            <span class="card-icon">📊</span>
+                            <span class="card-title">球队统计</span>
+                        </div>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-value" id="player-count">0</div>
+                                <div class="stat-label">球员人数</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="team-strength">-</div>
+                                <div class="stat-label">球队战力</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="team-record">0-0</div>
+                                <div class="stat-label">球队战绩</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="team-rank">-</div>
+                                <div class="stat-label">联盟排名</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 奖学金管理卡片 -->
+                    <div class="team-info-card scholarship-card">
+                        <div class="card-header">
+                            <span class="card-icon">💰</span>
+                            <span class="card-title">奖学金管理</span>
+                        </div>
+                        <div class="scholarship-display">
+                            <div class="scholarship-progress">
+                                <div class="progress-circle">
+                                    <svg viewBox="0 0 100 100" class="circular-progress">
+                                        <circle class="circle-bg" cx="50" cy="50" r="45" fill="none" />
+                                        <circle class="circle-fill" id="scholarship-progress-path" cx="50" cy="50" r="45" fill="none" />
+                                    </svg>
+                                    <div class="progress-text">
+                                        <span class="progress-value" id="scholarship-used">0</span>
+                                        <span class="progress-max">/ <span id="scholarship-total">0</span></span>
+                                    </div>
+                                </div>
+                                <div class="progress-label">已用名额</div>
+                            </div>
+                            <div class="scholarship-details">
+                                <div class="scholarship-item available">
+                                    <span class="item-icon">✓</span>
+                                    <span class="item-label">可用名额</span>
+                                    <span class="item-value" id="scholarship-available">0</span>
+                                </div>
+                                <div class="scholarship-item total">
+                                    <span class="item-icon">📋</span>
+                                    <span class="item-label">总名额</span>
+                                    <span class="item-value" id="scholarship-total-value">0</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="scholarship-action">
+                            <button class="action-btn primary" id="go-to-market">前往转会市场</button>
+                        </div>
+                    </div>
+
+                    <!-- 位置分布卡片 -->
+                    <div class="team-info-card positions-card">
+                        <div class="card-header">
+                            <span class="card-icon">🏀</span>
+                            <span class="card-title">位置分布</span>
+                        </div>
+                        <div class="position-distribution" id="position-distribution">
+                            <div class="position-item">
+                                <span class="position-icon">🏀</span>
+                                <span class="position-name">控球后卫</span>
+                                <span class="position-count" id="pos-pg-count">0</span>
+                            </div>
+                            <div class="position-item">
+                                <span class="position-icon">🎯</span>
+                                <span class="position-name">得分后卫</span>
+                                <span class="position-count" id="pos-sg-count">0</span>
+                            </div>
+                            <div class="position-item">
+                                <span class="position-icon">🔥</span>
+                                <span class="position-name">小前锋</span>
+                                <span class="position-count" id="pos-sf-count">0</span>
+                            </div>
+                            <div class="position-item">
+                                <span class="position-icon">💪</span>
+                                <span class="position-name">大前锋</span>
+                                <span class="position-count" id="pos-pf-count">0</span>
+                            </div>
+                            <div class="position-item">
+                                <span class="position-icon">🛡️</span>
+                                <span class="position-name">中锋</span>
+                                <span class="position-count" id="pos-c-count">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 年级分布卡片 -->
+                    <div class="team-info-card year-card">
+                        <div class="card-header">
+                            <span class="card-icon">🎓</span>
+                            <span class="card-title">年级分布</span>
+                        </div>
+                        <div class="year-distribution" id="year-distribution">
+                            <div class="year-item">
+                                <span class="year-badge freshman">大一</span>
+                                <span class="year-count" id="year-freshman-count">0</span>
+                            </div>
+                            <div class="year-item">
+                                <span class="year-badge sophomore">大二</span>
+                                <span class="year-count" id="year-sophomore-count">0</span>
+                            </div>
+                            <div class="year-item">
+                                <span class="year-badge junior">大三</span>
+                                <span class="year-count" id="year-junior-count">0</span>
+                            </div>
+                            <div class="year-item">
+                                <span class="year-badge senior">大四</span>
+                                <span class="year-count" id="year-senior-count">0</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 球队战力详情卡片 -->
+                    <div class="team-info-card rating-card">
+                        <div class="card-header">
+                            <span class="card-icon">⚡</span>
+                            <span class="card-title">战力分析</span>
+                        </div>
+                        <div class="rating-details">
+                            <div class="rating-item">
+                                <div class="rating-bar">
+                                    <div class="bar-header">
+                                        <span class="bar-label">进攻能力</span>
+                                        <span class="bar-value" id="offense-rating">0</span>
+                                    </div>
+                                    <div class="bar-track">
+                                        <div class="bar-fill offense" id="offense-bar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="rating-item">
+                                <div class="rating-bar">
+                                    <div class="bar-header">
+                                        <span class="bar-label">防守能力</span>
+                                        <span class="bar-value" id="defense-rating">0</span>
+                                    </div>
+                                    <div class="bar-track">
+                                        <div class="bar-fill defense" id="defense-bar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="rating-item">
+                                <div class="rating-bar">
+                                    <div class="bar-header">
+                                        <span class="bar-label">平均潜力</span>
+                                        <span class="bar-value" id="avg-potential">0</span>
+                                    </div>
+                                    <div class="bar-track">
+                                        <div class="bar-fill potential" id="potential-bar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="rating-item">
+                                <div class="rating-bar">
+                                    <div class="bar-header">
+                                        <span class="bar-label">综合评级</span>
+                                        <span class="bar-value" id="overall-team-rating">0</span>
+                                    </div>
+                                    <div class="bar-track">
+                                        <div class="bar-fill overall" id="overall-bar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 快速操作卡片 -->
+                    <div class="team-info-card actions-card">
+                        <div class="card-header">
+                            <span class="card-icon">⚙️</span>
+                            <span class="card-title">快速操作</span>
+                        </div>
+                        <div class="quick-actions">
+                            <button class="quick-action-btn" id="action-manage-roster">
+                                <span class="action-icon">👥</span>
+                                <span class="action-text">管理阵容</span>
+                            </button>
+                            <button class="quick-action-btn" id="action-view-schedule">
+                                <span class="action-icon">📅</span>
+                                <span class="action-text">查看赛程</span>
+                            </button>
+                            <button class="quick-action-btn" id="action-training">
+                                <span class="action-icon">🏋️</span>
+                                <span class="action-text">球队训练</span>
+                            </button>
+                            <button class="quick-action-btn" id="action-analytics">
+                                <span class="action-icon">📈</span>
+                                <span class="action-text">数据分析</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 球队阵容简览（可折叠） -->
+                <div class="roster-overview-section" id="roster-overview-section">
+                    <div class="section-header" id="roster-toggle">
+                        <span class="section-title">球队阵容</span>
+                        <span class="toggle-icon">▼</span>
+                    </div>
+                    <div class="section-content collapsed" id="roster-overview-content">
+                        <!-- 筛选和排序控件 -->
+                        <div class="player-list-controls">
+                            <div class="search-box">
+                                <input type="text" id="player-search" placeholder="搜索球员..." />
+                                <span class="search-icon">🔍</span>
+                            </div>
+                            <div class="filter-group">
+                                <select id="position-filter">
+                                    <option value="">所有位置</option>
+                                    <option value="PG">控球后卫</option>
+                                    <option value="SG">得分后卫</option>
+                                    <option value="SF">小前锋</option>
+                                    <option value="PF">大前锋</option>
+                                    <option value="C">中锋</option>
+                                </select>
+                                <select id="year-filter">
+                                    <option value="">所有年级</option>
+                                    <option value="1">大一</option>
+                                    <option value="2">大二</option>
+                                    <option value="3">大三</option>
+                                    <option value="4">大四</option>
+                                </select>
+                                <select id="sort-by">
+                                    <option value="rating-desc">能力值 ↓</option>
+                                    <option value="rating-asc">能力值 ↑</option>
+                                    <option value="potential-desc">潜力 ↓</option>
+                                    <option value="potential-asc">潜力 ↑</option>
+                                    <option value="name-asc">姓名 A-Z</option>
+                                    <option value="name-desc">姓名 Z-A</option>
+                                    <option value="year-desc">年级 高-低</option>
+                                    <option value="year-asc">年级 低-高</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="player-count-info">
+                            <span id="player-count-display">0 名球员</span>
+                        </div>
+                        <div id="roster-list">
+                            <div class="empty-roster-message">
+                                <div class="empty-roster-icon">📋</div>
+                                <div class="empty-roster-title">暂无球员</div>
+                                <div class="empty-roster-desc">您的球队还没有球员</div>
+                                <div class="empty-roster-action">前往转会市场签约球员</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 赛程界面 -->
+            <section id="schedule" class="screen">
+                <div class="season-header">
+                    <div class="season-title">2024-2025 赛季</div>
+                    <div class="season-stats">
+                        <div class="season-stat">
+                            <div class="value" id="season-week">-</div>
+                            <div class="label">当前周</div>
+                        </div>
+                        <div class="season-stat">
+                            <div class="value" id="season-record">0-0</div>
+                            <div class="label">球队战绩</div>
+                        </div>
+                        <div class="season-stat">
+                            <div class="value" id="season-games">-</div>
+                            <div class="label">已赛场次</div>
+                        </div>
+                        <div class="season-stat">
+                            <div class="value" id="season-remaining">-</div>
+                            <div class="label">剩余周数</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="next-game-reminder" id="next-game-reminder" style="display: none;">
+                    <div class="next-game-title">下一场比赛</div>
+                    <div class="next-game-info">
+                        <div class="next-game-teams">
+                            <div class="game-team home">
+                                <div class="team-logo">🏀</div>
+                                <div class="team-info">
+                                    <div class="team-name" id="next-home-team">-</div>
+                                    <div class="team-record" id="next-home-record">-</div>
+                                </div>
+                            </div>
+                            <div class="game-vs">
+                                <span class="vs">VS</span>
+                            </div>
+                            <div class="game-team away">
+                                <div class="team-info">
+                                    <div class="team-name" id="next-away-team">-</div>
+                                    <div class="team-record" id="next-away-record">-</div>
+                                </div>
+                                <div class="team-logo">🏀</div>
+                            </div>
+                        </div>
+                        <div class="next-game-details">
+                            <div class="next-game-date" id="next-game-date">-</div>
+                            <div class="next-game-venue" id="next-game-venue">-</div>
+                            <button class="start-game-btn" id="start-next-game-btn">开始比赛</button>
+                        </div>
+                    </div>
+                    <div class="season-progress">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="season-progress-bar" style="width: 0%"></div>
+                        </div>
+                        <div class="progress-text">
+                            <span id="progress-week">第 1 周</span>
+                            <span id="progress-total">共 16 周</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="week-navigation">
+                    <div class="week-nav-controls">
+                        <button class="nav-btn" id="prev-week-btn">◀</button>
+                        <div class="week-display">
+                            <div id="current-week">第 1 周</div>
+                            <div class="week-date-range" id="week-date-range">-</div>
+                        </div>
+                        <button class="nav-btn" id="next-week-btn">▶</button>
+                    </div>
+                    <div class="date-picker" id="week-dates"></div>
+                </div>
+                
+                <div class="schedule-container">
+                    <div class="schedule-date-header" id="schedule-date-header">-</div>
+                    <div id="schedule-games"></div>
+                </div>
+            </section>
+
+            <!-- 训练界面 -->
+            <section id="training" class="screen">
+                <h2>球员训练</h2>
+                <div id="training-options"></div>
+                <div id="player-select"></div>
+                <div id="training-result"></div>
+            </section>
+
+            <!-- 球员培养界面 -->
+            <section id="player-development" class="screen">
+                <h2>球员培养</h2>
+                <div id="development-container">
+                    <div class="development-left-panel">
+                        <h3>选择球员</h3>
+                        <div id="player-list"></div>
+                    </div>
+                    <div class="development-right-panel">
+                        <h3>培养计划</h3>
+                        <div id="player-details"></div>
+                        <div id="training-plan">
+                            <h4>训练计划</h4>
+                            <div id="training-options">
+                                <div class="training-option" data-training="shooting">
+                                    <h5>投篮训练</h5>
+                                    <p>提升投篮、三分、罚球属性</p>
+                                    <div class="training-progress">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill"></div>
+                                        </div>
+                                        <span class="progress-text">0/100</span>
+                                    </div>
+                                </div>
+                                <div class="training-option" data-training="dribbling">
+                                    <h5>运球训练</h5>
+                                    <p>提升运球、速度属性</p>
+                                    <div class="training-progress">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill"></div>
+                                        </div>
+                                        <span class="progress-text">0/100</span>
+                                    </div>
+                                </div>
+                                <div class="training-option" data-training="defense">
+                                    <h5>防守训练</h5>
+                                    <p>提升防守、篮板、抢断属性</p>
+                                    <div class="training-progress">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill"></div>
+                                        </div>
+                                        <span class="progress-text">0/100</span>
+                                    </div>
+                                </div>
+                                <div class="training-option" data-training="physical">
+                                    <h5>体能训练</h5>
+                                    <p>提升力量、体力属性</p>
+                                    <div class="training-progress">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill"></div>
+                                        </div>
+                                        <span class="progress-text">0/100</span>
+                                    </div>
+                                </div>
+                                <div class="training-option" data-training="basketball-iq">
+                                    <h5>篮球智商训练</h5>
+                                    <p>提升传球、篮球智商属性</p>
+                                    <div class="training-progress">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill"></div>
+                                        </div>
+                                        <span class="progress-text">0/100</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="training-controls">
+                                <button id="start-training-btn">开始训练</button>
+                                <button id="reset-training-btn">重置训练</button>
+                            </div>
+                        </div>
+                        <div id="skill-learning">
+                            <h4>技能学习</h4>
+                            <div id="available-skills"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 球员招募界面 - 全新增强版本 -->
+            <section id="market" class="screen">
+                <!-- 休赛期控制面板 -->
+                <div class="offseason-control-panel" id="offseason-panel">
+                    <div class="offseason-panel-header">
+                        <h3>📅 休赛期管理</h3>
+                        <div class="offseason-status" id="offseason-status">
+                            <span class="status-badge" id="urgency-badge">正常</span>
+                        </div>
+                    </div>
+                    <div class="offseason-info">
+                        <div class="time-remaining">
+                            <span class="label">剩余时间</span>
+                            <span class="value" id="weeks-remaining">-</span>
+                            <span class="unit">周</span>
+                        </div>
+                        <div class="elite-players">
+                            <span class="label">顶级球员</span>
+                            <span class="value" id="elite-count">-</span>
+                            <span class="unit">人</span>
+                        </div>
+                        <div class="market-progress">
+                            <span class="label">市场进度</span>
+                            <span class="value" id="market-progress">-</span>
+                            <span class="unit">%</span>
+                        </div>
+                    </div>
+                    <div class="offseason-actions">
+                        <button class="offseason-btn small" onclick="fastForwardDays(7)">
+                            <span class="btn-icon">⏩</span>
+                            <span class="btn-text">前进1周</span>
+                        </button>
+                        <button class="offseason-btn small" onclick="fastForwardDays(14)">
+                            <span class="btn-icon">⏭️</span>
+                            <span class="btn-text">前进2周</span>
+                        </button>
+                        <button class="offseason-btn medium" onclick="fastForwardDays(30)">
+                            <span class="btn-icon">🚀</span>
+                            <span class="btn-text">前进1个月</span>
+                        </button>
+                        <button class="offseason-btn large" onclick="fastForwardToSeason()">
+                            <span class="btn-icon">🏁</span>
+                            <span class="btn-text">直接开赛</span>
+                        </button>
+                    </div>
+                    <!-- 批量跳过谈判区域 -->
+                    <div class="batch-skip-section" id="batch-skip-section">
+                        <div class="batch-skip-header">
+                            <h4>⚡ 批量操作</h4>
+                            <span class="slot-info" id="slot-info">已用 0/15 名额</span>
+                        </div>
+                        <div class="batch-skip-info">
+                            <span class="info-text">当 球员数 + 谈判数 = 13 时激活</span>
+                        </div>
+                        <button class="batch-skip-btn" id="batch-skip-btn" onclick="batchSkipNegotiations()" disabled>
+                            <span class="btn-icon">⏭️</span>
+                            <span class="btn-text">批量跳过低优先级谈判</span>
+                            <span class="btn-count" id="skip-count">0</span>
+                        </button>
+                    </div>
+                    <div class="offseason-notice" id="offseason-notice">
+                        点击前进模拟时间流逝，球员将被其他球队陆续签走
+                    </div>
+                </div>
+                
+                <div class="recruitment-header">
+                    <h2>球员招募中心</h2>
+                    <div class="recruitment-stats">
+                        <div class="stat-item">
+                            <span class="stat-value" id="available-count">0</span>
+                            <span class="stat-label">资源池</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="freshman-count">0</span>
+                            <span class="stat-label">新生招募</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="free-agent-count">0</span>
+                            <span class="stat-label">自由球员</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="transfer-count">0</span>
+                            <span class="stat-label">转学生</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="negotiation-count">0</span>
+                            <span class="stat-label">谈判中</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-value" id="scholarship-remaining">0</span>
+                            <span class="stat-label">剩余名额</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 招募中心页签导航 -->
+                <div class="recruitment-tabs">
+                    <button class="recruit-tab-btn active" data-recruit-tab="available">
+                        <span class="tab-icon">📋</span>
+                        <span class="tab-text">可用球员</span>
+                        <span class="tab-badge" id="tab-badge-available">0</span>
+                    </button>
+                    <button class="recruit-tab-btn" data-recruit-tab="negotiating">
+                        <span class="tab-icon">💬</span>
+                        <span class="tab-text">谈判中</span>
+                        <span class="tab-badge" id="tab-badge-negotiating">0</span>
+                    </button>
+                    <button class="recruit-tab-btn" data-recruit-tab="offer-pending">
+                        <span class="tab-icon">📝</span>
+                        <span class="tab-text">待报价</span>
+                        <span class="tab-badge" id="tab-badge-offer">0</span>
+                    </button>
+                    <button class="recruit-tab-btn" data-recruit-tab="signed">
+                        <span class="tab-icon">✅</span>
+                        <span class="tab-text">已签约</span>
+                        <span class="tab-badge" id="tab-badge-signed">0</span>
+                    </button>
+                </div>
+                
+                <!-- 可用球员页签内容 -->
+                <div id="recruit-tab-available" class="recruit-tab-content active">
+                
+                <!-- 多维度筛选系统 -->
+                <div class="recruitment-filters">
+                    <div class="filter-section">
+                        <h4>位置筛选</h4>
+                        <div class="filter-buttons" id="position-filter-group">
+                            <button class="filter-btn active" data-value="all">全部</button>
+                            <button class="filter-btn" data-value="PG">PG</button>
+                            <button class="filter-btn" data-value="SG">SG</button>
+                            <button class="filter-btn" data-value="SF">SF</button>
+                            <button class="filter-btn" data-value="PF">PF</button>
+                            <button class="filter-btn" data-value="C">C</button>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-section">
+                        <h4>球员类型</h4>
+                        <div class="filter-buttons" id="status-filter-group">
+                            <button class="filter-btn active" data-value="all">全部</button>
+                            <button class="filter-btn" data-value="freshman_recruit">新生招募</button>
+                            <button class="filter-btn" data-value="free_agent">自由球员</button>
+                            <button class="filter-btn" data-value="transfer_wanted">转学生</button>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-section">
+                        <h4>年级筛选</h4>
+                        <div class="filter-buttons" id="year-filter-group">
+                            <button class="filter-btn active" data-value="all">全部</button>
+                            <button class="filter-btn" data-value="1">大一</button>
+                            <button class="filter-btn" data-value="2">大二</button>
+                            <button class="filter-btn" data-value="3">大三</button>
+                            <button class="filter-btn" data-value="4">大四</button>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-section potential-filter">
+                        <h4>潜力值筛选 <span id="potential-range-display">50-99</span></h4>
+                        <div class="slider-container">
+                            <input type="range" id="potential-min" min="50" max="99" value="50" step="1">
+                            <input type="range" id="potential-max" min="50" max="99" value="99" step="1">
+                        </div>
+                        <div class="range-labels">
+                            <span>50</span>
+                            <span>75</span>
+                            <span>99</span>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-section">
+                        <h4>能力值筛选</h4>
+                        <div class="filter-buttons" id="rating-filter-group">
+                            <button class="filter-btn active" data-value="all">全部</button>
+                            <button class="filter-btn" data-value="star">球星 (80+)</button>
+                            <button class="filter-btn" data-value="starter">主力 (70+)</button>
+                            <button class="filter-btn" data-value="rotation">轮换 (60+)</button>
+                            <button class="filter-btn" data-value="bench">替补 (50+)</button>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-section">
+                        <h4>搜索球员</h4>
+                        <div class="search-box">
+                            <input type="text" id="player-search" placeholder="输入球员姓名...">
+                            <button class="search-btn">🔍</button>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-section view-options">
+                        <h4>显示选项</h4>
+                        <label class="toggle-option">
+                            <input type="checkbox" id="show-favorites">
+                            <span>仅显示收藏</span>
+                        </label>
+                        <label class="toggle-option">
+                            <input type="checkbox" id="show-background">
+                            <span>显示背景资料</span>
+                        </label>
+                    </div>
+                    
+                    <div class="filter-section filter-actions">
+                        <button class="filter-confirm-btn" id="apply-filters">
+                            <span>✓</span> 应用筛选
+                        </button>
+                        <button class="filter-reset-btn" id="reset-filters">
+                            <span>↺</span> 重置
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 潜力值分布统计 -->
+                <div class="distribution-stats" id="distribution-stats">
+                    <h4>潜力值分布</h4>
+                    <div class="distribution-bars">
+                        <div class="dist-bar elite" data-level="elite">
+                            <span class="dist-icon">👑</span>
+                            <span class="dist-label">90+ 天之骄子</span>
+                            <div class="dist-fill" style="width: 0%"></div>
+                            <span class="dist-count">0</span>
+                        </div>
+                        <div class="dist-bar excellent" data-level="excellent">
+                            <span class="dist-icon">⭐</span>
+                            <span class="dist-label">80-89 精英</span>
+                            <div class="dist-fill" style="width: 0%"></div>
+                            <span class="dist-count">0</span>
+                        </div>
+                        <div class="dist-bar good" data-level="good">
+                            <span class="dist-icon">💎</span>
+                            <span class="dist-label">70-79 优秀</span>
+                            <div class="dist-fill" style="width: 0%"></div>
+                            <span class="dist-count">0</span>
+                        </div>
+                        <div class="dist-bar normal" data-level="normal">
+                            <span class="dist-icon">📋</span>
+                            <span class="dist-label">50-69 普通</span>
+                            <div class="dist-fill" style="width: 0%"></div>
+                            <span class="dist-count">0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 球员卡片网格 -->
+                <div class="player-cards-container" id="available-players">
+                    <!-- 球员卡片将通过 JavaScript 动态生成 -->
+                </div>
+                
+                <!-- 谈判界面容器 -->
+                <div id="negotiation-container"></div>
+            </section>
+            
+            <!-- 谈判中页签内容 -->
+            <div id="recruit-tab-negotiating" class="recruit-tab-content">
+                <div class="negotiation-dashboard">
+                    <!-- 谈判概览统计 -->
+                    <div class="negotiation-overview">
+                        <div class="overview-stat-card">
+                            <div class="overview-icon">💬</div>
+                            <div class="overview-info">
+                                <div class="overview-value" id="active-negotiations-count">0</div>
+                                <div class="overview-label">进行中谈判</div>
+                            </div>
+                        </div>
+                        <div class="overview-stat-card">
+                            <div class="overview-icon">⏱️</div>
+                            <div class="overview-info">
+                                <div class="overview-value" id="avg-negotiation-time">0天</div>
+                                <div class="overview-label">平均谈判时长</div>
+                            </div>
+                        </div>
+                        <div class="overview-stat-card">
+                            <div class="overview-icon">📈</div>
+                            <div class="overview-info">
+                                <div class="overview-value" id="success-rate">0%</div>
+                                <div class="overview-label">成功率</div>
+                            </div>
+                        </div>
+                        <div class="overview-stat-card">
+                            <div class="overview-icon">💰</div>
+                            <div class="overview-info">
+                                <div class="overview-value" id="total-investment">$0</div>
+                                <div class="overview-label">累计投入</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 谈判状态筛选 -->
+                    <div class="negotiation-filters">
+                        <button class="neg-filter-btn active" data-neg-status="all">全部</button>
+                        <button class="neg-filter-btn" data-neg-status="active">进行中</button>
+                        <button class="neg-filter-btn" data-neg-status="pending">待回复</button>
+                        <button class="neg-filter-btn" data-neg-status="counter">还价中</button>
+                        <button class="neg-filter-btn" data-neg-status="urgent">紧急</button>
+                    </div>
+                    
+                    <!-- 谈判列表 -->
+                    <div class="negotiation-list" id="negotiation-list">
+                        <!-- 谈判卡片将通过 JavaScript 动态生成 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 待报价页签内容 -->
+            <div id="recruit-tab-offer-pending" class="recruit-tab-content">
+                <div class="pending-offer-section">
+                    <h3>待报价球员</h3>
+                    <p class="section-description">您已关注但尚未发起谈判的球员</p>
+                    <div class="pending-offer-list" id="pending-offer-list">
+                        <!-- 待报价球员列表 -->
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 已签约页签内容 -->
+            <div id="recruit-tab-signed" class="recruit-tab-content">
+                <div class="signed-players-section">
+                    <h3>已签约球员</h3>
+                    <p class="section-description">通过谈判成功签约的球员</p>
+                    <div class="signed-player-list" id="signed-player-list">
+                        <!-- 已签约球员列表 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 财务管理界面 -->
+            <section id="finance" class="screen">
+                <h2>财务管理</h2>
+                <div id="finance-overview">
+                    <h3>财务概览</h3>
+                    <div id="finance-summary"></div>
+                </div>
+                <div id="finance-details">
+                    <div class="finance-section">
+                        <h3>收入明细</h3>
+                        <div id="revenue-breakdown"></div>
+                    </div>
+                    <div class="finance-section">
+                        <h3>支出明细</h3>
+                        <div id="expenses-breakdown"></div>
+                    </div>
+                </div>
+                <div id="finance-actions">
+                    <button id="generate-revenue-btn">生成本月收入</button>
+                    <button id="calculate-expenses-btn">计算本月支出</button>
+                </div>
+            </section>
+
+            <!-- 球探分析界面 -->
+            <section id="scouting" class="screen">
+                <h2>球探分析</h2>
+                <div class="scouting-tabs">
+                    <button class="tab-btn active" data-tab="team-view">球队阵容</button>
+                    <button class="tab-btn" data-tab="scouting-reports">球探报告</button>
+                    <button class="tab-btn" data-tab="analysis">深度分析</button>
+                </div>
+                
+                <!-- 球队阵容视图 -->
+                <div id="team-view" class="tab-content active">
+                    <div class="team-selector">
+                        <h3>选择要查看的球队</h3>
+                        <div class="view-options">
+                            <label>
+                                <input type="radio" name="view-type" value="team" checked> 球队
+                            </label>
+                            <label>
+                                <input type="radio" name="view-type" value="free-agents"> 自由球员
+                            </label>
+                            <label>
+                                <input type="radio" name="view-type" value="all-players"> 所有球员
+                            </label>
+                        </div>
+                        <select id="team-select">
+                            <option value="">请选择球队...</option>
+                        </select>
+                        <select id="position-filter" style="display: none;">
+                            <option value="">所有位置</option>
+                            <option value="1">控球后卫</option>
+                            <option value="2">得分后卫</option>
+                            <option value="3">小前锋</option>
+                            <option value="4">大前锋</option>
+                            <option value="5">中锋</option>
+                        </select>
+                    </div>
+                    <div id="selected-team-roster" class="team-roster-view">
+                        <h3>球队阵容</h3>
+                        <div id="roster-details"></div>
+                    </div>
+                </div>
+                
+                <!-- 球探报告视图 -->
+                <div id="scouting-reports" class="tab-content">
+                    <div class="scouting-controls">
+                        <h3>球探控制面板</h3>
+                        <div class="scouting-actions">
+                            <button id="scout-selected-team">球探选中的球队</button>
+                            <button id="scout-free-agents">球探自由球员</button>
+                            <button id="refresh-scouting-data">刷新球探数据</button>
+                        </div>
+                        <div class="scouting-budget">
+                            <p>球探预算: <span id="scouting-budget">$50,000</span></p>
+                            <p>已使用: <span id="scouting-used">$0</span></p>
+                        </div>
+                    </div>
+                    <div id="scouting-reports-list">
+                        <h3>球探报告</h3>
+                        <div id="reports-container"></div>
+                    </div>
+                </div>
+                
+                <!-- 深度分析视图 -->
+                <div id="analysis" class="tab-content">
+                    <div class="analysis-controls">
+                        <h3>分析控制面板</h3>
+                        <div class="analysis-actions">
+                            <button id="analyze-selected-team">分析选中的球队</button>
+                            <button id="compare-teams">比较两支球队</button>
+                            <select id="team-compare-1">
+                                <option value="">选择第一支球队...</option>
+                            </select>
+                            <select id="team-compare-2">
+                                <option value="">选择第二支球队...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div id="analysis-results">
+                        <h3>分析结果</h3>
+                        <div id="analysis-container"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 教练市场界面 -->
+            <section id="coach-market" class="screen coach-market">
+                <h2>教练市场</h2>
+                <div class="coach-market-header">
+                    <div class="market-info">
+                        <p>市场刷新日期: <span id="market-refresh-date"></span></p>
+                        <p>可用教练: <span id="available-coaches-count"></span></p>
+                        <p id="coach-hiring-info">本赛季签约：0/2（剩余2次）</p>
+                    </div>
+                    <div class="market-actions">
+                        <button id="refresh-coach-market">刷新教练市场</button>
+                    </div>
+                </div>
+                <div class="coach-filters">
+                    <h3>筛选条件</h3>
+                    <div class="filter-options">
+                        <div class="filter-group">
+                            <label>教练类型:</label>
+                            <select id="archetype-filter">
+                                <option value="">全部</option>
+                                <option value="offensive">进攻型</option>
+                                <option value="defensive">防守型</option>
+                                <option value="balanced">均衡型</option>
+                                <option value="developmental">培养型</option>
+                                <option value="veteran">老练型</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="coach-list-container">
+                    <h3>可签约教练</h3>
+                    <div id="coach-list"></div>
+                </div>
+            </section>
+
+            <!-- 排名界面 -->
+            <section id="standings" class="screen">
+                <h2>大学联赛排名</h2>
+                <div id="league-standings"></div>
+            </section>
+        </main>
+
+        <!-- 比赛模拟模态框 -->
+        <div id="game-modal" class="modal">
+            <div class="modal-content game-modal-content">
+                <span class="close">&times;</span>
+                <div class="game-header">
+                    <h2>比赛进行中</h2>
+                    <div id="game-info"></div>
+                </div>
+                
+                <div class="game-main-content">
+                    <div class="game-left-panel">
+                        <div id="game-score"></div>
+                        <div id="game-timer"></div>
+                        <div id="game-status"></div>
+                        <div id="tactical-options"></div>
+                    </div>
+                    
+                    <div class="game-center-panel">
+                        <div id="game-events"></div>
+                    </div>
+                    
+                    <div class="game-right-panel">
+                        <div id="player-stats-container">
+                            <h3>球员数据</h3>
+                            <div class="team-stats-container">
+                                <h4 id="home-team-name">主队</h4>
+                                <div id="home-player-stats"></div>
+                            </div>
+                            <div class="team-stats-container">
+                                <h4 id="away-team-name">客队</h4>
+                                <div id="away-player-stats"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="game-controls">
+                    <button id="pause-game-btn">暂停</button>
+                    <button id="resume-game-btn" style="display:none;">继续</button>
+                    <button id="speed-up-btn">加速 x1</button>
+                    <button id="close-game-btn" style="display:none;">关闭比赛</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 球员详情模态框 -->
+        <div id="player-modal" class="modal">
+            <div class="modal-content player-detail-modal">
+                <span class="close">&times;</span>
+                <div id="player-detail-content"></div>
+            </div>
+        </div>
+
+        <!-- 新赛季开始模态框 -->
+        <div id="new-season-modal" class="modal">
+            <div class="modal-content">
+                <h2>新赛季开始</h2>
+                <div id="season-summary"></div>
+                <button id="start-new-season">开始新赛季</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 谈判模态框 -->
+    <div id="negotiation-modal" class="negotiation-modal">
+        <div class="negotiation-content">
+            <div class="negotiation-header">
+                <div class="negotiation-player">
+                    <div class="player-avatar" id="negotiation-avatar">🏀</div>
+                    <div class="player-info">
+                        <h3 id="negotiation-player-name">球员姓名</h3>
+                        <div class="player-details" id="negotiation-player-details">大一 控球后卫</div>
+                    </div>
+                </div>
+                <button class="close-negotiation" id="close-negotiation">×</button>
+            </div>
+            
+            <div id="negotiation-difficulty-container"></div>
+            
+            <div id="transfer-warning-container"></div>
+            
+            <div id="willingness-meter-container"></div>
+            
+            <div class="scholarship-slider-container">
+                <div class="slider-label">
+                    <span>奖学金比例</span>
+                    <span class="slider-value" id="scholarship-value">100%</span>
+                </div>
+                <input type="range" class="scholarship-slider" id="scholarship-slider" min="25" max="100" value="100">
+                <div class="slider-presets">
+                    <button class="preset-btn" data-value="25">25%</button>
+                    <button class="preset-btn" data-value="50">50%</button>
+                    <button class="preset-btn" data-value="75">75%</button>
+                    <button class="preset-btn active" data-value="100">100%</button>
+                </div>
+            </div>
+            
+            <div id="negotiation-result-container"></div>
+            
+            <div class="negotiation-actions">
+                <button class="negotiation-btn cancel" id="cancel-negotiation">取消</button>
+                <button class="negotiation-btn submit" id="submit-offer">提交报价</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 谈判历史详情模态框 -->
+    <div id="negotiation-history-modal" class="modal">
+        <div class="modal-content negotiation-history-modal">
+            <div class="modal-header">
+                <h3>📜 谈判历史记录</h3>
+                <span class="close" onclick="document.getElementById('negotiation-history-modal').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="negotiation-history-header" id="history-player-info">
+                    <!-- 球员信息 -->
+                </div>
+                <div class="negotiation-timeline" id="negotiation-timeline">
+                    <!-- 时间线将通过 JavaScript 动态生成 -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 谈判消息模态框 -->
+    <div id="negotiation-message-modal" class="modal">
+        <div class="modal-content negotiation-message-modal">
+            <div class="modal-header">
+                <h3>💬 发送谈判消息</h3>
+                <span class="close" onclick="document.getElementById('negotiation-message-modal').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="message-player-info" id="message-player-info">
+                    <!-- 球员信息 -->
+                </div>
+                <div class="message-templates">
+                    <h4>快捷消息模板</h4>
+                    <div class="template-list">
+                        <button class="message-template" data-template="enthusiastic">表达诚意：很高兴能与您沟通，我们球队非常期待您的加入！</button>
+                        <button class="message-template" data-template="patient">表示耐心：我们可以慢慢谈，确保找到双方都满意的方案。</button>
+                        <button class="message-template" data-template="urgent">催促回复：请您尽快考虑我们的报价，我们期待您的回复。</button>
+                        <button class="message-template" data-template="flexible">表示灵活：如果您有其他要求，我们可以进一步协商。</button>
+                        <button class="message-template" data-template="team">强调球队：我们的球队正在建设期，您的加入将非常重要。</button>
+                    </div>
+                </div>
+                <div class="custom-message">
+                    <h4>自定义消息</h4>
+                    <textarea id="custom-message-text" placeholder="输入您的自定义消息..."></textarea>
+                </div>
+                <div class="message-actions">
+                    <button class="btn btn-secondary" onclick="document.getElementById('negotiation-message-modal').style.display='none'">取消</button>
+                    <button class="btn btn-primary" id="send-message-btn">发送消息</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 谈判详情模态框 -->
+    <div id="negotiation-detail-modal" class="modal">
+        <div class="modal-content negotiation-detail-modal">
+            <div class="modal-header">
+                <h3>🔍 谈判详情</h3>
+                <span class="close" onclick="document.getElementById('negotiation-detail-modal').style.display='none'">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="detail-player-section" id="detail-player-section">
+                    <!-- 球员详情 -->
+                </div>
+                <div class="detail-offer-section">
+                    <h4>当前报价</h4>
+                    <div class="offer-detail-grid" id="offer-detail-grid">
+                        <!-- 报价详情 -->
+                    </div>
+                </div>
+                <div class="detail-progress-section">
+                    <h4>谈判进度</h4>
+                    <div class="negotiation-progress" id="negotiation-progress">
+                        <!-- 进度条 -->
+                    </div>
+                </div>
+                <div class="detail-history-section">
+                    <h4>谈判历史</h4>
+                    <div class="history-summary" id="history-summary">
+                        <!-- 历史摘要 -->
+                    </div>
+                </div>
+                <div class="detail-actions">
+                    <button class="btn btn-warning" id="terminate-negotiation-btn">终止谈判</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('negotiation-detail-modal').style.display='none'">关闭</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Scripts -->
+    <script src="js/data/gameData.js"></script>
+    <script src="js/modules/dataModels.js"></script>
+    <script src="js/modules/gameStateManager.js"></script>
+    <script src="js/modules/dataSyncManager.js"></script>
+    <script src="js/modules/interfaceSpecifications.js"></script>
+    <script src="js/modules/coreInterfaceManager.js"></script>
+    <script src="js/modules/adapters/scholarshipCalculatorAdapter.js"></script>
+    <script src="js/modules/adapters/scheduleManagerAdapter.js"></script>
+    <script src="js/modules/adapters/negotiationManagerAdapter.js"></script>
+    <script src="js/modules/adapters/dataSyncManagerAdapter.js"></script>
+    <script src="js/modules/interfaceSystemInitializer.js"></script>
+    <script src="js/modules/moduleInterfaceManager.js"></script>
+    <script src="js/modules/teamManager.js"></script>
+    <script src="js/modules/playerDevelopment.js"></script>
+    <script src="js/modules/scheduleManager.js"></script>
+    <script src="js/modules/contractManager.js"></script>
+    <script src="js/modules/marketManager.js"></script>
+    <script src="js/modules/scoutingSystem.js"></script>
+    <script src="js/modules/coachManager.js"></script>
+    <script src="js/modules/seasonManager.js"></script>
+    <script src="js/modules/financeManager.js"></script>
+    <script src="js/modules/eventSystem.js"></script>
+    <script src="js/modules/gameInitializer.js"></script>
+    <script src="js/modules/negotiationManager.js?v=2"></script>
+    <script src="js/modules/skipRuleManager.js"></script>
+    <script src="js/modules/enhancedNegotiationManager.js"></script>
+    <script src="js/modules/recruitmentInterface.js"></script>
+    <script src="js/modules/nbaGameUI.js"></script>
+    <script src="js/modules/gameEngine.js"></script>
+    <script src="js/modules/gameSimulationAdapter.js"></script>
+    <script src="js/modules/uiManager.js"></script>
+    <script src="js/modules/pixiRenderer.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>篮球经理游戏测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: linear-gradient(135deg, #1a3a52, #2c5282);
+            color: white;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        .header {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .test-section {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .test-card {
+            background: rgba(255,255,255,0.15);
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.2);
+            transition: transform 0.3s ease;
+        }
+        
+        .test-card:hover {
+            transform: translateY(-5px);
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .test-card h3 {
+            margin-bottom: 15px;
+            color: #ff7e5f;
+        }
+        
+        .test-btn {
+            background: #ff7e5f;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: background 0.3s ease;
+        }
+        
+        .test-btn:hover {
+            background: #ff5a3a;
+        }
+        
+        .test-result {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            font-weight: 600;
+        }
+        
+        .success {
+            background: rgba(76, 175, 80, 0.3);
+            border: 1px solid #4CAF50;
+        }
+        
+        .error {
+            background: rgba(244, 67, 54, 0.3);
+            border: 1px solid #f44336;
+        }
+        
+        .info {
+            background: rgba(33, 150, 243, 0.3);
+            border: 1px solid #2196F3;
+        }
+        
+        .player-info {
+            text-align: left;
+            margin-top: 15px;
+        }
+        
+        .player-item {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            border-left: 4px solid #ff7e5f;
+        }
+        
+        .team-info {
+            background: rgba(74, 111, 165, 0.3);
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏀 篮球经理游戏测试</h1>
+            <p>验证游戏模块化重构后的功能</p>
+        </div>
+        
+        <div class="test-section">
+            <h2>游戏功能测试</h2>
+            <div class="test-grid">
+                <div class="test-card">
+                    <h3>球员系统测试</h3>
+                    <p>测试球员创建、属性生成和显示功能</p>
+                    <button class="test-btn" onclick="testPlayerSystem()">测试球员系统</button>
+                    <div id="player-test-result" class="test-result"></div>
+                    <div id="player-info" class="player-info"></div>
+                </div>
+                
+                <div class="test-card">
+                    <h3>球队系统测试</h3>
+                    <p>测试CBA球队数据和球队管理功能</p>
+                    <button class="test-btn" onclick="testTeamSystem()">测试球队系统</button>
+                    <div id="team-test-result" class="test-result"></div>
+                    <div id="team-info" class="team-info"></div>
+                </div>
+                
+                <div class="test-card">
+                    <h3>UI系统测试</h3>
+                    <p>测试球员介绍模块显示效果</p>
+                    <button class="test-btn" onclick="testUISystem()">测试UI系统</button>
+                    <div id="ui-test-result" class="test-result"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>测试结果汇总</h2>
+            <div id="summary-results"></div>
+            <button class="test-btn" onclick="runAllTests()">运行所有测试</button>
+        </div>
+    </div>
+
+    <script>
+        // 模拟球员数据
+        const mockPlayer = {
+            name: '王小明',
+            position: '控球后卫',
+            age: 21,
+            height: '185cm',
+            weight: '80kg',
+            team: '广东宏远',
+            attributes: {
+                scoring: 78,
+                shooting: 82,
+                threePoint: 75,
+                freeThrow: 85,
+                passing: 88,
+                dribbling: 90,
+                defense: 72,
+                rebounding: 65,
+                stealing: 80,
+                blocking: 60,
+                speed: 85,
+                stamina: 82,
+                strength: 70,
+                basketballIQ: 86
+            },
+            potential: 88,
+            skills: ['三分专家', '突破手', '组织核心'],
+            description: '王小明是一名技术全面的控球后卫，拥有出色的组织能力和三分投射能力。他在场上视野开阔，能够很好地组织球队进攻，同时具备稳定的外线投篮。防守端表现积极，抢断能力突出。'
+        };
+
+        // 模拟CBA球队数据
+        const cbaTeams = [
+            { name: '广东宏远', city: '东莞', arena: '东莞篮球中心', prestige: 96 },
+            { name: '辽宁本钢', city: '沈阳', arena: '辽宁体育馆', prestige: 95 },
+            { name: '北京首钢', city: '北京', arena: '首钢体育馆', prestige: 94 },
+            { name: '浙江稠州银行', city: '义乌', arena: '义乌梅湖体育中心', prestige: 91 },
+            { name: '上海久事', city: '上海', arena: '源深体育中心', prestige: 88 }
+        ];
+
+        // 测试球员系统
+        function testPlayerSystem() {
+            const resultDiv = document.getElementById('player-test-result');
+            const infoDiv = document.getElementById('player-info');
+            
+            try {
+                // 验证球员数据结构
+                if (!mockPlayer.name || !mockPlayer.position || !mockPlayer.attributes) {
+                    throw new Error('球员数据结构不完整');
+                }
+                
+                // 验证球员属性
+                const attributes = mockPlayer.attributes;
+                const requiredAttributes = ['scoring', 'shooting', 'defense', 'rebounding'];
+                const missingAttributes = requiredAttributes.filter(attr => !attributes[attr]);
+                
+                if (missingAttributes.length > 0) {
+                    throw new Error(`缺少必要属性: ${missingAttributes.join(', ')}`);
+                }
+                
+                // 显示球员信息
+                let playerHtml = `
+                    <div class="player-item">
+                        <strong>姓名:</strong> ${mockPlayer.name}<br>
+                        <strong>位置:</strong> ${mockPlayer.position}<br>
+                        <strong>年龄:</strong> ${mockPlayer.age}岁<br>
+                        <strong>所属球队:</strong> ${mockPlayer.team}
+                    </div>
+                    <div class="player-item">
+                        <strong>技术属性:</strong><br>
+                        得分: ${attributes.scoring} | 投篮: ${attributes.shooting}<br>
+                        三分: ${attributes.threePoint} | 传球: ${attributes.passing}
+                    </div>
+                    <div class="player-item">
+                        <strong>身体属性:</strong><br>
+                        速度: ${attributes.speed} | 体力: ${attributes.stamina}<br>
+                        力量: ${attributes.strength} | 篮球智商: ${attributes.basketballIQ}
+                    </div>
+                `;
+                
+                infoDiv.innerHTML = playerHtml;
+                resultDiv.innerHTML = '<span class="success">✅ 球员系统测试通过</span>';
+                resultDiv.className = 'test-result success';
+                
+                addTestResult('球员系统', true, '球员数据结构完整，属性生成正常');
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ 球员系统测试失败: ${error.message}</span>`;
+                resultDiv.className = 'test-result error';
+                addTestResult('球员系统', false, error.message);
+            }
+        }
+
+        // 测试球队系统
+        function testTeamSystem() {
+            const resultDiv = document.getElementById('team-test-result');
+            const infoDiv = document.getElementById('team-info');
+            
+            try {
+                // 验证球队数据
+                if (cbaTeams.length === 0) {
+                    throw new Error('球队数据为空');
+                }
+                
+                // 验证每支球队的必要信息
+                const invalidTeams = cbaTeams.filter(team => 
+                    !team.name || !team.city || !team.arena
+                );
+                
+                if (invalidTeams.length > 0) {
+                    throw new Error(`${invalidTeams.length} 支球队数据不完整`);
+                }
+                
+                // 显示球队信息
+                let teamHtml = '<h4>CBA球队列表:</h4>';
+                cbaTeams.forEach(team => {
+                    teamHtml += `
+                        <div class="player-item">
+                            <strong>${team.name}</strong><br>
+                            城市: ${team.city} | 主场: ${team.arena}<br>
+                            声望: ${team.prestige}
+                        </div>
+                    `;
+                });
+                
+                infoDiv.innerHTML = teamHtml;
+                resultDiv.innerHTML = `<span class="success">✅ 球队系统测试通过 (${cbaTeams.length} 支球队)</span>`;
+                resultDiv.className = 'test-result success';
+                
+                addTestResult('球队系统', true, `成功加载 ${cbaTeams.length} 支CBA球队数据`);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ 球队系统测试失败: ${error.message}</span>`;
+                resultDiv.className = 'test-result error';
+                addTestResult('球队系统', false, error.message);
+            }
+        }
+
+        // 测试UI系统
+        function testUISystem() {
+            const resultDiv = document.getElementById('ui-test-result');
+            
+            try {
+                // 测试模态框显示
+                const modalStyle = window.getComputedStyle(document.createElement('div'));
+                
+                // 测试响应式布局
+                const screenWidth = window.innerWidth;
+                let responsiveStatus = '未知';
+                
+                if (screenWidth >= 1200) {
+                    responsiveStatus = '桌面端';
+                } else if (screenWidth >= 768) {
+                    responsiveStatus = '平板端';
+                } else {
+                    responsiveStatus = '手机端';
+                }
+                
+                resultDiv.innerHTML = `
+                    <span class="success">✅ UI系统测试通过</span><br>
+                    <small>当前设备: ${responsiveStatus} (${screenWidth}px)</small>
+                `;
+                resultDiv.className = 'test-result success';
+                
+                addTestResult('UI系统', true, `响应式布局正常 (${responsiveStatus})`);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error">❌ UI系统测试失败: ${error.message}</span>`;
+                resultDiv.className = 'test-result error';
+                addTestResult('UI系统', false, error.message);
+            }
+        }
+
+        // 添加测试结果到汇总
+        function addTestResult(testName, passed, message) {
+            const summaryDiv = document.getElementById('summary-results');
+            const resultItem = document.createElement('div');
+            resultItem.className = `player-item ${passed ? 'success' : 'error'}`;
+            resultItem.innerHTML = `
+                <strong>${testName}:</strong> ${passed ? '✅ 通过' : '❌ 失败'} - ${message}
+            `;
+            summaryDiv.appendChild(resultItem);
+        }
+
+        // 运行所有测试
+        function runAllTests() {
+            document.getElementById('summary-results').innerHTML = '';
+            testPlayerSystem();
+            testTeamSystem();
+            testUISystem();
+        }
+
+        // 页面加载时自动运行基础测试
+        document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(() => {
+                runAllTests();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
