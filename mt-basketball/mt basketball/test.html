@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basketball Manager - Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .pass {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .fail {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Basketball Manager - Module Tests</h1>
+    <div id="test-results"></div>
+
+    <script type="module">
+        import { GameStateManager } from './js/modules/gameStateManager.js';
+        import { UIManager } from './js/modules/uiManager.js';
+        import { GameEngine } from './js/modules/gameEngine.js';
+        import { TeamManager } from './js/modules/teamManager.js';
+        import { PlayerDevelopment } from './js/modules/playerDevelopment.js';
+        import { MarketManager } from './js/modules/marketManager.js';
+        import { ScoutingSystem } from './js/modules/scoutingSystem.js';
+        import { CoachManager } from './js/modules/coachManager.js';
+        import { SeasonManager } from './js/modules/seasonManager.js';
+        import { FinanceManager } from './js/modules/financeManager.js';
+        import { EventSystem } from './js/modules/eventSystem.js';
+        import { GameInitializer } from './js/modules/gameInitializer.js';
+        import { Player, Coach, Team } from './js/modules/dataModels.js';
+        import { GameConstants, Positions } from './js/data/gameData.js';
+
+        // Test results container
+        const testResults = document.getElementById('test-results');
+
+        // Helper function to add test result
+        function addTestResult(testName, passed, message = '') {
+            const result = document.createElement('div');
+            result.className = `test-result ${passed ? 'pass' : 'fail'}`;
+            result.innerHTML = `<strong>${testName}:</strong> ${passed ? 'PASS' : 'FAIL'} ${message}`;
+            testResults.appendChild(result);
+        }
+
+        // Helper function to add test section
+        function addTestSection(sectionName) {
+            const section = document.createElement('div');
+            section.className = 'test-section';
+            section.innerHTML = `<h2>${sectionName}</h2>`;
+            testResults.appendChild(section);
+            return section;
+        }
+
+        // Test data models
+        function testDataModels() {
+            const section = addTestSection('Data Models Tests');
+
+            // Test Player class
+            try {
+                const playerData = {
+                    id: 1,
+                    name: 'Test Player',
+                    position: 'PG',
+                    age: 18,
+                    year: 1,
+                    attributes: {
+                        scoring: 50,
+                        shooting: 50,
+                        threePoint: 50,
+                        freeThrow: 50,
+                        passing: 50,
+                        dribbling: 50,
+                        defense: 50,
+                        rebounding: 50,
+                        stealing: 50,
+                        blocking: 50,
+                        speed: 50,
+                        stamina: 50,
+                        strength: 50,
+                        basketballIQ: 50
+                    },
+                    potential: 80,
+                    talents: [],
+                    skills: [],
+                    training: {}
+                };
+
+                const player = new Player(playerData);
+                const overallRating = player.getOverallRating();
+                
+                addTestResult('Player class instantiation', 
+                    player && player.name === 'Test Player',
+                    'Player class should create a player with correct name');
+                
+                addTestResult('Player overall rating calculation', 
+                    overallRating >= 1 && overallRating <= 99,
+                    `Overall rating should be between 1 and 99, got ${overallRating}`);
+            } catch (error) {
+                addTestResult('Player class tests', false, `Error: ${error.message}`);
+            }
+
+            // Test Coach class
+            try {
+                const coachData = {
+                    id: 1,
+                    name: 'Test Coach',
+                    age: 40,
+                    archetype: 'balanced',
+                    attributes: {
+                        offense: 60,
+                        defense: 60,
+                        recruiting: 60,
+                        development: 60,
+                        motivation: 60
+                    },
+                    salary: 500000,
+                    preferredPlayStyles: ['balanced'],
+                    experience: 10
+                };
+
+                const coach = new Coach(coachData);
+                const overallRating = coach.getOverallRating();
+                
+                addTestResult('Coach class instantiation', 
+                    coach && coach.name === 'Test Coach',
+                    'Coach class should create a coach with correct name');
+                
+                addTestResult('Coach overall rating calculation', 
+                    overallRating >= 1 && overallRating <= 99,
+                    `Overall rating should be between 1 and 99, got ${overallRating}`);
+            } catch (error) {
+                addTestResult('Coach class tests', false, `Error: ${error.message}`);
+            }
+
+            // Test Team class
+            try {
+                const teamData = {
+                    id: 1,
+                    name: 'Test Team',
+                    conference: 'Test Conference',
+                    funds: 1000000,
+                    scholarships: 13,
+                    roster: []
+                };
+
+                const team = new Team(teamData);
+                const teamStrength = team.getTeamStrength();
+                
+                addTestResult('Team class instantiation', 
+                    team && team.name === 'Test Team',
+                    'Team class should create a team with correct name');
+                
+                addTestResult('Team strength calculation', 
+                    teamStrength >= 0 && teamStrength <= 99,
+                    `Team strength should be between 0 and 99, got ${teamStrength}`);
+            } catch (error) {
+                addTestResult('Team class tests', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Test game state manager
+        function testGameStateManager() {
+            const section = addTestSection('Game State Manager Tests');
+
+            try {
+                const gameStateManager = new GameStateManager();
+                
+                addTestResult('GameStateManager instantiation', 
+                    gameStateManager && typeof gameStateManager.getState === 'function',
+                    'GameStateManager should be instantiable and have getState method');
+                
+                const initialState = gameStateManager.getState();
+                addTestResult('Initial state structure', 
+                    initialState && typeof initialState.currentDate === 'object',
+                    'Initial state should have currentDate property');
+                
+                // Test setting and getting values
+                gameStateManager.set('testValue', 'test');
+                const testValue = gameStateManager.get('testValue');
+                addTestResult('Set and get state values', 
+                    testValue === 'test',
+                    'Should be able to set and get state values');
+                
+                // Test subscription
+                let subscriptionTriggered = false;
+                const unsubscribe = gameStateManager.subscribe((key, value) => {
+                    if (key === 'subscriptionTest' && value === 'testValue') {
+                        subscriptionTriggered = true;
+                    }
+                });
+                
+                gameStateManager.set('subscriptionTest', 'testValue');
+                addTestResult('State subscription', 
+                    subscriptionTriggered,
+                    'State subscription should be triggered when value changes');
+                
+                unsubscribe();
+            } catch (error) {
+                addTestResult('GameStateManager tests', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Test game constants
+        function testGameConstants() {
+            const section = addTestSection('Game Constants Tests');
+
+            try {
+                addTestResult('GameConstants object exists', 
+                    GameConstants && typeof GameConstants === 'object',
+                    'GameConstants should be an object');
+                
+                addTestResult('Positions object exists', 
+                    Positions && typeof Positions === 'object',
+                    'Positions should be an object');
+                
+                addTestResult('Position count', 
+                    Object.keys(Positions).length === 5,
+                    'Should have 5 positions (PG, SG, SF, PF, C)');
+                
+                addTestResult('Max scholarships constant', 
+                    GameConstants.MAX_SCHOLARSHIPS === 13,
+                    'MAX_SCHOLARSHIPS should be 13');
+            } catch (error) {
+                addTestResult('Game constants tests', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Test game initializer
+        function testGameInitializer() {
+            const section = addTestSection('Game Initializer Tests');
+
+            try {
+                const gameStateManager = new GameStateManager();
+                const gameInitializer = new GameInitializer(gameStateManager);
+                
+                addTestResult('GameInitializer instantiation', 
+                    gameInitializer && typeof gameInitializer.createPlayer === 'function',
+                    'GameInitializer should be instantiable and have createPlayer method');
+                
+                const player = gameInitializer.createPlayer('PG');
+                addTestResult('Create player', 
+                    player && player.position === 'PG',
+                    'Created player should have correct position');
+                
+                const players = gameInitializer.createPlayers(5);
+                addTestResult('Create multiple players', 
+                    players && players.length === 5,
+                    'Should create the specified number of players');
+            } catch (error) {
+                addTestResult('GameInitializer tests', false, `Error: ${error.message}`);
+            }
+        }
+
+        // Run all tests
+        function runAllTests() {
+            testDataModels();
+            testGameStateManager();
+            testGameConstants();
+            testGameInitializer();
+            
+            // Add summary
+            const totalTests = document.querySelectorAll('.test-result').length;
+            const passedTests = document.querySelectorAll('.test-result.pass').length;
+            const failedTests = totalTests - passedTests;
+            
+            const summary = document.createElement('div');
+            summary.className = 'test-section';
+            summary.innerHTML = `
+                <h2>Test Summary</h2>
+                <p>Total Tests: ${totalTests}</p>
+                <p class="pass">Passed: ${passedTests}</p>
+                <p class="fail">Failed: ${failedTests}</p>
+                <p>Success Rate: ${Math.round((passedTests / totalTests) * 100)}%</p>
+            `;
+            testResults.appendChild(summary);
+        }
+
+        // Run tests when DOM is loaded
+        document.addEventListener('DOMContentLoaded', runAllTests);
+    </script>
+</body>
+</html>

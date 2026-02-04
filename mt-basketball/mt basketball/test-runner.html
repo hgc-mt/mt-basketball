@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>接口测试套件</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            padding: 30px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        .header h1 {
+            color: #667eea;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #f093fb;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #d478db;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(240, 147, 251, 0.4);
+        }
+        
+        .btn-success {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+        
+        .output {
+            background: #f8f9fa;
+            border-radius: 5px;
+            padding: 20px;
+            margin-top: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .output pre {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #667eea;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .status {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 5px;
+        }
+        
+        .status-item {
+            text-align: center;
+        }
+        
+        .status-item h3 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+        
+        .status-item p {
+            color: #666;
+            font-size: 1.2em;
+        }
+        
+        .progress {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.5s ease;
+            border-radius: 15px;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .running {
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏀 接口测试套件</h1>
+            <p>测试篮球游戏管理系统的所有接口连接</p>
+        </div>
+        
+        <div class="status">
+            <div class="status-item">
+                <h3 id="total-tests">0</h3>
+                <p>总测试数</p>
+            </div>
+            <div class="status-item">
+                <h3 id="passed-tests">0</h3>
+                <p>通过</p>
+            </div>
+            <div class="status-item">
+                <h3 id="failed-tests">0</h3>
+                <p>失败</p>
+            </div>
+            <div class="status-item">
+                <h3 id="success-rate">0%</h3>
+                <p>成功率</p>
+            </div>
+        </div>
+        
+        <div class="progress">
+            <div class="progress-bar" id="progress-bar" style="width: 0%"></div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-primary" onclick="runAllTests()">🚀 运行所有测试</button>
+            <button class="btn btn-secondary" onclick="runScholarshipTests()">📊 奖学金接口测试</button>
+            <button class="btn btn-secondary" onclick="runScheduleTests()">📅 赛程接口测试</button>
+            <button class="btn btn-secondary" onclick="runNegotiationTests()">🤝 谈判接口测试</button>
+            <button class="btn btn-secondary" onclick="runDataSyncTests()">🔄 数据同步测试</button>
+            <button class="btn btn-success" onclick="exportReport()">📥 导出测试报告</button>
+            <button class="btn btn-success" onclick="exportHTMLReport()">📄 导出HTML报告</button>
+        </div>
+        
+        <div class="output">
+            <pre id="test-output">等待测试运行...</pre>
+        </div>
+    </div>
+
+    <script>
+        let coreInterfaceManager;
+        let testSuite;
+        let testResults = null;
+
+        // 初始化
+        async function initialize() {
+            try {
+                // 等待gameStateManager加载
+                if (typeof gameStateManager === 'undefined') {
+                    await waitForGameStateManager();
+                }
+
+                coreInterfaceManager = new CoreInterfaceManager(gameStateManager);
+                await coreInterfaceManager.initialize();
+
+                testSuite = new InterfaceTestSuite(coreInterfaceManager, gameStateManager);
+
+                console.log('接口测试套件初始化完成');
+                updateOutput('接口测试套件已初始化，准备运行测试\n');
+            } catch (error) {
+                console.error('初始化失败:', error);
+                updateOutput(`初始化失败: ${error.message}\n`);
+            }
+        }
+
+        // 等待gameStateManager加载
+        function waitForGameStateManager() {
+            return new Promise((resolve) => {
+                const checkInterval = setInterval(() => {
+                    if (typeof gameStateManager !== 'undefined') {
+                        clearInterval(checkInterval);
+                        resolve();
+                    }
+                }, 100);
+            });
+        }
+
+        // 运行所有测试
+        async function runAllTests() {
+            updateOutput('开始运行所有测试...\n');
+            updateProgress(0);
+            
+            try {
+                testResults = await testSuite.runAllTests();
+                updateStatus(testResults);
+                updateProgress(100);
+                updateOutput('✅ 所有测试完成！\n\n');
+                updateOutput(formatTestResults(testResults));
+            } catch (error) {
+                updateOutput(`❌ 测试运行失败: ${error.message}\n`);
+                updateProgress(100);
+            }
+        }
+
+        // 运行奖学金接口测试
+        async function runScholarshipTests() {
+            updateOutput('开始运行奖学金接口测试...\n');
+            updateProgress(0);
+            
+            try {
+                await testSuite.testScholarshipCalculator();
+                updateProgress(100);
+                updateOutput('✅ 奖学金接口测试完成！\n');
+            } catch (error) {
+                updateOutput(`❌ 测试失败: ${error.message}\n`);
+                updateProgress(100);
+            }
+        }
+
+        // 运行赛程接口测试
+        async function runScheduleTests() {
+            updateOutput('开始运行赛程接口测试...\n');
+            updateProgress(0);
+            
+            try {
+                await testSuite.testScheduleManager();
+                updateProgress(100);
+                updateOutput('✅ 赛程接口测试完成！\n');
+            } catch (error) {
+                updateOutput(`❌ 测试失败: ${error.message}\n`);
+                updateProgress(100);
+            }
+        }
+
+        // 运行谈判接口测试
+        async function runNegotiationTests() {
+            updateOutput('开始运行谈判接口测试...\n');
+            updateProgress(0);
+            
+            try {
+                await testSuite.testNegotiationManager();
+                updateProgress(100);
+                updateOutput('✅ 谈判接口测试完成！\n');
+            } catch (error) {
+                updateOutput(`❌ 测试失败: ${error.message}\n`);
+                updateProgress(100);
+            }
+        }
+
+        // 运行数据同步测试
+        async function runDataSyncTests() {
+            updateOutput('开始运行数据同步测试...\n');
+            updateProgress(0);
+            
+            try {
+                await testSuite.testDataSyncManager();
+                updateProgress(100);
+                updateOutput('✅ 数据同步测试完成！\n');
+            } catch (error) {
+                updateOutput(`❌ 测试失败: ${error.message}\n`);
+                updateProgress(100);
+            }
+        }
+
+        // 导出测试报告
+        function exportReport() {
+            if (!testResults) {
+                alert('请先运行测试！');
+                return;
+            }
+
+            try {
+                const jsonReport = testSuite.exportReportAsJSON();
+                const blob = new Blob([jsonReport], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `interface-test-report-${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                updateOutput('✅ 测试报告已导出为JSON文件\n');
+            } catch (error) {
+                updateOutput(`❌ 导出失败: ${error.message}\n`);
+            }
+        }
+
+        // 导出HTML报告
+        function exportHTMLReport() {
+            if (!testResults) {
+                alert('请先运行测试！');
+                return;
+            }
+
+            try {
+                const htmlReport = testSuite.exportReportAsHTML();
+                const blob = new Blob([htmlReport], { type: 'text/html' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `interface-test-report-${new Date().toISOString().split('T')[0]}.html`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                updateOutput('✅ 测试报告已导出为HTML文件\n');
+            } catch (error) {
+                updateOutput(`❌ 导出失败: ${error.message}\n`);
+            }
+        }
+
+        // 更新输出
+        function updateOutput(text) {
+            const outputElement = document.getElementById('test-output');
+            outputElement.textContent += text;
+            outputElement.scrollTop = outputElement.scrollHeight;
+        }
+
+        // 更新状态
+        function updateStatus(results) {
+            document.getElementById('total-tests').textContent = results.summary.total;
+            document.getElementById('passed-tests').textContent = results.summary.passed;
+            document.getElementById('failed-tests').textContent = results.summary.failed;
+            document.getElementById('success-rate').textContent = results.summary.successRate;
+        }
+
+        // 更新进度条
+        function updateProgress(percent) {
+            document.getElementById('progress-bar').style.width = percent + '%';
+        }
+
+        // 格式化测试结果
+        function formatTestResults(results) {
+            let output = '========================================\n';
+            output += '测试报告\n';
+            output += '========================================\n\n';
+            
+            output += `生成时间: ${results.timestamp}\n`;
+            output += `总测试数: ${results.summary.total}\n`;
+            output += `通过: ${results.summary.passed}\n`;
+            output += `失败: ${results.summary.failed}\n`;
+            output += `成功率: ${results.summary.successRate}\n\n`;
+            
+            output += '各接口统计:\n';
+            output += '----------------------------------------\n';
+            
+            for (const [interfaceName, stats] of Object.entries(results.interfaceStats)) {
+                output += `\n${interfaceName}:\n`;
+                output += `  总测试数: ${stats.total}\n`;
+                output += `  通过: ${stats.passed}\n`;
+                output += `  失败: ${stats.failed}\n`;
+                output += `  成功率: ${((stats.passed / stats.total) * 100).toFixed(1)}%\n`;
+                
+                if (stats.failed > 0) {
+                    output += `  失败的测试:\n`;
+                    const failedTests = stats.tests.filter(t => !t.passed);
+                    for (const test of failedTests) {
+                        output += `    - ${test.testName}: ${test.description}\n`;
+                        if (test.error) {
+                            output += `      错误: ${test.error}\n`;
+                        }
+                    }
+                }
+            }
+            
+            output += '\n========================================\n';
+            
+            return output;
+        }
+
+        // 页面加载完成后初始化
+        window.addEventListener('load', () => {
+            setTimeout(initialize, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>篮球比赛模拟 - 2K风格</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .game-simulation-container {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #0a0a14 0%, #0d1117 50%, #1a1a2e 100%);
+            min-height: 100vh;
+            font-family: 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
+        }
+
+        .game-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 30px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 16px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .game-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #e94560 0%, #667eea 50%, #e94560 100%);
+        }
+
+        .game-title {
+            font-size: 1.8rem;
+            font-weight: 900;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        .game-btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+        }
+
+        .game-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(233, 69, 96, 0.6);
+        }
+
+        .game-btn.secondary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .game-btn.secondary:hover {
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+        }
+
+        .game-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .scoreboard {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 20px;
+            padding: 25px 35px;
+            background: linear-gradient(180deg, rgba(26, 26, 46, 0.95) 0%, rgba(15, 52, 96, 0.9) 100%);
+            border-radius: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .scoreboard::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.3) 50%, transparent 100%);
+        }
+
+        .team-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .team-section.home {
+            align-items: flex-start;
+        }
+
+        .team-section.away {
+            align-items: flex-end;
+        }
+
+        .team-name {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #ffffff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+        }
+
+        .team-score {
+            font-size: 4rem;
+            font-weight: 900;
+            color: #e94560;
+            text-shadow: 0 4px 20px rgba(233, 69, 96, 0.5);
+            line-height: 1;
+            transition: all 0.3s ease;
+        }
+
+        .team-score.updated {
+            animation: scoreUpdate 0.5s ease;
+        }
+
+        @keyframes scoreUpdate {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); color: #4ade80; }
+            100% { transform: scale(1); }
+        }
+
+        .center-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            padding: 0 30px;
+            border-left: 2px solid rgba(255, 255, 255, 0.1);
+            border-right: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .quarter-display {
+            font-size: 2rem;
+            font-weight: 800;
+            color: #667eea;
+            text-shadow: 0 2px 10px rgba(102, 126, 234, 0.5);
+        }
+
+        .time-display {
+            font-size: 2.5rem;
+            font-weight: 900;
+            color: #ffffff;
+            font-family: 'Courier New', monospace;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px 20px;
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .shot-clock {
+            font-size: 1.2rem;
+            color: #fbbf24;
+            font-weight: 700;
+            background: rgba(251, 191, 36, 0.2);
+            padding: 5px 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(251, 191, 36, 0.3);
+        }
+
+        .court-container {
+            position: relative;
+            width: 100%;
+            height: 600px;
+            background: linear-gradient(180deg, #c4a574 0%, #b8945f 50%, #a67c4a 100%);
+            border-radius: 20px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.5);
+            border: 4px solid #8b7355;
+        }
+
+        .court-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            pointer-events: none;
+        }
+
+        .court-center-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: #ffffff;
+            transform: translateY(-50%);
+        }
+
+        .court-center-circle {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 120px;
+            height: 120px;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .court-three-point-line {
+            position: absolute;
+            top: 50%;
+            left: 5%;
+            width: 25%;
+            height: 40%;
+            border: 3px solid #ffffff;
+            border-radius: 50%;
+            transform: translateY(-50%);
+        }
+
+        .court-three-point-line.right {
+            left: auto;
+            right: 5%;
+        }
+
+        .court-paint {
+            position: absolute;
+            top: 50%;
+            left: 5%;
+            width: 15%;
+            height: 30%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid #ffffff;
+            transform: translateY(-50%);
+        }
+
+        .court-paint.right {
+            left: auto;
+            right: 5%;
+        }
+
+        .court-basket {
+            position: absolute;
+            top: 50%;
+            left: 2%;
+            width: 60px;
+            height: 60px;
+            border: 4px solid #ff6b6b;
+            border-radius: 50%;
+            transform: translateY(-50%);
+            box-shadow: 0 0 20px rgba(255, 107, 107, 0.5);
+        }
+
+        .court-basket.right {
+            left: auto;
+            right: 2%;
+        }
+
+        .court-basket::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 30px;
+            height: 30px;
+            background: #ff6b6b;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .player {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.7rem;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            z-index: 10;
+        }
+
+        .player:hover {
+            transform: scale(1.2);
+            z-index: 20;
+        }
+
+        .player.home {
+            background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
+            border: 3px solid #ffffff;
+        }
+
+        .player.away {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: 3px solid #ffffff;
+        }
+
+        .player-label {
+            position: absolute;
+            bottom: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.65rem;
+            white-space: nowrap;
+            font-weight: 600;
+            pointer-events: none;
+        }
+
+        .player.active {
+            animation: playerPulse 1s ease-in-out infinite;
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.8);
+        }
+
+        @keyframes playerPulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        .ball {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: radial-gradient(circle at 30% 30%, #ff8c00, #ff6600);
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(255, 102, 0, 0.5);
+            z-index: 15;
+            transition: all 0.3s ease;
+        }
+
+        .ball::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            width: 2px;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.3);
+            transform: translateX(-50%);
+        }
+
+        .ball::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: rgba(0, 0, 0, 0.3);
+            transform: translateY(-50%);
+        }
+
+        .event-log {
+            background: linear-gradient(180deg, rgba(26, 26, 46, 0.95) 0%, rgba(15, 52, 96, 0.9) 100%);
+            border-radius: 16px;
+            padding: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .event-log::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .event-log::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+        }
+
+        .event-log::-webkit-scrollbar-thumb {
+            background: rgba(233, 69, 96, 0.5);
+            border-radius: 4px;
+        }
+
+        .event-item {
+            padding: 10px 15px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid #667eea;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .event-item.score {
+            border-left-color: #4ade80;
+            background: rgba(74, 222, 128, 0.1);
+        }
+
+        .event-item.turnover {
+            border-left-color: #ef4444;
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .event-item.defense {
+            border-left-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .event-time {
+            font-size: 0.75rem;
+            color: #9898a8;
+            margin-right: 10px;
+        }
+
+        .event-text {
+            font-size: 0.9rem;
+            color: #ffffff;
+        }
+
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .team-stats {
+            background: linear-gradient(180deg, rgba(26, 26, 46, 0.95) 0%, rgba(15, 52, 96, 0.9) 100%);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .team-stats h3 {
+            color: #ffffff;
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+
+        .stat-label {
+            color: #d4d4dc;
+            font-size: 0.9rem;
+        }
+
+        .stat-value {
+            color: #e94560;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 1024px) {
+            .scoreboard {
+                grid-template-columns: 1fr;
+                gap: 15px;
+                padding: 20px;
+            }
+
+            .center-section {
+                border-left: none;
+                border-right: none;
+                border-top: 2px solid rgba(255, 255, 255, 0.1);
+                border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+                padding: 15px 0;
+            }
+
+            .team-section {
+                align-items: center !important;
+            }
+
+            .court-container {
+                height: 400px;
+            }
+
+            .stats-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .game-header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+
+            .team-score {
+                font-size: 2.5rem;
+            }
+
+            .quarter-display {
+                font-size: 1.5rem;
+            }
+
+            .time-display {
+                font-size: 1.8rem;
+            }
+
+            .player {
+                width: 40px;
+                height: 40px;
+                font-size: 0.6rem;
+            }
+
+            .court-container {
+                height: 300px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-simulation-container">
+        <header class="game-header">
+            <h1 class="game-title">🏀 篮球比赛模拟</h1>
+            <div class="game-controls">
+                <button class="game-btn" id="start-btn" onclick="startGame()">开始比赛</button>
+                <button class="game-btn secondary" id="pause-btn" onclick="pauseGame()" disabled>暂停</button>
+                <button class="game-btn secondary" id="reset-btn" onclick="resetGame()">重置</button>
+            </div>
+        </header>
+
+        <div class="scoreboard">
+            <div class="team-section home">
+                <div class="team-name" id="home-team-name">主队</div>
+                <div class="team-score" id="home-score">0</div>
+            </div>
+            <div class="center-section">
+                <div class="quarter-display" id="quarter-display">Q1</div>
+                <div class="time-display" id="time-display">12:00</div>
+                <div class="shot-clock" id="shot-clock">24</div>
+            </div>
+            <div class="team-section away">
+                <div class="team-name" id="away-team-name">客队</div>
+                <div class="team-score" id="away-score">0</div>
+            </div>
+        </div>
+
+        <div class="court-container" id="court-container">
+            <div class="court-lines">
+                <div class="court-center-line"></div>
+                <div class="court-center-circle"></div>
+                <div class="court-three-point-line"></div>
+                <div class="court-three-point-line right"></div>
+                <div class="court-paint"></div>
+                <div class="court-paint right"></div>
+                <div class="court-basket"></div>
+                <div class="court-basket right"></div>
+            </div>
+            <div id="players-container"></div>
+            <div class="ball" id="ball" style="display: none;"></div>
+        </div>
+
+        <div class="event-log" id="event-log">
+            <div class="event-item">
+                <span class="event-time">--:--</span>
+                <span class="event-text">比赛准备就绪，点击"开始比赛"开始模拟</span>
+            </div>
+        </div>
+
+        <div class="stats-panel">
+            <div class="team-stats">
+                <h3 id="home-stats-title">主队统计</h3>
+                <div class="stat-row">
+                    <span class="stat-label">投篮命中率</span>
+                    <span class="stat-value" id="home-fg">0%</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">三分命中率</span>
+                    <span class="stat-value" id="home-3p">0%</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">篮板</span>
+                    <span class="stat-value" id="home-reb">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">助攻</span>
+                    <span class="stat-value" id="home-ast">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">抢断</span>
+                    <span class="stat-value" id="home-stl">0</span>
+                </div>
+            </div>
+            <div class="team-stats">
+                <h3 id="away-stats-title">客队统计</h3>
+                <div class="stat-row">
+                    <span class="stat-label">投篮命中率</span>
+                    <span class="stat-value" id="away-fg">0%</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">三分命中率</span>
+                    <span class="stat-value" id="away-3p">0%</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">篮板</span>
+                    <span class="stat-value" id="away-reb">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">助攻</span>
+                    <span class="stat-value" id="away-ast">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">抢断</span>
+                    <span class="stat-value" id="away-stl">0</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/data/gameData.js"></script>
+    <script src="js/modules/dataModels.js"></script>
+    <script src="js/modules/gameEngine.js"></script>
+    <script src="js/modules/nbaGameUI.js"></script>
+    <script>
+        class BasketballGameSimulation {
+            constructor() {
+                this.gameState = null;
+                this.isRunning = false;
+                this.isPaused = false;
+                this.gameLoop = null;
+                this.animationFrame = null;
+                this.players = [];
+                this.ballPosition = { x: 50, y: 50 };
+                
+                this.homeTeam = null;
+                this.awayTeam = null;
+                
+                this.teamStats = {
+                    home: { fg: { made: 0, attempted: 0 }, tp: { made: 0, attempted: 0 }, reb: 0, ast: 0, stl: 0 },
+                    away: { fg: { made: 0, attempted: 0 }, tp: { made: 0, attempted: 0 }, reb: 0, ast: 0, stl: 0 }
+                };
+
+                this.externalData = null;
+                this.gameId = null;
+                this.scheduleGameId = null;
+            }
+
+            initialize() {
+                this.createSampleTeams();
+                this.renderPlayers();
+                this.updateUI();
+            }
+
+            loadExternalData(data) {
+                this.externalData = data;
+                this.gameId = data.gameId || Date.now();
+                this.scheduleGameId = data.scheduleGameId || null;
+
+                if (data.homeTeam && data.awayTeam) {
+                    this.homeTeam = data.homeTeam;
+                    this.awayTeam = data.awayTeam;
+
+                    document.getElementById('home-team-name').textContent = this.homeTeam.name;
+                    document.getElementById('away-team-name').textContent = this.awayTeam.name;
+                    document.getElementById('home-stats-title').textContent = this.homeTeam.name + ' 统计';
+                    document.getElementById('away-stats-title').textContent = this.awayTeam.name + ' 统计';
+
+                    this.renderPlayers();
+                    this.updateUI();
+
+                    this.addEvent('已加载比赛数据：' + this.homeTeam.name + ' vs ' + this.awayTeam.name, 'info');
+                }
+            }
+
+            createSampleTeams() {
+                const homePlayers = [
+                    { id: 1, name: '张三', position: 'PG', rating: 85, attributes: { scoring: 82, shooting: 80, threePoint: 75, passing: 90, dribbling: 88, defense: 75, rebounding: 60, speed: 85 } },
+                    { id: 2, name: '李四', position: 'SG', rating: 82, attributes: { scoring: 85, shooting: 82, threePoint: 80, passing: 70, dribbling: 80, defense: 72, rebounding: 65, speed: 88 } },
+                    { id: 3, name: '王五', position: 'SF', rating: 80, attributes: { scoring: 80, shooting: 78, threePoint: 72, passing: 75, dribbling: 78, defense: 78, rebounding: 70, speed: 82 } },
+                    { id: 4, name: '赵六', position: 'PF', rating: 78, attributes: { scoring: 75, shooting: 70, threePoint: 60, passing: 65, dribbling: 68, defense: 82, rebounding: 85, speed: 72 } },
+                    { id: 5, name: '钱七', position: 'C', rating: 76, attributes: { scoring: 72, shooting: 65, threePoint: 40, passing: 60, dribbling: 55, defense: 85, rebounding: 90, speed: 65 } }
+                ];
+
+                const awayPlayers = [
+                    { id: 6, name: '孙八', position: 'PG', rating: 84, attributes: { scoring: 80, shooting: 78, threePoint: 72, passing: 88, dribbling: 86, defense: 76, rebounding: 62, speed: 84 } },
+                    { id: 7, name: '周九', position: 'SG', rating: 83, attributes: { scoring: 86, shooting: 84, threePoint: 82, passing: 68, dribbling: 82, defense: 70, rebounding: 64, speed: 86 } },
+                    { id: 8, name: '吴十', position: 'SF', rating: 81, attributes: { scoring: 82, shooting: 80, threePoint: 74, passing: 76, dribbling: 80, defense: 76, rebounding: 72, speed: 80 } },
+                    { id: 9, name: '郑十一', position: 'PF', rating: 79, attributes: { scoring: 76, shooting: 72, threePoint: 58, passing: 66, dribbling: 70, defense: 80, rebounding: 84, speed: 70 } },
+                    { id: 10, name: '王十二', position: 'C', rating: 77, attributes: { scoring: 74, shooting: 68, threePoint: 42, passing: 62, dribbling: 58, defense: 84, rebounding: 88, speed: 64 } }
+                ];
+
+                this.homeTeam = {
+                    name: '主队',
+                    players: homePlayers,
+                    score: 0
+                };
+
+                this.awayTeam = {
+                    name: '客队',
+                    players: awayPlayers,
+                    score: 0
+                };
+
+                document.getElementById('home-team-name').textContent = this.homeTeam.name;
+                document.getElementById('away-team-name').textContent = this.awayTeam.name;
+                document.getElementById('home-stats-title').textContent = this.homeTeam.name + ' 统计';
+                document.getElementById('away-stats-title').textContent = this.awayTeam.name + ' 统计';
+            }
+
+            renderPlayers() {
+                const container = document.getElementById('players-container');
+                container.innerHTML = '';
+                this.players = [];
+
+                const homePositions = [
+                    { x: 15, y: 50 },
+                    { x: 25, y: 30 },
+                    { x: 25, y: 70 },
+                    { x: 35, y: 40 },
+                    { x: 35, y: 60 }
+                ];
+
+                const awayPositions = [
+                    { x: 85, y: 50 },
+                    { x: 75, y: 30 },
+                    { x: 75, y: 70 },
+                    { x: 65, y: 40 },
+                    { x: 65, y: 60 }
+                ];
+
+                this.homeTeam.players.forEach((player, index) => {
+                    const playerEl = this.createPlayerElement(player, 'home', homePositions[index]);
+                    container.appendChild(playerEl);
+                    this.players.push({ element: playerEl, data: player, team: 'home' });
+                });
+
+                this.awayTeam.players.forEach((player, index) => {
+                    const playerEl = this.createPlayerElement(player, 'away', awayPositions[index]);
+                    container.appendChild(playerEl);
+                    this.players.push({ element: playerEl, data: player, team: 'away' });
+                });
+            }
+
+            createPlayerElement(player, team, position) {
+                const playerEl = document.createElement('div');
+                playerEl.className = `player ${team}`;
+                playerEl.style.left = `${position.x}%`;
+                playerEl.style.top = `${position.y}%`;
+                playerEl.style.transform = 'translate(-50%, -50%)';
+                playerEl.textContent = player.position;
+                playerEl.title = `${player.name} - ${player.rating}`;
+
+                const label = document.createElement('div');
+                label.className = 'player-label';
+                label.textContent = player.name;
+                playerEl.appendChild(label);
+
+                return playerEl;
+            }
+
+            startGame() {
+                if (this.isRunning) return;
+
+                this.isRunning = true;
+                this.isPaused = false;
+                
+                this.gameState = {
+                    quarter: 1,
+                    timeRemaining: 720,
+                    shotClock: 24,
+                    possession: Math.random() < 0.5 ? 'home' : 'away'
+                };
+
+                document.getElementById('start-btn').disabled = true;
+                document.getElementById('pause-btn').disabled = false;
+                document.getElementById('pause-btn').textContent = '暂停';
+
+                this.addEvent('比赛开始！', 'info');
+                this.gameLoop = setInterval(() => this.updateGame(), 1000);
+            }
+
+            pauseGame() {
+                if (!this.isRunning) return;
+
+                this.isPaused = !this.isPaused;
+                const pauseBtn = document.getElementById('pause-btn');
+                
+                if (this.isPaused) {
+                    pauseBtn.textContent = '继续';
+                    this.addEvent('比赛暂停', 'info');
+                } else {
+                    pauseBtn.textContent = '暂停';
+                    this.addEvent('比赛继续', 'info');
+                }
+            }
+
+            resetGame() {
+                this.isRunning = false;
+                this.isPaused = false;
+                
+                if (this.gameLoop) {
+                    clearInterval(this.gameLoop);
+                    this.gameLoop = null;
+                }
+
+                this.homeTeam.score = 0;
+                this.awayTeam.score = 0;
+                
+                this.teamStats = {
+                    home: { fg: { made: 0, attempted: 0 }, tp: { made: 0, attempted: 0 }, reb: 0, ast: 0, stl: 0 },
+                    away: { fg: { made: 0, attempted: 0 }, tp: { made: 0, attempted: 0 }, reb: 0, ast: 0, stl: 0 }
+                };
+
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('pause-btn').disabled = true;
+                document.getElementById('pause-btn').textContent = '暂停';
+                document.getElementById('event-log').innerHTML = '';
+
+                this.addEvent('比赛已重置', 'info');
+                this.updateUI();
+            }
+
+            updateGame() {
+                if (this.isPaused) return;
+
+                const gameState = this.gameState;
+                
+                gameState.timeRemaining--;
+                gameState.shotClock--;
+
+                if (gameState.shotClock <= 0) {
+                    this.simulatePossession();
+                    gameState.shotClock = 24;
+                }
+
+                if (gameState.timeRemaining <= 0) {
+                    if (gameState.quarter < 4) {
+                        gameState.quarter++;
+                        gameState.timeRemaining = 720;
+                        this.addEvent(`第${gameState.quarter}节开始`, 'info');
+                    } else {
+                        this.endGame();
+                        return;
+                    }
+                }
+
+                if (Math.random() < 0.15) {
+                    this.simulatePossession();
+                }
+
+                this.updateUI();
+                this.animatePlayers();
+            }
+
+            simulatePossession() {
+                const isHome = this.gameState.possession === 'home';
+                const attackingTeam = isHome ? this.homeTeam : this.awayTeam;
+                const defendingTeam = isHome ? this.awayTeam : this.homeTeam;
+                const stats = isHome ? this.teamStats.home : this.teamStats.away;
+                const opponentStats = isHome ? this.teamStats.away : this.teamStats.home;
+
+                const attackStrength = this.calculateTeamStrength(attackingTeam);
+                const defenseStrength = this.calculateTeamStrength(defendingTeam);
+                const successChance = 0.45 + (attackStrength - defenseStrength) / 200;
+
+                stats.fg.attempted++;
+
+                if (Math.random() < successChance) {
+                    const points = this.calculatePoints(attackingTeam, defendingTeam);
+                    attackingTeam.score += points;
+                    stats.fg.made++;
+
+                    if (points === 3) {
+                        stats.tp.attempted++;
+                        stats.tp.made++;
+                        this.addEvent(`${attackingTeam.name} 三分命中！`, 'score');
+                    } else {
+                        this.addEvent(`${attackingTeam.name} 得分 ${points} 分`, 'score');
+                    }
+
+                    if (Math.random() < 0.3) {
+                        stats.ast++;
+                        this.addEvent(`助攻 +1`, 'info');
+                    }
+
+                    this.animateScore(isHome ? 'home' : 'away');
+                } else {
+                    if (Math.random() < 0.4) {
+                        opponentStats.reb++;
+                        this.addEvent(`${defendingTeam.name} 抢到篮板`, 'defense');
+                    } else if (Math.random() < 0.3) {
+                        stats.stl++;
+                        this.addEvent(`${defendingTeam.name} 抢断成功`, 'defense');
+                    } else {
+                        this.addEvent(`${attackingTeam.name} 投篮不中`, 'turnover');
+                    }
+                }
+
+                this.gameState.possession = isHome ? 'away' : 'home';
+            }
+
+            calculateTeamStrength(team) {
+                const totalRating = team.players.reduce((sum, player) => sum + player.rating, 0);
+                return Math.round(totalRating / team.players.length);
+            }
+
+            calculatePoints(attackingTeam, defendingTeam) {
+                const random = Math.random();
+                const threePointChance = 0.3;
+
+                if (random < threePointChance) {
+                    return 3;
+                } else if (random < 0.9) {
+                    return 2;
+                } else {
+                    return 1;
+                }
+            }
+
+            animateScore(team) {
+                const scoreEl = document.getElementById(`${team}-score`);
+                scoreEl.classList.add('updated');
+                setTimeout(() => scoreEl.classList.remove('updated'), 500);
+            }
+
+            animatePlayers() {
+                this.players.forEach(player => {
+                    const randomX = (Math.random() - 0.5) * 10;
+                    const randomY = (Math.random() - 0.5) * 10;
+                    const currentLeft = parseFloat(player.element.style.left);
+                    const currentTop = parseFloat(player.element.style.top);
+                    player.element.style.left = `${currentLeft + randomX}%`;
+                    player.element.style.top = `${currentTop + randomY}%`;
+                });
+            }
+
+            updateUI() {
+                const gameState = this.gameState;
+                
+                if (gameState) {
+                    document.getElementById('quarter-display').textContent = `Q${gameState.quarter}`;
+                    const minutes = Math.floor(gameState.timeRemaining / 60);
+                    const seconds = gameState.timeRemaining % 60;
+                    document.getElementById('time-display').textContent = 
+                        `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    document.getElementById('shot-clock').textContent = gameState.shotClock;
+                }
+
+                document.getElementById('home-score').textContent = this.homeTeam.score;
+                document.getElementById('away-score').textContent = this.awayTeam.score;
+
+                this.updateStats();
+            }
+
+            updateStats() {
+                const homeStats = this.teamStats.home;
+                const awayStats = this.teamStats.away;
+
+                document.getElementById('home-fg').textContent = 
+                    homeStats.fg.attempted > 0 ? `${Math.round(homeStats.fg.made / homeStats.fg.attempted * 100)}%` : '0%';
+                document.getElementById('home-3p').textContent = 
+                    homeStats.tp.attempted > 0 ? `${Math.round(homeStats.tp.made / homeStats.tp.attempted * 100)}%` : '0%';
+                document.getElementById('home-reb').textContent = homeStats.reb;
+                document.getElementById('home-ast').textContent = homeStats.ast;
+                document.getElementById('home-stl').textContent = homeStats.stl;
+
+                document.getElementById('away-fg').textContent = 
+                    awayStats.fg.attempted > 0 ? `${Math.round(awayStats.fg.made / awayStats.fg.attempted * 100)}%` : '0%';
+                document.getElementById('away-3p').textContent = 
+                    awayStats.tp.attempted > 0 ? `${Math.round(awayStats.tp.made / awayStats.tp.attempted * 100)}%` : '0%';
+                document.getElementById('away-reb').textContent = awayStats.reb;
+                document.getElementById('away-ast').textContent = awayStats.ast;
+                document.getElementById('away-stl').textContent = awayStats.stl;
+            }
+
+            addEvent(text, type) {
+                const eventLog = document.getElementById('event-log');
+                const eventItem = document.createElement('div');
+                eventItem.className = `event-item ${type}`;
+                
+                const timeDisplay = this.gameState ? 
+                    `${Math.floor(this.gameState.timeRemaining / 60)}:${(this.gameState.timeRemaining % 60).toString().padStart(2, '0')}` : 
+                    '--:--';
+                
+                eventItem.innerHTML = `
+                    <span class="event-time">${timeDisplay}</span>
+                    <span class="event-text">${text}</span>
+                `;
+                
+                eventLog.insertBefore(eventItem, eventLog.firstChild);
+
+                if (eventLog.children.length > 50) {
+                    eventLog.removeChild(eventLog.lastChild);
+                }
+            }
+
+            endGame() {
+                this.isRunning = false;
+                clearInterval(this.gameLoop);
+                
+                document.getElementById('start-btn').disabled = false;
+                document.getElementById('pause-btn').disabled = true;
+                document.getElementById('pause-btn').textContent = '暂停';
+
+                const winner = this.homeTeam.score > this.awayTeam.score ? this.homeTeam.name : 
+                              this.awayTeam.score > this.homeTeam.score ? this.awayTeam.name : '平局';
+                
+                this.addEvent(`比赛结束！${winner} 获胜！比分 ${this.homeTeam.score} - ${this.awayTeam.score}`, 'score');
+
+                const gameResult = {
+                    gameId: this.gameId,
+                    scheduleGameId: this.scheduleGameId,
+                    homeTeam: this.homeTeam,
+                    awayTeam: this.awayTeam,
+                    homeScore: this.homeTeam.score,
+                    awayScore: this.awayTeam.score,
+                    winner: winner,
+                    quarter: this.gameState ? this.gameState.quarter : 4,
+                    timeRemaining: this.gameState ? this.gameState.timeRemaining : 0,
+                    teamStats: this.teamStats
+                };
+
+                if (window.opener && !window.opener.closed) {
+                    try {
+                        window.opener.postMessage({
+                            type: 'gameSimulationComplete',
+                            data: gameResult
+                        }, '*');
+                    } catch (error) {
+                        console.error('Failed to send result to parent window:', error);
+                    }
+                }
+
+                if (this.gameCompleteCallback && typeof this.gameCompleteCallback === 'function') {
+                    this.gameCompleteCallback(gameResult);
+                }
+
+                return gameResult;
+            }
+
+            setGameCompleteCallback(callback) {
+                this.gameCompleteCallback = callback;
+            }
+        }
+
+        const game = new BasketballGameSimulation();
+        game.initialize();
+
+        function startGame() {
+            game.startGame();
+        }
+
+        function pauseGame() {
+            game.pauseGame();
+        }
+
+        function resetGame() {
+            game.resetGame();
+        }
+    </script>
+</body>
+</html>
