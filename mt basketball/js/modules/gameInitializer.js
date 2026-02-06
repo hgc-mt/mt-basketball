@@ -18,26 +18,27 @@ const AgeYearConfig = {
 };
 
 /**
- * 潜力评估配置 - 全新优化版本
- * 实现科学的潜力值计算模型
- * 注意：大学生篮球联赛中天之骄子应该是极少数，因为优秀球员已被职业队挑走
+ * 潜力评估配置 - 修正版本
+ * 82人中：最多1个天骄之子(90+)，3个精英(80+)
+ * 天之骄子概率：1/82 ≈ 1.2%
+ * 精英概率：3/82 ≈ 3.7%（不含天骄之子）
  */
 const PotentialConfig = {
     // 大一新生基础潜力值配置（用于其他球队球员）
     freshmanBase: {
-        mean: 72,      // 平均值 72 (提高2点)
-        stdDev: 4,     // 标准差 ±4 (增加1点)
-        highPotentialRatio: 0.12,   // 12% 达到 80±2 (从5%提高到12%)
-        heavenFavorRate: 0.015,     // 1.5% 天之骄子 (90+) - 其他球队（180人中约2-3人，从0.5%提高到1.5%）
+        mean: 68,                   // 平均值 68（降低，减少高潜力球员）
+        stdDev: 5,                  // 标准差 ±5
+        highPotentialRatio: 0.037,  // 3.7% 精英 (80-89)
+        heavenFavorRate: 0.012,     // 1.2% 天之骄子 (90+) - 82人中约1人
         heavenFavorMin: 90
     },
     
     // 招募中心/资源池球员配置（略高，因为这是玩家能招募的最后机会）
     poolPlayerBase: {
-        mean: 73,      // 平均值略高 (提高2点)
-        stdDev: 4,     // 标准差 (增加1点)
-        highPotentialRatio: 0.18,   // 18% 达到 80±2 (从8%提高到18%)
-        heavenFavorRate: 0.04,      // 4% 天之骄子 (90+) - 资源池（60-80人中约2-3人，从2%提高到4%）
+        mean: 70,                   // 平均值略高
+        stdDev: 5,                  // 标准差
+        highPotentialRatio: 0.05,   // 5% 精英 (80-89)
+        heavenFavorRate: 0.015,     // 1.5% 天之骄子 (90+) - 略高
         heavenFavorMin: 90
     },
     
@@ -140,6 +141,24 @@ class GameInitializer {
     constructor(gameStateManager) {
         this.gameStateManager = gameStateManager;
         this.potentialDistribution = { elite: 0, excellent: 0, good: 0, normal: 0 };
+        
+        // 初始化新的评级系统
+        this.ratingSystem = new PlayerRatingSystem();
+        
+        // 初始化球员成长系统
+        this.growthSystem = new PlayerGrowthSystem(gameStateManager);
+        
+        // 初始化高年级专项系统
+        this.seniorSpecialistSystem = new SeniorSpecialistSystem();
+        
+        // 初始化AI教练系统
+        this.aiCoachingSystem = new AICoachingSystem(gameStateManager);
+        
+        // 初始化招募竞争系统
+        this.recruitmentCompetitionSystem = new RecruitmentCompetitionSystem(
+            gameStateManager, 
+            this.aiCoachingSystem
+        );
     }
 
     /**
@@ -248,6 +267,46 @@ class GameInitializer {
     }
 
     /**
+     * Generate player potential based on year and distribution
+     * 使用新的评级系统生成潜力值
+     * @param {number} year - Academic year (1-4)
+     * @param {boolean} isFreshmanClass - Whether this is part of the current freshman generation
+     * @returns {number} Generated potential
+     */
+    generatePotential(year, isFreshmanClass = false) {
+        // 使用新的评级系统的正态分布生成潜力值
+        const baseConfig = PotentialConfig.freshmanBase;
+        
+        // 基础潜力值（正态分布）
+        let potential = this.ratingSystem.normalDistribution(
+            baseConfig.mean,
+            baseConfig.stdDev,
+            55,
+            90
+        );
+        
+        // 天之骄子概率
+        const random = Math.random();
+        if (random < baseConfig.heavenFavorRate) {
+            potential = baseConfig.heavenFavorMin + Math.floor(Math.random() * 6);
+            this.potentialDistribution.elite++;
+        } else if (random < baseConfig.heavenFavorRate + baseConfig.highPotentialRatio) {
+            potential = 78 + Math.floor(Math.random() * 5);
+            this.potentialDistribution.excellent++;
+        } else if (potential >= 70) {
+            this.potentialDistribution.good++;
+        } else {
+            this.potentialDistribution.normal++;
+        }
+        
+        // 根据年级调整潜力（高年级潜力降低）
+        const yearDecay = { 1: 0, 2: -3, 3: -6, 4: -10 };
+        potential += yearDecay[year] || 0;
+        
+        return Math.min(95, Math.max(50, Math.round(potential)));
+    }
+
+    /**
      * Calculate potential based on year and attributes - 全新科学模型
      * @param {number} year - Academic year (1-4)
      * @param {Object} attributes - Player attributes
@@ -257,54 +316,24 @@ class GameInitializer {
      * @returns {number} Calculated potential
      */
     calculatePotential(year, attributes, baseRating, isFreshmanClass = false, isPoolPlayer = false) {
+        // 统一使用 generatePotential 方法，确保潜力分布符合配置
         const baseConfig = isPoolPlayer ? PotentialConfig.poolPlayerBase : PotentialConfig.freshmanBase;
         
-        if (year === 1 && isFreshmanClass) {
-            const freshmanConfig = baseConfig;
-            const random = Math.random();
-            
-            if (random < freshmanConfig.heavenFavorRate) {
-                const potential = freshmanConfig.heavenFavorMin + Math.floor(Math.random() * 10);
-                this.potentialDistribution.elite++;
-                return Math.min(99, potential);
-            }
-            
-            if (random < freshmanConfig.heavenFavorRate + freshmanConfig.highPotentialRatio) {
-                const potential = 78 + Math.floor(Math.random() * 5);
-                this.potentialDistribution.excellent++;
-                return potential;
-            }
-            
-            const u1 = Math.random();
-            const u2 = Math.random();
-            const z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-            let potential = Math.round(freshmanConfig.mean + z * freshmanConfig.stdDev);
-            
-            potential = Math.max(67, Math.min(73, potential));
-            this.potentialDistribution.good++;
-            
-            return potential;
-        }
+        // 基础潜力值（正态分布）
+        let potential = this.ratingSystem.normalDistribution(
+            baseConfig.mean,
+            baseConfig.stdDev,
+            50,
+            90
+        );
         
-        let potential;
-        if (year === 1) {
-            potential = baseRating + Math.floor(Math.random() * 11) + 8;
-        } else if (year === 2) {
-            potential = baseRating + Math.floor(Math.random() * 8) + 2;
-        } else if (year === 3) {
-            potential = baseRating + Math.floor(Math.random() * 6) + 1;
-        } else {
-            potential = baseRating + Math.floor(Math.random() * 4);
-        }
-        
-        potential = Math.min(99, Math.max(baseRating + 1, potential));
-        
-        const eliteChance = isPoolPlayer ? 0.10 : 0.05;
-        
-        if (potential >= 88 && Math.random() < eliteChance) {
-            potential = 90 + Math.floor(Math.random() * 9);
+        // 天之骄子概率
+        const random = Math.random();
+        if (random < baseConfig.heavenFavorRate) {
+            potential = baseConfig.heavenFavorMin + Math.floor(Math.random() * 6);
             this.potentialDistribution.elite++;
-        } else if (potential >= 80) {
+        } else if (random < baseConfig.heavenFavorRate + baseConfig.highPotentialRatio) {
+            potential = 80 + Math.floor(Math.random() * 10); // 80-89 精英
             this.potentialDistribution.excellent++;
         } else if (potential >= 70) {
             this.potentialDistribution.good++;
@@ -312,7 +341,11 @@ class GameInitializer {
             this.potentialDistribution.normal++;
         }
         
-        return Math.round(potential);
+        // 根据年级调整潜力（高年级潜力降低）
+        const yearDecay = { 1: 0, 2: -3, 3: -6, 4: -10 };
+        potential += yearDecay[year] || 0;
+        
+        return Math.min(95, Math.max(50, Math.round(potential)));
     }
     
     /**
@@ -328,24 +361,46 @@ class GameInitializer {
     }
     
     /**
-     * 计算球员战力 - 包含年级增长机制
+     * 计算球员战力 - 使用新的成长系统
      * @param {number} year - Academic year (1-4)
      * @param {Object} attributes - Player attributes
      * @param {number} baseRating - 基础能力值
+     * @param {number} potential - 潜力值
+     * @param {Array} talents - 天赋列表
      * @returns {number} 最终能力值
      */
-    calculateRatingWithGrowth(year, attributes, baseRating) {
+    calculateRatingWithGrowth(year, attributes, baseRating, potential = null, talents = []) {
         if (year === 1) {
-            return baseRating;
+            return Math.round(baseRating);
         }
         
-        const growthConfig = PotentialConfig.yearDecay[year];
-        const growth = this.randomInRange(growthConfig.ratingBoost.min, growthConfig.ratingBoost.max);
+        // 如果没有提供潜力值，估算一个
+        if (potential === null) {
+            potential = baseRating + 10 + Math.floor(Math.random() * 10);
+        }
         
-        let rating = baseRating + growth;
-        rating = Math.max(50, Math.min(99, rating));
+        // 创建临时球员对象用于成长计算
+        const tempPlayer = {
+            year: year,
+            rating: baseRating,
+            potential: potential,
+            attributes: attributes,
+            talents: talents
+        };
         
-        return Math.round(rating);
+        // 使用新的成长系统计算成长
+        // 模拟之前年级的成长累积
+        let currentRating = baseRating;
+        for (let y = 2; y <= year; y++) {
+            const growthResult = this.growthSystem.calculateYearlyGrowth(
+                { ...tempPlayer, rating: currentRating, year: y },
+                'normal',  // 默认正常培养
+                0.5        // 默认50%出场时间
+            );
+            currentRating = growthResult.newRating;
+        }
+        
+        return Math.round(currentRating);
     }
     
     /**
@@ -419,10 +474,10 @@ class GameInitializer {
         
         const injuryRoll = Math.random();
         const hasInjuryHistory = injuryRoll < 0.2;
-        const injuryType = hasInjuryHistory 
+        const injuryType = hasInjuryHistory
             ? PlayerBackgroundConfig.injuryTypes[1 + Math.floor(Math.random() * (PlayerBackgroundConfig.injuryTypes.length - 1))]
             : '无';
-        
+
         const yearsAtHighSchool = year === 1 ? '高三' : (year === 2 ? '毕业' : '高四');
         
         return {
@@ -479,7 +534,35 @@ class GameInitializer {
         const boost = (year - 1) * 3;
         return `${base + boost}cm`;
     }
-    
+
+    /**
+     * 生成球员性格维度评分
+     * @returns {Object} 各维度评分 (0-100)
+     */
+    generatePlayerPersonalityDimensions() {
+        // 如果配置系统存在，使用配置系统
+        if (typeof PlayerPersonalityConfig !== 'undefined') {
+            return PlayerPersonalityConfig.generatePersonalityDimensions();
+        }
+
+        // 默认实现：生成正态分布的随机值
+        const dimensions = {};
+        const dimNames = ['ambition', 'teamOrientation', 'workEthic', 'moneyFocus',
+                         'competitiveness', 'loyalty', 'patience', 'pressureHandling'];
+
+        for (const dim of dimNames) {
+            // 使用Box-Muller变换生成正态分布
+            const u1 = Math.random();
+            const u2 = Math.random();
+            const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+            let value = Math.round(50 + z * 15);
+            value = Math.max(0, Math.min(100, value));
+            dimensions[dim] = value;
+        }
+
+        return dimensions;
+    }
+
     /**
      * 验证潜力值分布
      * @param {Array} players - 球员数组
@@ -529,7 +612,7 @@ class GameInitializer {
     }
 
     /**
-     * Create all teams
+     * Create all teams with unique styles
      * @returns {Array} Array of team objects
      */
     createTeams() {
@@ -539,17 +622,29 @@ class GameInitializer {
         for (const [conferenceId, conference] of Object.entries(Conferences)) {
             for (const teamName of conference.teams) {
                 const teamData = TeamNames[conferenceId][teamName];
+                
+                // 为球队分配风格
+                const styleId = TeamStylesConfig.assignStyleForTeam(teamName);
+                const style = TeamStylesConfig.getStyle(styleId);
+                
                 const team = new Team({
                     id: teamData.id,
                     name: teamName,
                     conference: conferenceId,
                     funds: teamData.funds,
                     scholarships: GameConstants.MAX_SCHOLARSHIPS,
-                    roster: []
+                    roster: [],
+                    // 添加风格信息
+                    styleId: styleId,
+                    styleName: style.name,
+                    reputation: style.characteristics.reputation,
+                    facilities: style.characteristics.facilities,
+                    academicPrestige: style.characteristics.academicPrestige,
+                    fanSupport: style.characteristics.fanSupport
                 });
 
-                // Generate initial roster
-                this.generateTeamRoster(team);
+                // 根据风格生成阵容
+                this.generateTeamRosterWithStyle(team, style);
 
                 teams.push(team);
             }
@@ -559,18 +654,200 @@ class GameInitializer {
     }
 
     /**
-     * Generate initial roster for a team
+     * Generate initial roster for a team with proper scholarship distribution
+     * 使用新的5级奖学金系统（总额5份）
      * @param {Team} team - Team to generate roster for
      */
     generateTeamRoster(team) {
+        // 默认使用均衡风格
+        const defaultStyle = TeamStylesConfig.getStyle('BALANCED_PROGRAM');
+        this.generateTeamRosterWithStyle(team, defaultStyle);
+    }
+    
+    /**
+     * 根据球队风格生成阵容
+     * @param {Team} team - 球队对象
+     * @param {Object} style - 球队风格配置
+     */
+    generateTeamRosterWithStyle(team, style) {
         const positions = ['PG', 'SG', 'SF', 'PF', 'C'];
-        const rosterSize = 15;
-
-        for (let i = 0; i < rosterSize; i++) {
-            const position = positions[i % positions.length];
-            const player = this.createPlayerWithCorrectAge(position, null, false);
-            team.addPlayer(player);
+        const preferredPositions = style.playerPreferences.preferredPositions || positions;
+        
+        // 根据风格的奖学金分配
+        const distribution = style.scholarshipDistribution;
+        const scholarshipDistribution = [
+            { level: 'full', percentage: 1.0, count: distribution.full },
+            { level: 'major', percentage: 0.6, count: distribution.major },
+            { level: 'partial', percentage: 0.35, count: distribution.partial },
+            { level: 'minimal', percentage: 0.15, count: distribution.minimal },
+            { level: 'none', percentage: 0, count: distribution.none }
+        ];
+        
+        let playerIndex = 0;
+        
+        for (const tier of scholarshipDistribution) {
+            for (let i = 0; i < tier.count; i++) {
+                // 根据风格优先选择位置
+                let position;
+                if (playerIndex < preferredPositions.length) {
+                    // 优先使用风格偏好的位置
+                    position = preferredPositions[playerIndex % preferredPositions.length];
+                } else {
+                    // 其他按标准轮换
+                    position = positions[playerIndex % positions.length];
+                }
+                
+                // 根据奖学金等级和风格调整球员能力
+                let basePotential = this.getPotentialForScholarshipLevel(tier.level);
+                
+                // 风格调整：潜力开发型球队球员潜力更高
+                if (style.id === 'DEVELOPMENT_FOCUSED') {
+                    basePotential = Math.min(99, basePotential + 3);
+                }
+                // 豪门球队球员能力更强
+                if (style.id === 'ELITE_DYNASTY') {
+                    basePotential = Math.min(99, basePotential + 5);
+                }
+                // 平民球队球员能力稍弱
+                if (style.id === 'UNDERDOG_GRIT') {
+                    basePotential = Math.max(50, basePotential - 3);
+                }
+                
+                const player = this.createPlayerWithCorrectAgeAndPotential(position, null, false, basePotential);
+                
+                // 根据风格调整属性权重
+                this.adjustPlayerAttributesByStyle(player, style);
+                
+                // 设置奖学金 - 使用新的5级系统
+                player.scholarship = tier.percentage;
+                player.scholarshipLevel = tier.level;
+                
+                // 同步更新scholarshipRequirement
+                player.scholarshipRequirement = this.generateScholarshipRequirement(
+                    player.potential, 
+                    player.rating || player.getOverallRating(), 
+                    player.year
+                );
+                
+                team.addPlayer(player);
+                playerIndex++;
+            }
         }
+    }
+    
+    /**
+     * 根据球队风格调整球员属性
+     * @param {Player} player - 球员对象
+     * @param {Object} style - 球队风格
+     */
+    adjustPlayerAttributesByStyle(player, style) {
+        const preferredAttrs = style.playerPreferences.preferredAttributes || [];
+        
+        // 根据风格偏好提升相应属性
+        preferredAttrs.forEach(attr => {
+            if (player.attributes[attr] !== undefined) {
+                // 提升5-10点
+                const boost = 5 + Math.floor(Math.random() * 6);
+                player.attributes[attr] = Math.min(99, player.attributes[attr] + boost);
+            }
+        });
+        
+        // 重新计算能力值
+        if (player.calculateOverallRating) {
+            player.rating = player.calculateOverallRating();
+        }
+    }
+    
+    /**
+     * Get base potential range for scholarship level - 使用新的5级系统
+     * @param {string} level - Scholarship level
+     * @returns {number} Base potential
+     */
+    getPotentialForScholarshipLevel(level) {
+        const potentialRanges = {
+            'full': { min: 80, max: 95 },      // 全额：高潜力（80-95）
+            'major': { min: 72, max: 85 },     // 主要：中高潜力（72-85）
+            'partial': { min: 65, max: 78 },   // 部分：中等潜力（65-78）
+            'minimal': { min: 58, max: 70 },   // 基础：中低潜力（58-70）
+            'none': { min: 50, max: 62 }       // 无奖学金：发展型潜力（50-62）
+        };
+        
+        const range = potentialRanges[level] || { min: 55, max: 65 };
+        return Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+    }
+    
+    /**
+     * Create a player with specific potential
+     * @param {string} position - Player position
+     * @param {number} forcedYear - Optional forced year
+     * @param {boolean} isFreshmanClass - Whether freshman
+     * @param {number} targetPotential - Target potential value
+     * @returns {Player} Player object
+     */
+    createPlayerWithCorrectAgeAndPotential(position, forcedYear, isFreshmanClass, targetPotential) {
+        // 使用现有的createPlayerWithCorrectAge方法，但调整潜力
+        const firstName = FirstNames[Math.floor(Math.random() * FirstNames.length)];
+        const lastName = LastNames[Math.floor(Math.random() * LastNames.length)];
+        const playerPosition = position || Object.keys(Positions)[Math.floor(Math.random() * Object.keys(Positions).length)];
+
+        const year = forcedYear || (Math.floor(Math.random() * 4) + 1);
+        const age = this.generateAgeForYear(year);
+
+        // 使用目标潜力值
+        const potential = Math.min(99, Math.max(50, targetPotential));
+        const attributes = this.generateAttributes(playerPosition, potential);
+
+        const talents = this.generateTalents(potential, year);
+        const skills = this.generateSkills(talents, playerPosition);
+        
+        const rating = this.calculateBaseRating(attributes, playerPosition, year, talents);
+        
+        const background = this.generatePlayerBackground(playerPosition, year);
+
+        // 生成球员性格维度
+        const personalityDimensions = this.generatePlayerPersonalityDimensions();
+
+        let player = new Player({
+            id: this.gameStateManager.getPlayerId(),
+            name: `${firstName} ${lastName}`,
+            position: playerPosition,
+            age: age,
+            year: year,
+            attributes: attributes,
+            potential: potential,
+            rating: rating,
+            talents: talents,
+            skills: skills,
+            background: background,
+            personalityDimensions: personalityDimensions, // 添加性格维度
+            status: 'active',
+            contract: {
+                type: 'scholarship',
+                years: 5 - year, // 剩余学年
+                amount: 0
+            },
+            stats: {
+                games: 0,
+                points: 0,
+                rebounds: 0,
+                assists: 0,
+                steals: 0,
+                blocks: 0,
+                turnovers: 0,
+                fouls: 0,
+                minutes: 0
+            },
+            fatigue: 0,
+            morale: 70 + Math.floor(Math.random() * 20), // 70-90
+            chemistry: 50 + Math.floor(Math.random() * 30), // 50-80
+            development: {
+                trainingCount: 0,
+                growthHistory: [],
+                lastTrainingWeek: 0
+            }
+        });
+
+        return player;
     }
 
     /**
@@ -588,21 +865,20 @@ class GameInitializer {
         const year = forcedYear || (Math.floor(Math.random() * 4) + 1);
         const age = this.generateAgeForYear(year);
 
-        const attributes = this.generateAttributes(playerPosition);
-
-        const baseRating = this.calculateBaseRating(attributes);
-        const potential = this.calculatePotential(year, attributes, baseRating, isFreshmanClass);
-        
-        // 使用新的战力计算模型
-        const rating = this.calculateRatingWithGrowth(year, attributes, baseRating);
+        // 先生成潜力值，再根据潜力生成属性
+        const potential = this.generatePotential(year, isFreshmanClass);
+        const attributes = this.generateAttributes(playerPosition, potential);
 
         const talents = this.generateTalents(potential, year);
         const skills = this.generateSkills(talents, playerPosition);
         
+        // 使用新的评级系统计算能力值
+        const rating = this.calculateBaseRating(attributes, playerPosition, year, talents);
+        
         // 生成背景资料
         const background = this.generatePlayerBackground(playerPosition, year);
 
-        const player = new Player({
+        let player = new Player({
             id: this.gameStateManager.getPlayerId(),
             name: `${firstName} ${lastName}`,
             position: playerPosition,
@@ -617,6 +893,15 @@ class GameInitializer {
             training: {},
             scholarshipRequirement: this.generateScholarshipRequirement(potential, rating, year)
         });
+
+        // 对高年级学生应用专项特长系统
+        if (year >= 3) {
+            player = this.seniorSpecialistSystem.processSeniorPlayer(player);
+            // 更新奖学金要求（专项球员要求较低）
+            if (player.specialistInfo) {
+                player.scholarshipRequirement = this.seniorSpecialistSystem.generateSpecialistRequirements(player);
+            }
+        }
 
         return player;
     }
@@ -637,12 +922,14 @@ class GameInitializer {
         const year = forcedYear || this.getYearByDistribution();
         const age = this.generateAgeForYear(year);
 
-        const attributes = this.generateAttributes(playerPosition);
+        // 先生成潜力值，再根据潜力生成属性
+        const potential = this.calculatePotential(year, null, 0, false, true);
+        const attributes = this.generateAttributes(playerPosition, potential);
 
-        const baseRating = this.calculateBaseRating(attributes);
-        const potential = this.calculatePotential(year, attributes, baseRating, false);
+        const baseRating = this.calculateBaseRating(attributes, playerPosition, year);
         
-        const rating = this.calculateRatingWithGrowth(year, attributes, baseRating);
+        // 使用新的成长系统计算能力值
+        const rating = this.calculateRatingWithGrowth(year, attributes, baseRating, potential);
 
         const talents = this.generateTalents(potential, year);
         const skills = this.generateSkills(talents, playerPosition);
@@ -666,7 +953,7 @@ class GameInitializer {
             ? PlayerPoolConfig.transferReasons[Math.floor(Math.random() * PlayerPoolConfig.transferReasons.length)]
             : '';
 
-        const player = new Player({
+        let player = new Player({
             id: this.gameStateManager.getPlayerId(),
             name: `${firstName} ${lastName}`,
             position: playerPosition,
@@ -688,6 +975,15 @@ class GameInitializer {
             training: {},
             scholarshipRequirement: this.generateScholarshipRequirement(potential, rating, year)
         });
+
+        // 对高年级学生应用专项特长系统
+        if (year >= 3) {
+            player = this.seniorSpecialistSystem.processSeniorPlayer(player);
+            // 更新奖学金要求（专项球员要求较低）
+            if (player.specialistInfo) {
+                player.scholarshipRequirement = this.seniorSpecialistSystem.generateSpecialistRequirements(player);
+            }
+        }
 
         return player;
     }
@@ -774,95 +1070,127 @@ class GameInitializer {
     }
 
     /**
-     * Generate scholarship requirement for a player
+     * Generate scholarship requirement for a player - 使用新的5级奖学金系统
      * @param {number} potential - Player potential
      * @param {number} rating - Player rating
      * @param {number} year - Academic year (1-4)
      * @returns {Object} Scholarship requirement object
      */
     generateScholarshipRequirement(potential, rating, year) {
+        const maxVal = Math.max(potential, rating);
         const rand = Math.random();
         
-        let minScholarship = 0.5;
-        let maxScholarship = 1.0;
-        let preferredScholarship = 0.7;
+        // 5级奖学金系统标准值
+        const levels = {
+            none: { value: 0, min: 0, max: 0.1, preferred: 0 },
+            minimal: { value: 0.15, min: 0, max: 0.25, preferred: 0.15 },
+            partial: { value: 0.35, min: 0.15, max: 0.5, preferred: 0.35 },
+            major: { value: 0.6, min: 0.4, max: 0.8, preferred: 0.6 },
+            full: { value: 1.0, min: 0.8, max: 1.0, preferred: 1.0 }
+        };
         
-        if (potential >= 90) {
-            minScholarship = 0.8;
-            maxScholarship = 1.0;
-            preferredScholarship = 1.0;
-        } else if (potential >= 80) {
-            minScholarship = 0.6;
-            maxScholarship = 1.0;
-            preferredScholarship = 0.85;
-        } else if (potential >= 70) {
-            minScholarship = 0.4;
-            maxScholarship = 0.8;
-            preferredScholarship = 0.6;
-        } else if (potential >= 60) {
-            minScholarship = 0.3;
-            maxScholarship = 0.6;
-            preferredScholarship = 0.5;
+        let selectedLevel = 'none';
+        
+        // 根据能力值确定基础等级
+        if (maxVal >= 80) {
+            selectedLevel = 'full';
+        } else if (maxVal >= 72) {
+            selectedLevel = 'major';
+        } else if (maxVal >= 65) {
+            selectedLevel = 'partial';
+        } else if (maxVal >= 58) {
+            selectedLevel = 'minimal';
         } else {
-            minScholarship = 0.2;
-            maxScholarship = 0.5;
-            preferredScholarship = 0.3;
+            selectedLevel = 'none';
         }
         
-        if (year === 4) {
-            minScholarship = Math.max(0.2, minScholarship - 0.1);
-            maxScholarship = Math.max(0.3, maxScholarship - 0.1);
-            preferredScholarship = Math.max(0.3, preferredScholarship - 0.1);
-        } else if (year === 3) {
-            minScholarship = Math.max(0.2, minScholarship - 0.05);
-            maxScholarship = Math.max(0.4, maxScholarship - 0.05);
-            preferredScholarship = Math.max(0.4, preferredScholarship - 0.05);
+        // 年级调整（高年级更现实，要求可能略低）
+        const levelOrder = ['none', 'minimal', 'partial', 'major', 'full'];
+        let levelIndex = levelOrder.indexOf(selectedLevel);
+        
+        if (year === 4 && levelIndex > 0) {
+            // 大四学生有20%概率降低一级期望（更现实）
+            if (rand < 0.2) levelIndex--;
+        } else if (year === 1 && levelIndex < 4) {
+            // 大一新生有15%概率提高一级期望（更有野心）
+            if (rand < 0.15) levelIndex++;
         }
         
-        const noScholarshipChance = 0.15;
-        const fullScholarshipChance = 0.15;
+        selectedLevel = levelOrder[levelIndex];
         
-        let finalMin = minScholarship;
-        let finalMax = maxScholarship;
-        let finalPreferred = preferredScholarship;
-        
-        if (rand < noScholarshipChance) {
-            finalMin = 0;
-            finalMax = 0.3;
-            finalPreferred = 0.1;
-        } else if (rand < noScholarshipChance + fullScholarshipChance) {
-            finalMin = 0.9;
-            finalMax = 1.0;
-            finalPreferred = 1.0;
+        // 特殊情况：非常优秀的球员坚持要全额
+        if (maxVal >= 85) {
+            selectedLevel = 'full';
         }
         
+        // 特殊情况：能力很低的球员接受无奖学金
+        if (maxVal < 50) {
+            selectedLevel = 'none';
+        }
+        
+        const config = levels[selectedLevel];
+
+        // 生成性格维度（影响奖学金期望）
+        const personalityDimensions = this.generatePlayerPersonalityDimensions();
+
+        // 根据性格维度调整期望
+        let finalMin = config.min;
+        let finalMax = config.max;
+        let finalPreferred = config.preferred;
+
+        // 雄心影响期望（高雄心期望更高）
+        const ambition = personalityDimensions.ambition || 50;
+        if (ambition >= 70) {
+            finalMin = Math.min(1.0, config.min * 1.1);
+            finalPreferred = Math.min(1.0, config.preferred * 1.1);
+        } else if (ambition <= 30) {
+            finalMin = config.min * 0.9;
+            finalPreferred = config.preferred * 0.95;
+        }
+
+        // 金钱观念影响期望（高金钱观念期望更高）
+        const moneyFocus = personalityDimensions.moneyFocus || 50;
+        if (moneyFocus >= 70) {
+            finalMin = Math.min(1.0, finalMin * 1.15);
+            finalPreferred = Math.min(1.0, finalPreferred * 1.1);
+        } else if (moneyFocus <= 30) {
+            finalMin = finalMin * 0.85;
+            finalPreferred = finalPreferred * 0.9;
+        }
+
+        // 团队精神影响期望（高团队精神可以接受更低）
+        const teamOrientation = personalityDimensions.teamOrientation || 50;
+        if (teamOrientation >= 70) {
+            finalMin = finalMin * 0.85;
+            finalPreferred = finalPreferred * 0.9;
+        }
+
+        // 耐心影响灵活性
+        const patience = personalityDimensions.patience || 50;
+        const isFlexible = patience >= 60 || teamOrientation >= 65 || maxVal < 70;
+
         return {
+            level: selectedLevel,
             min: Math.round(finalMin * 100) / 100,
             max: Math.round(finalMax * 100) / 100,
             preferred: Math.round(finalPreferred * 100) / 100,
-            flexible: Math.random() < 0.5
+            flexible: isFlexible,
+            personalityDimensions: personalityDimensions
         };
     }
 
     /**
      * Calculate base rating from attributes
+     * 使用新的评级系统计算能力值
      * @param {Object} attributes - Player attributes
+     * @param {string} position - Player position
+     * @param {number} year - Academic year
+     * @param {Array} talents - Player talents
      * @returns {number} Base rating
      */
-    calculateBaseRating(attributes) {
-        const weights = {
-            scoring: 0.15, shooting: 0.1, threePoint: 0.1, freeThrow: 0.05,
-            passing: 0.1, dribbling: 0.1, defense: 0.1, rebounding: 0.1,
-            stealing: 0.05, blocking: 0.05, speed: 0.05, stamina: 0.05,
-            strength: 0.05, basketballIQ: 0.1
-        };
-
-        let rating = 0;
-        for (const [attr, weight] of Object.entries(weights)) {
-            rating += (attributes[attr] || 50) * weight;
-        }
-
-        return Math.round(rating);
+    calculateBaseRating(attributes, position = 'SF', year = 1, talents = []) {
+        // 使用新的评级系统计算能力值
+        return this.ratingSystem.calculateOverallRating(attributes, position, year, talents);
     }
 
     /**
@@ -881,13 +1209,14 @@ class GameInitializer {
         const year = Math.floor(Math.random() * 4) + 1;
         const age = this.generateAgeForYear(year);
 
-        const attributes = this.generateAttributes(playerPosition);
+        // 先生成潜力值，再根据潜力生成属性
+        const potential = this.calculatePotential(year, null, 0, false, false);
+        const attributes = this.generateAttributes(playerPosition, potential);
 
-        const baseRating = this.calculateBaseRating(attributes);
-        // 对于普通方法，不使用特殊的新生潜力分布
-        const potential = this.calculatePotential(year, attributes, baseRating, false);
+        const baseRating = this.calculateBaseRating(attributes, playerPosition, year);
         
-        const rating = this.calculateRatingWithGrowth(year, attributes, baseRating);
+        // 使用新的成长系统计算能力值
+        const rating = this.calculateRatingWithGrowth(year, attributes, baseRating, potential);
 
         const talents = this.generateTalents(potential, year);
         const skills = this.generateSkills(talents, playerPosition);
@@ -914,64 +1243,20 @@ class GameInitializer {
     }
 
     /**
-     * Generate player attributes based on position
+     * Generate player attributes based on position and archetype
+     * 使用新的评级系统，参考2K正代和真实大学篮球数据
      * @param {string} position - Player position
+     * @param {number} potential - Player potential (optional)
      * @returns {Object} Player attributes
      */
-    generateAttributes(position) {
-        const baseAttributes = {
-            scoring: 30 + Math.floor(Math.random() * 40),
-            shooting: 30 + Math.floor(Math.random() * 40),
-            threePoint: 30 + Math.floor(Math.random() * 40),
-            freeThrow: 30 + Math.floor(Math.random() * 40),
-            passing: 30 + Math.floor(Math.random() * 40),
-            dribbling: 30 + Math.floor(Math.random() * 40),
-            defense: 30 + Math.floor(Math.random() * 40),
-            rebounding: 30 + Math.floor(Math.random() * 40),
-            stealing: 30 + Math.floor(Math.random() * 40),
-            blocking: 30 + Math.floor(Math.random() * 40),
-            speed: 30 + Math.floor(Math.random() * 40),
-            stamina: 30 + Math.floor(Math.random() * 40),
-            strength: 30 + Math.floor(Math.random() * 40),
-            basketballIQ: 30 + Math.floor(Math.random() * 40)
-        };
-
-        switch (position) {
-            case 'PG':
-                baseAttributes.passing += 10;
-                baseAttributes.dribbling += 10;
-                baseAttributes.basketballIQ += 10;
-                baseAttributes.stealing += 5;
-                break;
-            case 'SG':
-                baseAttributes.shooting += 10;
-                baseAttributes.threePoint += 10;
-                baseAttributes.scoring += 5;
-                break;
-            case 'SF':
-                baseAttributes.scoring += 5;
-                baseAttributes.shooting += 5;
-                baseAttributes.defense += 5;
-                baseAttributes.rebounding += 5;
-                break;
-            case 'PF':
-                baseAttributes.rebounding += 10;
-                baseAttributes.strength += 10;
-                baseAttributes.defense += 5;
-                break;
-            case 'C':
-                baseAttributes.rebounding += 15;
-                baseAttributes.strength += 15;
-                baseAttributes.blocking += 10;
-                baseAttributes.defense += 5;
-                break;
+    generateAttributes(position, potential = null) {
+        // 如果没有提供潜力值，生成一个随机的
+        if (potential === null) {
+            potential = 60 + Math.floor(Math.random() * 25); // 60-85
         }
-
-        for (const [key, value] of Object.entries(baseAttributes)) {
-            baseAttributes[key] = Math.min(99, Math.max(1, value));
-        }
-
-        return baseAttributes;
+        
+        // 使用新的评级系统生成属性
+        return this.ratingSystem.generateAttributes(position, potential);
     }
 
     /**

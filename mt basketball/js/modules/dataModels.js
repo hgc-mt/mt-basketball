@@ -34,7 +34,7 @@ class Player {
         this.position = data.position;
         this.age = data.age;
         this.year = data.year;
-        this.attributes = { ...data.attributes };
+        this.attributes = data.attributes ? { ...data.attributes } : this.generateDefaultAttributes();
         this.potential = data.potential;
         this.rating = data.rating || null;
         this.talents = [...(data.talents || [])];
@@ -65,13 +65,13 @@ class Player {
             weakness: '防守'
         };
         
-        // Scholarship requirement
-        this.scholarshipRequirement = data.scholarshipRequirement || {
-            min: 0.5,
-            max: 1.0,
-            preferred: 0.7,
-            flexible: true
-        };
+        // 球员性格维度系统 - 每个维度0-100独立评分
+        this.personalityDimensions = data.personalityDimensions || this.generatePersonalityDimensions();
+        this.personalityProfile = this.generatePersonalityProfile();
+        
+        // Scholarship requirement - 使用新的5级奖学金系统
+        // 根据球员能力自动计算合理的奖学金期望
+        this.scholarshipRequirement = data.scholarshipRequirement || this.calculateScholarshipRequirement();
         
         this.learningSkills = [];
         this.stats = {
@@ -94,12 +94,19 @@ class Player {
      * @returns {number} Overall rating (1-100)
      */
     getOverallRating() {
+        // 确保 attributes 存在
+        if (!this.attributes || typeof this.attributes !== 'object') {
+            console.warn('Player attributes not found:', this.name);
+            return 50; // 默认能力值
+        }
+        
         const positionWeights = this.getPositionWeights();
         let weightedSum = 0;
         let totalWeight = 0;
 
         for (const [attr, weight] of Object.entries(positionWeights)) {
-            weightedSum += this.attributes[attr] * weight;
+            const attrValue = this.attributes[attr] || 50;
+            weightedSum += attrValue * weight;
             totalWeight += weight;
         }
 
@@ -131,6 +138,61 @@ class Player {
     }
 
     /**
+     * Generate default attributes when none provided
+     * @returns {Object} Default attributes
+     */
+    generateDefaultAttributes() {
+        // 根据位置生成默认属性
+        const baseAttrs = {
+            scoring: 50, shooting: 50, threePoint: 50, freeThrow: 50,
+            passing: 50, dribbling: 50, defense: 50, rebounding: 50,
+            stealing: 50, blocking: 50, speed: 50, stamina: 50,
+            strength: 50, basketballIQ: 50
+        };
+        
+        // 根据位置调整
+        switch (this.position) {
+            case 'PG':
+                baseAttrs.passing = 65;
+                baseAttrs.dribbling = 65;
+                baseAttrs.speed = 65;
+                baseAttrs.stealing = 60;
+                baseAttrs.strength = 40;
+                baseAttrs.rebounding = 35;
+                baseAttrs.blocking = 30;
+                break;
+            case 'SG':
+                baseAttrs.shooting = 65;
+                baseAttrs.threePoint = 65;
+                baseAttrs.scoring = 60;
+                baseAttrs.strength = 40;
+                baseAttrs.rebounding = 35;
+                break;
+            case 'SF':
+                baseAttrs.scoring = 55;
+                baseAttrs.defense = 55;
+                baseAttrs.speed = 55;
+                break;
+            case 'PF':
+                baseAttrs.rebounding = 65;
+                baseAttrs.strength = 65;
+                baseAttrs.defense = 60;
+                baseAttrs.threePoint = 40;
+                break;
+            case 'C':
+                baseAttrs.rebounding = 70;
+                baseAttrs.strength = 70;
+                baseAttrs.blocking = 65;
+                baseAttrs.defense = 60;
+                baseAttrs.threePoint = 30;
+                baseAttrs.speed = 35;
+                break;
+        }
+        
+        return baseAttrs;
+    }
+
+    /**
      * Get talent bonus to overall rating
      * @returns {number} Talent bonus
      */
@@ -153,6 +215,193 @@ class Player {
         const rating = this.getOverallRating();
         const potentialBonus = (this.potential - rating) * 0.3;
         return Math.round(rating + potentialBonus);
+    }
+
+    /**
+     * 计算球员奖学金要求 - 基于新的5级奖学金系统
+     * @returns {Object} 奖学金要求 {level, min, max, preferred, flexible}
+     */
+    calculateScholarshipRequirement() {
+        const rating = this.getOverallRating();
+        const potential = this.potential || 60;
+        const maxVal = Math.max(rating, potential);
+        
+        // 根据能力值确定奖学金等级
+        let level = 'none';
+        let minReq = 0;
+        let preferredReq = 0;
+        let maxReq = 0;
+        
+        if (maxVal >= 80) {
+            // 明星球员 - 全额奖学金
+            level = 'full';
+            minReq = 0.8;      // 最低接受80%
+            preferredReq = 1.0; // 期望100%
+            maxReq = 1.0;
+        } else if (maxVal >= 72) {
+            // 主力球员 - 主要奖学金(60%)或更高
+            level = 'major';
+            minReq = 0.4;      // 最低接受40%
+            preferredReq = 0.6; // 期望60%
+            maxReq = 0.8;
+        } else if (maxVal >= 65) {
+            // 轮换球员 - 部分奖学金(35%)或更高
+            level = 'partial';
+            minReq = 0.15;     // 最低接受15%
+            preferredReq = 0.35; // 期望35%
+            maxReq = 0.5;
+        } else if (maxVal >= 58) {
+            // 边缘球员 - 基础奖学金(15%)或更高
+            level = 'minimal';
+            minReq = 0;        // 可以接受无奖学金
+            preferredReq = 0.15; // 期望15%
+            maxReq = 0.25;
+        } else {
+            // 发展球员 - 无奖学金或基础
+            level = 'none';
+            minReq = 0;        // 接受无奖学金
+            preferredReq = 0;  // 期望无奖学金
+            maxReq = 0.1;
+        }
+        
+        // 性格调整
+        const personality = this.personality || 'balanced';
+        const personalityModifiers = {
+            'ambitious': 1.15,      // 雄心勃勃 - 期望更高
+            'team_first': 0.85,     // 团队优先 - 可以接受更低
+            'money_focused': 1.2,   // 看重金钱 - 期望更高
+            'development': 0.8,     // 看重发展 - 可以接受更低
+            'balanced': 1.0
+        };
+        const mod = personalityModifiers[personality] || 1.0;
+        
+        return {
+            level: level,
+            min: Math.min(1.0, minReq * mod),
+            preferred: Math.min(1.0, preferredReq * mod),
+            max: Math.min(1.0, maxReq * mod),
+            flexible: maxVal < 75 // 非明星球员更灵活
+        };
+    }
+
+    /**
+     * 生成性格维度评分
+     * @returns {Object} 各维度评分 (0-100)
+     */
+    generatePersonalityDimensions() {
+        if (typeof PlayerPersonalityConfig !== 'undefined') {
+            return PlayerPersonalityConfig.generatePersonalityDimensions();
+        }
+
+        // 默认实现：生成正态分布的随机值
+        const dimensions = {};
+        const dimNames = ['ambition', 'teamOrientation', 'workEthic', 'moneyFocus',
+                         'competitiveness', 'loyalty', 'patience', 'pressureHandling'];
+
+        for (const dim of dimNames) {
+            const u1 = Math.random();
+            const u2 = Math.random();
+            const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+            let value = Math.round(50 + z * 15);
+            value = Math.max(0, Math.min(100, value));
+            dimensions[dim] = value;
+        }
+
+        return dimensions;
+    }
+
+    /**
+     * 生成性格档案
+     * @returns {Object} 完整性格档案
+     */
+    generatePersonalityProfile() {
+        if (typeof PlayerPersonalityConfig !== 'undefined') {
+            return PlayerPersonalityConfig.generateFullPersonality(this.personalityDimensions);
+        }
+
+        // 默认实现
+        return {
+            dimensions: this.personalityDimensions,
+            primaryTag: { id: 'balanced', name: '均衡型', icon: '⚖️', description: '各方面都很均衡' },
+            effects: {
+                scholarshipModifier: 1.0,
+                trainingEffort: 1.0,
+                clutchPerformance: 1.0,
+                transferLikelihood: 1.0,
+                consistency: 1.0,
+                leadership: 0.5
+            },
+            description: '这是一个均衡型球员'
+        };
+    }
+
+    /**
+     * 获取性格信息（用于UI显示）
+     * @returns {Object} 性格信息
+     */
+    getPersonalityInfo() {
+        if (this.personalityProfile) {
+            return {
+                tag: this.personalityProfile.primaryTag,
+                dimensions: this.personalityDimensions,
+                description: this.personalityProfile.description,
+                effects: this.personalityProfile.effects
+            };
+        }
+
+        return {
+            tag: { id: 'balanced', name: '均衡型', icon: '⚖️', description: '各方面都很均衡' },
+            dimensions: this.personalityDimensions || {},
+            description: '该球员性格特征不明显',
+            effects: {}
+        };
+    }
+
+    /**
+     * 获取主要性格标签
+     * @returns {Object} 性格标签
+     */
+    getPrimaryPersonalityTag() {
+        return this.personalityProfile?.primaryTag || { id: 'balanced', name: '均衡型', icon: '⚖️' };
+    }
+
+    /**
+     * 获取性格对招募的影响
+     * @returns {Object} 招募影响因素
+     */
+    getPersonalityRecruitmentImpact() {
+        const effects = this.personalityProfile?.effects || {};
+        const dims = this.personalityDimensions || {};
+
+        return {
+            scholarshipModifier: effects.scholarshipModifier || 1.0,
+            playingTimeImportance: (dims.patience || 50) / 100,
+            teamSuccessImportance: (dims.teamOrientation || 50) / 100,
+            developmentImportance: (dims.workEthic || 50) / 100,
+            loyalty: (dims.loyalty || 50) / 100,
+            ambition: (dims.ambition || 50) / 100,
+            moneyFocus: (dims.moneyFocus || 50) / 100
+        };
+    }
+
+    /**
+     * 获取性格效果值
+     * @param {string} effectType - 效果类型
+     * @returns {number} 效果值
+     */
+    getPersonalityEffect(effectType) {
+        if (this.personalityProfile?.effects?.[effectType] !== undefined) {
+            return this.personalityProfile.effects[effectType];
+        }
+
+        if (typeof PlayerPersonalityConfig !== 'undefined') {
+            return PlayerPersonalityConfig.calculateCompositeEffect(
+                this.personalityDimensions,
+                effectType
+            );
+        }
+
+        return 1.0; // 默认值
     }
 
     /**
@@ -1584,7 +1833,8 @@ class Team {
         this.name = data.name;
         this.conference = data.conference;
         this.funds = data.funds || 1000000;
-        this.scholarships = data.scholarships || 13;
+        // 使用新的奖学金系统 - 5份总额
+        this.scholarships = data.scholarships || 5;
         this.roster = [...(data.roster || [])];
         this.coach = data.coach || null;
         this.stats = {
@@ -1604,25 +1854,61 @@ class Team {
             PF: null,
             C: null
         };
+        // 奖学金分配策略
+        this.scholarshipStrategy = data.scholarshipStrategy || 'dualCore';
+        // 球队声望等级（影响招募）
+        this.reputationTier = data.reputationTier || 'average';
+        
+        // 球队风格系统
+        this.styleId = data.styleId || 'BALANCED_PROGRAM';
+        this.styleName = data.styleName || '均衡发展';
+        this.reputation = data.reputation || 70;
+        this.facilities = data.facilities || 75;
+        this.academicPrestige = data.academicPrestige || 75;
+        this.fanSupport = data.fanSupport || 75;
     }
 
     /**
      * Add a player to the team
      * @param {Player} player - Player to add
+     * @param {string} scholarshipLevel - 奖学金等级 (full, major, partial, minimal, none)
      * @returns {boolean} Whether player was added successfully
      */
-    addPlayer(player) {
-        // 计算已使用的奖学金总份额
-        const usedScholarshipShare = this.calculateUsedScholarshipShare();
-        const playerScholarshipShare = player.scholarship || 1.0; // 默认为全额奖学金
+    addPlayer(player, scholarshipLevel = null) {
+        // 如果没有指定奖学金等级，使用球员期望的等级
+        if (!scholarshipLevel) {
+            scholarshipLevel = player.scholarshipLevel || 'none';
+        }
         
-        // 检查是否还有足够的奖学金份额
-        if (usedScholarshipShare + playerScholarshipShare > this.scholarships) {
+        // 检查是否可以为该球员提供指定等级的奖学金
+        const canOffer = this.canOfferScholarship(scholarshipLevel);
+        if (!canOffer.canOffer) {
+            console.warn(`无法添加球员 ${player.name}:`, canOffer.messages.join(', '));
             return false;
         }
 
+        // 设置球员的奖学金等级
+        player.scholarshipLevel = scholarshipLevel;
+        player.scholarship = this.getScholarshipValue(scholarshipLevel);
+        
         this.roster.push(player);
         return true;
+    }
+
+    /**
+     * 获取奖学金等级的数值
+     * @param {string} level - 奖学金等级
+     * @returns {number} 奖学金份额值
+     */
+    getScholarshipValue(level) {
+        const values = {
+            'full': 1.0,
+            'major': 0.6,
+            'partial': 0.35,
+            'minimal': 0.15,
+            'none': 0
+        };
+        return values[level] || 0;
     }
 
     /**
@@ -1631,7 +1917,7 @@ class Team {
      */
     calculateUsedScholarshipShare() {
         return this.roster.reduce((total, player) => {
-            return total + (player.scholarship || 1.0);
+            return total + this.getScholarshipValue(player.scholarshipLevel);
         }, 0);
     }
 
@@ -1641,6 +1927,66 @@ class Team {
      */
     getAvailableScholarshipShare() {
         return this.scholarships - this.calculateUsedScholarshipShare();
+    }
+
+    /**
+     * 检查是否可以为某等级奖学金提供名额
+     * @param {string} level - 奖学金等级
+     * @returns {Object} 检查结果
+     */
+    canOfferScholarship(level) {
+        const currentUsed = this.calculateUsedScholarshipShare();
+        const levelValue = this.getScholarshipValue(level);
+        
+        // 检查奖学金总额
+        const canAfford = (currentUsed + levelValue) <= this.scholarships;
+        
+        // 检查该等级的名额限制
+        const levelLimits = {
+            'full': 2,
+            'major': 3,
+            'partial': 4,
+            'minimal': 6,
+            'none': 999
+        };
+        const currentCountAtLevel = this.roster.filter(p => p.scholarshipLevel === level).length;
+        const maxAtLevel = levelLimits[level] || 999;
+        const hasSlot = currentCountAtLevel < maxAtLevel;
+        
+        return {
+            canOffer: canAfford && hasSlot,
+            canAfford,
+            hasSlot,
+            currentUsed,
+            wouldUse: currentUsed + levelValue,
+            remaining: this.scholarships - currentUsed,
+            currentCountAtLevel,
+            maxAtLevel,
+            messages: []
+                .concat(!canAfford ? [`奖学金不足：需要${levelValue}份，剩余${(this.scholarships - currentUsed).toFixed(2)}份`] : [])
+                .concat(!hasSlot ? [`该等级名额已满：${currentCountAtLevel}/${maxAtLevel}`] : [])
+        };
+    }
+
+    /**
+     * 获取各奖学金等级的人数统计
+     * @returns {Object} 各等级人数
+     */
+    getScholarshipDistribution() {
+        const distribution = {
+            full: 0,
+            major: 0,
+            partial: 0,
+            minimal: 0,
+            none: 0
+        };
+        
+        this.roster.forEach(player => {
+            const level = player.scholarshipLevel || 'none';
+            distribution[level] = (distribution[level] || 0) + 1;
+        });
+        
+        return distribution;
     }
 
     /**

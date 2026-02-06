@@ -115,6 +115,9 @@ class TeamManager {
         const availableEl = document.getElementById('scholarship-available');
         const progressPathEl = document.getElementById('scholarship-progress-path');
 
+        // NCAA D1规则是13份奖学金
+        const MAX_SCHOLARSHIPS = 13;
+        
         // 使用新的奖学金计算逻辑
         let total, used;
         
@@ -125,11 +128,11 @@ class TeamManager {
             used = team.calculateUsedScholarshipShare ? team.calculateUsedScholarshipShare() : (team.roster ? team.roster.length : 0);
         } else if (team.scholarships && typeof team.scholarships === 'object') {
             // 旧数据结构 { total: 5, used: 0 }
-            total = team.scholarships.total || 5;
+            total = team.scholarships.total || MAX_SCHOLARSHIPS;
             used = team.scholarships.used || 0;
         } else {
-            // 默认值
-            total = 5;
+            // 默认使用13份（NCAA D1标准）
+            total = MAX_SCHOLARSHIPS;
             used = team.roster ? team.roster.length : 0;
         }
 
@@ -577,7 +580,10 @@ class TeamManager {
         const goToMarketBtn = document.getElementById('go-to-market');
         if (goToMarketBtn) {
             goToMarketBtn.onclick = () => {
-                document.getElementById('market-btn')?.click();
+                const marketBtn = document.getElementById('market-btn');
+                if (marketBtn) {
+                    marketBtn.click();
+                }
             };
         }
 

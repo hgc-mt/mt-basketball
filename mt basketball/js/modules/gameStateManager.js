@@ -204,7 +204,9 @@ class GameStateManager {
                 potential: p.potential,
                 rating: p.rating,
                 status: p.status,
-                formerTeam: p.formerTeam
+                formerTeam: p.formerTeam,
+                personalityDimensions: p.personalityDimensions,
+                scholarshipRequirement: p.scholarshipRequirement
                 // Removed: attributes, contract, background (too large)
             }));
         }
@@ -316,11 +318,14 @@ class GameStateManager {
     async loadGameState() {
         try {
             let saveData = null;
+            let parsed = null;
             
             if (typeof loadGameFromAccount === 'function') {
                 saveData = loadGameFromAccount();
                 if (saveData) {
                     console.log('Game state loaded from account');
+                    // Account manager returns already parsed object
+                    parsed = saveData;
                 }
             }
             
@@ -328,12 +333,11 @@ class GameStateManager {
                 saveData = localStorage.getItem('basketballManagerSave');
                 if (saveData) {
                     console.log('Game state loaded from localStorage');
+                    parsed = JSON.parse(saveData);
                 }
             }
             
-            if (!saveData) return null;
-
-            const parsed = JSON.parse(saveData);
+            if (!parsed) return null;
 
             // Handle minimal saves - merge with defaults
             if (parsed.version === '1.0_minimal') {

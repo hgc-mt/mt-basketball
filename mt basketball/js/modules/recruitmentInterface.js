@@ -33,22 +33,39 @@ class RecruitmentInterface {
         
         this.players = [];
         this.isInitialized = false;
+        
+        // 初始化竞争性招募界面
+        if (gameInitializer && gameInitializer.recruitmentCompetitionSystem) {
+            this.competitiveInterface = new CompetitiveRecruitmentInterface(
+                this,
+                gameInitializer.recruitmentCompetitionSystem
+            );
+        }
     }
 
     async initialize() {
-        if (this.isInitialized) return;
-        
+        console.log('RecruitmentInterface.initialize() called, isInitialized:', this.isInitialized);
+
         this.loadFavorites();
         this.loadPlayers();
-        
+
         console.log('RecruitmentInterface initialize:', {
             playersLoaded: this.players.length,
-            samplePlayer: this.players[0] ? { id: this.players[0].id, name: this.players[0].name } : 'none'
+            samplePlayer: this.players[0] ? {
+                id: this.players[0].id,
+                name: this.players[0].name,
+                hasDims: !!this.players[0].personalityDimensions,
+                dims: this.players[0].personalityDimensions
+            } : 'none'
         });
-        
-        this.setupEventListeners();
+
+        // 只在第一次初始化时设置事件监听
+        if (!this.isInitialized) {
+            this.setupEventListeners();
+        }
+
         this.renderAll();
-        
+
         this.isInitialized = true;
         console.log('Recruitment Interface initialized');
     }
@@ -70,7 +87,35 @@ class RecruitmentInterface {
 
     loadPlayers() {
         const state = this.gameStateManager.getState();
-        this.players = state.availablePlayers || [];
+        const rawPlayers = state.availablePlayers || [];
+
+        console.log('Loading players, count:', rawPlayers.length);
+        if (rawPlayers.length > 0) {
+            console.log('First player personalityDimensions:', rawPlayers[0].personalityDimensions);
+        }
+
+        // 将普通对象转换为Player实例，确保性格维度正确
+        this.players = rawPlayers.map(p => {
+            // 检查是否已经是Player实例
+            const isPlayerInstance = p instanceof Player ||
+                (p.constructor && p.constructor.name === 'Player');
+
+            if (isPlayerInstance && p.personalityDimensions) {
+                // 已经是Player实例且有性格维度
+                return p;
+            }
+
+            // 需要创建新的Player实例
+            console.log('Creating Player instance for:', p.name, 'has dimensions:', !!p.personalityDimensions);
+            const playerInstance = new Player(p);
+            console.log('Created Player instance with dimensions:', playerInstance.personalityDimensions);
+            return playerInstance;
+        });
+
+        console.log('Loaded players with personality:', this.players.map(p => ({
+            name: p.name,
+            dims: p.personalityDimensions
+        })));
     }
 
     savePlayers() {
@@ -356,9 +401,12 @@ class RecruitmentInterface {
         if (scholarshipRemaining) {
             const state = this.gameStateManager.getState();
             const userTeam = state.userTeam;
-            const used = userTeam?.roster?.length || 0;
-            const max = 13;
-            scholarshipRemaining.textContent = `${max - used}/${max}`;
+            // 使用新的5级奖学金系统计算
+            const used = userTeam?.calculateUsedScholarshipShare ? 
+                userTeam.calculateUsedScholarshipShare() : 
+                (userTeam?.roster?.reduce((sum, p) => sum + (p.scholarship || 0), 0) || 0);
+            const max = 5; // 新的奖学金总额
+            scholarshipRemaining.textContent = `${(max - used).toFixed(1)}/${max}`;
         }
 
         if (activeNegotiations) {
@@ -442,120 +490,145 @@ class RecruitmentInterface {
         if (filteredPlayers.length === 0) {
             container.innerHTML = `
                 <div class="no-results">
-                    <p>没有找到符合条件的球员</p>
-                    <p>请尝试调整筛选条件</p>
+                    <p>🏀 暂无符合条件的球员</p>
+                    <p>当前共有 ${this.players.length} 名球员在库中</p>
+                    ${this.players.length === 0 ? `
+                        <button onclick="window.location.reload()" style="margin-top: 15px; padding: 10px 20px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer;">
+                            🔄 刷新页面重新加载
+                        </button>
+                    ` : `
+                        <button onclick="window.recruitmentInterface.resetFilters()" style="margin-top: 15px; padding: 10px 20px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer;">
+                            🔄 重置筛选条件
+                        </button>
+                    `}
                 </div>
             `;
             return;
         }
 
-        container.innerHTML = filteredPlayers.map(player => this.createPlayerCard(player)).join('');
-        
+        try {
+            container.innerHTML = filteredPlayers.map(player => {
+                try {
+                    return this.createPlayerCard(player);
+                } catch (e) {
+                    console.error('Error creating card for player:', player.name, e);
+                    return `<div class="player-card error">[球员卡片加载失败: ${player.name}]</div>`;
+                }
+            }).join('');
+        } catch (e) {
+            console.error('Error rendering player cards:', e);
+            container.innerHTML = '<div class="no-results"><p>加载球员卡片时出错</p></div>';
+            return;
+        }
+
         // 绑定事件
         this.bindCardEvents();
     }
 
     createPlayerCard(player) {
         const level = this.getPotentialLevel(player.potential);
-        const rating = player.rating || player.getOverallRating();
+
+        // 安全获取能力值
+        let rating = player.rating;
+        if (!rating && typeof player.getOverallRating === 'function') {
+            try {
+                rating = player.getOverallRating();
+            } catch (e) {
+                rating = 50;
+            }
+        }
+        if (!rating || isNaN(rating)) {
+            rating = 50;
+        }
+
         const ratingLevel = this.getRatingLevel(rating);
         const isFavorite = this.favorites.has(player.id);
         const yearLabels = { 1: '大一', 2: '大二', 3: '大三', 4: '大四' };
 
         const ratingColor = this.getRatingColor(rating);
         const initials = player.name.split(' ').map(n => n[0]).join('');
-        
+
         // 获取球员状态
         const statusLabel = player.getStatusLabel();
         const isTransfer = player.status === 'transfer_wanted';
         const isFreshman = player.status === 'freshman_recruit';
         const statusClass = isTransfer ? 'status-transfer' : (isFreshman ? 'status-freshman' : 'status-free');
         const statusIcon = isTransfer ? '🔄' : (isFreshman ? '🎓' : '🏀');
-        
-        // 获取技术特点
-        const techInfo = player.technicalInfo || {};
-        const playStyle = techInfo.playStyle || '攻守平衡';
-        const bestSkill = techInfo.bestSkill || '投篮';
+
+        // 获取性格信息
+        const personalityHtml = this.renderPersonalityTag(player);
 
         return `
             <div class="player-card ${level.label} ${isFavorite ? 'is-favorite' : ''}" data-player-id="${player.id}">
-                <div class="favorite-indicator">⭐</div>
-                <div class="card-quick-actions">
-                    <button class="quick-action-btn favorite-btn ${isFavorite ? 'favorited' : ''}" 
-                        data-player-id="${player.id}" title="${isFavorite ? '取消收藏' : '收藏球员'}">
-                        ${isFavorite ? '⭐' : '☆'}
-                    </button>
-                    <button class="quick-action-btn compare-btn" data-player-id="${player.id}" title="对比">
-                        📊
-                    </button>
+                <!-- 顶部状态栏 -->
+                <div class="card-top-bar">
+                    <div class="player-status-badge ${statusClass}">
+                        <span>${statusIcon}</span>
+                        <span>${statusLabel}</span>
+                    </div>
+                    <div class="card-actions">
+                        <button class="icon-btn favorite-btn ${isFavorite ? 'favorited' : ''}"
+                            data-player-id="${player.id}" title="${isFavorite ? '取消收藏' : '收藏球员'}">
+                            ${isFavorite ? '⭐' : '☆'}
+                        </button>
+                    </div>
                 </div>
-                
-                <div class="player-status-badge ${statusClass}">
-                    <span>${statusIcon}</span>
-                    <span>${statusLabel}</span>
-                </div>
-                
-                <div class="card-header">
+
+                <!-- 球员基本信息 -->
+                <div class="card-main-info">
                     <div class="player-avatar">${initials}</div>
-                    <div class="player-basic-info">
+                    <div class="player-info">
                         <h3 class="player-name">${player.name}</h3>
-                        <div class="player-meta">
-                            <span class="meta-tag">${Positions[player.position]}</span>
-                            <span class="meta-tag">${yearLabels[player.year]}</span>
-                            <span class="meta-tag">${player.age}岁</span>
+                        <div class="player-tags">
+                            <span class="tag position-tag">${Positions[player.position]}</span>
+                            <span class="tag year-tag">${yearLabels[player.year]}</span>
+                            <span class="tag age-tag">${player.age}岁</span>
                         </div>
                     </div>
                 </div>
-                
-                <div class="rating-display-center">
-                    <div class="rating-center-label">能力值</div>
-                    <div class="rating-center-value" style="color: ${ratingColor};">${rating}</div>
-                    <div class="rating-center-level">${ratingLevel.label}</div>
-                    <div class="rating-bar-horizontal">
-                        <div class="rating-bar-fill" style="width: ${rating}%; background: ${ratingColor};"></div>
+
+                <!-- 能力值和潜力 -->
+                <div class="card-ratings">
+                    <div class="rating-box">
+                        <div class="rating-label">能力</div>
+                        <div class="rating-value" style="color: ${ratingColor};">${rating}</div>
+                        <div class="rating-bar">
+                            <div class="rating-fill" style="width: ${rating}%; background: ${ratingColor};"></div>
+                        </div>
+                    </div>
+                    <div class="potential-box ${level.label}">
+                        <div class="potential-label">潜力</div>
+                        <div class="potential-value">${player.potential}</div>
+                        <div class="potential-icon">${level.icon}</div>
                     </div>
                 </div>
-                
-                <div class="potential-side ${level.label}">
-                    <div class="potential-label">潜力</div>
-                    <div class="potential-value">${player.potential}</div>
-                    <div class="potential-badge">
-                        <span>${level.icon}</span>
+
+                <!-- 关键属性 -->
+                <div class="card-attributes">
+                    <div class="attr-box">
+                        <span class="attr-name">进攻</span>
+                        <span class="attr-val">${player.attributes.scoring}</span>
+                    </div>
+                    <div class="attr-box">
+                        <span class="attr-name">防守</span>
+                        <span class="attr-val">${player.attributes.defense}</span>
+                    </div>
+                    <div class="attr-box">
+                        <span class="attr-name">篮板</span>
+                        <span class="attr-val">${player.attributes.rebounding}</span>
                     </div>
                 </div>
-                
-                <div class="attributes-summary">
-                    <div class="attr-item">
-                        <div class="attr-label">进攻</div>
-                        <div class="attr-value">${player.attributes.scoring}</div>
-                    </div>
-                    <div class="attr-item">
-                        <div class="attr-label">防守</div>
-                        <div class="attr-value">${player.attributes.defense}</div>
-                    </div>
-                    <div class="attr-item">
-                        <div class="attr-label">篮板</div>
-                        <div class="attr-value">${player.attributes.rebounding}</div>
-                    </div>
-                </div>
-                
-                <div class="player-tech-info">
-                    <span class="tech-tag">${playStyle}</span>
-                    <span class="tech-tag">擅长: ${bestSkill}</span>
-                </div>
-                
-                ${player.status === 'transfer_wanted' ? `
-                <div class="transfer-info">
-                    <span>前东家: ${player.formerTeam || '未知'}</span>
-                </div>
-                ` : ''}
-                
+
+                <!-- 性格特征 -->
+                ${personalityHtml}
+
+                <!-- 底部按钮 -->
                 <div class="card-footer">
-                    <button class="action-btn btn-negotiate" data-action="negotiate" data-player-id="${player.id}">
-                        ${player.status === 'freshman_recruit' ? '招募球员' : (player.status === 'transfer_wanted' ? '申请转会' : '发起谈判')}
-                    </button>
-                    <button class="action-btn btn-detail" data-action="detail" data-player-id="${player.id}">
+                    <button class="btn-primary" data-action="detail" data-player-id="${player.id}">
                         查看详情
+                    </button>
+                    <button class="btn-secondary" data-action="negotiate" data-player-id="${player.id}">
+                        ${player.status === 'freshman_recruit' ? '招募' : (player.status === 'transfer_wanted' ? '转会' : '谈判')}
                     </button>
                 </div>
             </div>
@@ -598,7 +671,12 @@ class RecruitmentInterface {
             if (action === 'negotiate') {
                 this.openNegotiation(player);
             } else if (action === 'detail') {
-                this.showPlayerDetail(player);
+                // 使用竞争性招募界面显示详情
+                if (this.competitiveInterface) {
+                    this.competitiveInterface.showCompetitivePlayerDetail(player);
+                } else {
+                    this.showPlayerDetail(player);
+                }
             }
         });
 
@@ -635,10 +713,12 @@ class RecruitmentInterface {
 
     openNegotiation(player) {
         console.log('openNegotiation called for player:', player.id, player.name);
-        
+
         if (typeof window.negotiationManager !== 'undefined' && window.negotiationManager) {
             try {
+                // 先启动谈判
                 window.negotiationManager.startNegotiation(player.id);
+                // 然后显示详情弹窗（带谈判界面）
                 this.showPlayerDetail(player, true);
             } catch (error) {
                 console.error('Negotiation error:', error);
@@ -656,172 +736,114 @@ class RecruitmentInterface {
         if (!modal || !content) return;
 
         const level = this.getPotentialLevel(player.potential);
-        const rating = player.rating || player.getOverallRating();
-        const ratingLevel = this.getRatingLevel(rating);
-        const yearLabels = { 1: '大一', 2: '大二', 3: '大三', 4: '大四' };
-        const initials = player.name.split(' ').map(n => n[0]).join('');
-
-        const background = player.background || {};
-        const achievements = background.achievements || [];
-        const specialties = background.specialties || [];
-
-        content.innerHTML = `
-            <div class="detail-header">
-                <div class="detail-avatar">${initials}</div>
-                <div class="detail-info">
-                    <h2 class="detail-name">${player.name}</h2>
-                    <div class="detail-tags">
-                        <span class="tag position">${Positions[player.position]}</span>
-                        <span class="tag year">${yearLabels[player.year]}</span>
-                        <span class="tag rating" style="background: ${this.getRatingColor(rating)}20; color: ${this.getRatingColor(rating)};">
-                            能力值 ${rating}
-                        </span>
-                        <span class="tag potential" style="background: ${level.color}20; color: ${level.color};">
-                            ${level.icon} 潜力值 ${player.potential}
-                        </span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 核心属性区 -->
-            <div class="detail-section">
-                <h4>核心属性</h4>
-                <div class="core-attributes">
-                    <div class="core-attr-card">
-                        <div class="core-attr-value" style="color: ${level.color};">${player.potential}</div>
-                        <div class="core-attr-label">潜力值</div>
-                    </div>
-                    <div class="core-attr-card">
-                        <div class="core-attr-value" style="color: ${this.getRatingColor(rating)};">${rating}</div>
-                        <div class="core-attr-label">当前战力</div>
-                    </div>
-                    <div class="core-attr-card">
-                        <div class="core-attr-value">${player.age}</div>
-                        <div class="core-attr-label">年龄</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 详细属性区 -->
-            <div class="detail-section">
-                <h4>技术指标</h4>
-                <div class="detailed-attributes">
-                    <div class="attr-category">
-                        <h5>进攻能力</h5>
-                        <div class="attr-list">
-                            ${this.createAttrRow('得分', player.attributes.scoring, '#ef4444')}
-                            ${this.createAttrRow('投篮', player.attributes.shooting, '#f59e0b')}
-                            ${this.createAttrRow('三分', player.attributes.threePoint, '#3b82f6')}
-                            ${this.createAttrRow('罚球', player.attributes.freeThrow, '#10b981')}
-                            ${this.createAttrRow('控球', player.attributes.dribbling, '#8b5cf6')}
-                            ${this.createAttrRow('传球', player.attributes.passing, '#06b6d4')}
-                        </div>
-                    </div>
-                    <div class="attr-category">
-                        <h5>防守与身体</h5>
-                        <div class="attr-list">
-                            ${this.createAttrRow('防守', player.attributes.defense, '#ef4444')}
-                            ${this.createAttrRow('篮板', player.attributes.rebounding, '#f59e0b')}
-                            ${this.createAttrRow('抢断', player.attributes.stealing, '#3b82f6')}
-                            ${this.createAttrRow('盖帽', player.attributes.blocking, '#10b981')}
-                            ${this.createAttrRow('速度', player.attributes.speed, '#8b5cf6')}
-                            ${this.createAttrRow('体能', player.attributes.stamina, '#06b6d4')}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 背景资料区 -->
-            <div class="detail-section">
-                <h4>球员背景</h4>
-                <div class="background-section">
-                    <div class="background-grid">
-                        <div class="background-item">
-                            <div class="bg-label">高中</div>
-                            <div class="bg-value">${background.highSchool || '未知'}</div>
-                        </div>
-                        <div class="background-item">
-                            <div class="bg-label">打法风格</div>
-                            <div class="bg-value">${background.playStyle || '未知'}</div>
-                        </div>
-                        <div class="background-item">
-                            <div class="bg-label">身高</div>
-                            <div class="bg-value">${background.height || '未知'}</div>
-                        </div>
-                        <div class="background-item">
-                            <div class="bg-label">体重</div>
-                            <div class="bg-value">${background.weight || '未知'}</div>
-                        </div>
-                        <div class="background-item">
-                            <div class="bg-label">臂展</div>
-                            <div class="bg-value">${background.wingspan || '未知'}</div>
-                        </div>
-                        <div class="background-item">
-                            <div class="bg-label">垂直弹跳</div>
-                            <div class="bg-value">${background.verticalLeap || '未知'}</div>
-                        </div>
-                        <div class="background-item">
-                            <div class="bg-label">特长</div>
-                            <div class="bg-value">${specialties.join('、') || '无'}</div>
-                        </div>
-                        <div class="background-item">
-                            <div class="bg-label">伤病史</div>
-                            <div class="bg-value">${background.injuryHistory || '无'}</div>
-                        </div>
-                    </div>
-                    ${achievements.length > 0 ? `
-                        <div style="margin-top: 15px;">
-                            <div class="bg-label" style="margin-bottom: 8px;">所获荣誉</div>
-                            <div class="bg-value">${achievements.join('、')}</div>
-                        </div>
-                    ` : ''}
-                </div>
-            </div>
-
-            ${showNegotiation ? `
-                <div class="negotiation-details" id="negotiation-details">
-                    <h4>谈判界面</h4>
-                    <div id="negotiation-interface-container"></div>
-                </div>
-            ` : ''}
-
-            ${!showNegotiation ? `
-                <div style="display: flex; gap: 15px; margin-top: 20px;">
-                    <button class="action-btn btn-negotiate" style="flex: 1; padding: 15px;" 
-                        onclick="if(window.recruitmentInterface) window.recruitmentInterface.showPlayerDetail(${JSON.stringify(player).replace(/"/g, '&quot;')}, true);">
-                        发起签约谈判
-                    </button>
-                    <button class="action-btn btn-detail" style="flex: 1; padding: 15px;" 
-                        onclick="if(window.negotiationManager) window.negotiationManager.startNegotiation('${player.id}');">
-                        发起谈判
-                    </button>
-                </div>
-            ` : ''}
-        `;
-
-        // 显示模态框
-        modal.style.display = 'block';
-        console.log('Player detail modal displayed for:', player.name);
-
-        if (showNegotiation && typeof window.negotiationManager !== 'undefined') {
-            const container = document.getElementById('negotiation-interface-container');
-            if (container) {
-                const interfaceHtml = window.negotiationManager.createNegotiationInterface(player);
-                container.innerHTML = interfaceHtml;
-                window.negotiationManager.setupNegotiationEvents(null, player.id);
+        let rating = player.rating;
+        if (!rating && typeof player.getOverallRating === 'function') {
+            try {
+                rating = player.getOverallRating();
+            } catch (e) {
+                rating = 50;
             }
         }
+        if (!rating || isNaN(rating)) {
+            rating = 50;
+        }
+        const yearLabels = { 1: '大一', 2: '大二', 3: '大三', 4: '大四' };
+        const initials = player.name.split(' ').map(n => n[0]).join('');
+        const background = player.background || {};
+
+        content.innerHTML = `
+            <div class="player-detail-new">
+                <!-- 头部信息 -->
+                <div class="detail-header-new">
+                    <div class="detail-avatar-large">${initials}</div>
+                    <div class="detail-header-info">
+                        <h2>${player.name}</h2>
+                        <div class="header-tags">
+                            <span class="ht-tag position">${Positions[player.position]}</span>
+                            <span class="ht-tag year">${yearLabels[player.year]}</span>
+                            <span class="ht-tag age">${player.age}岁</span>
+                        </div>
+                    </div>
+                    <div class="header-ratings">
+                        <div class="h-rating-box">
+                            <div class="h-rating-value" style="color: ${this.getRatingColor(rating)};">${rating}</div>
+                            <div class="h-rating-label">能力值</div>
+                        </div>
+                        <div class="h-rating-box">
+                            <div class="h-rating-value" style="color: ${level.color};">${player.potential}</div>
+                            <div class="h-rating-label">潜力 ${level.icon}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 性格特征 - 放在显眼位置 -->
+                <div class="detail-personality-section">
+                    <h3>性格特征</h3>
+                    ${this.renderPersonalityDetail(player)}
+                </div>
+
+                <!-- 技术属性 -->
+                <div class="detail-attributes-section">
+                    <h3>技术属性</h3>
+                    <div class="attr-grid">
+                        ${this.createAttrBox('得分', player.attributes?.scoring, '#ef4444')}
+                        ${this.createAttrBox('投篮', player.attributes?.shooting, '#f59e0b')}
+                        ${this.createAttrBox('三分', player.attributes?.threePoint, '#3b82f6')}
+                        ${this.createAttrBox('防守', player.attributes?.defense, '#10b981')}
+                        ${this.createAttrBox('篮板', player.attributes?.rebounding, '#8b5cf6')}
+                        ${this.createAttrBox('速度', player.attributes?.speed, '#06b6d4')}
+                    </div>
+                </div>
+
+                <!-- 球员背景 -->
+                <div class="detail-background-section">
+                    <h3>球员资料</h3>
+                    <div class="bg-info-grid">
+                        <div class="bg-item"><span class="bg-label">高中</span><span class="bg-val">${background.highSchool || '未知'}</span></div>
+                        <div class="bg-item"><span class="bg-label">身高</span><span class="bg-val">${background.height || '未知'}</span></div>
+                        <div class="bg-item"><span class="bg-label">体重</span><span class="bg-val">${background.weight || '未知'}</span></div>
+                        <div class="bg-item"><span class="bg-label">打法</span><span class="bg-val">${background.playStyle || '未知'}</span></div>
+                    </div>
+                </div>
+
+                <!-- 操作按钮 -->
+                ${!showNegotiation ? `
+                    <div class="detail-actions">
+                        <button class="btn-detail-primary" onclick="window.recruitmentInterface.startNegotiationFromDetail('${player.id}')">
+                            ${player.status === 'freshman_recruit' ? '发起招募' : (player.status === 'transfer_wanted' ? '申请转会' : '发起谈判')}
+                        </button>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        modal.style.display = 'block';
+    }
+
+    createAttrBox(name, value, color) {
+        const numValue = typeof value === 'number' && !isNaN(value) ? value : 0;
+        return `
+            <div class="attr-box-new">
+                <div class="attr-box-name">${name}</div>
+                <div class="attr-box-value" style="color: ${color};">${numValue}</div>
+                <div class="attr-box-bar">
+                    <div class="attr-box-fill" style="width: ${numValue}%; background: ${color};"></div>
+                </div>
+            </div>
+        `;
     }
 
     createAttrRow(name, value, color) {
+        // 确保值是有效数字
+        const numValue = typeof value === 'number' && !isNaN(value) ? value : 0;
         return `
             <div class="attr-row">
                 <span class="attr-name">${name}</span>
                 <div class="attr-value-bar">
                     <div class="attr-bar-bg">
-                        <div class="attr-bar-fill" style="width: ${value}%; background: ${color};"></div>
+                        <div class="attr-bar-fill" style="width: ${numValue}%; background: ${color};"></div>
                     </div>
-                    <span class="attr-num">${value}</span>
+                    <span class="attr-num">${numValue}</span>
                 </div>
             </div>
         `;
@@ -853,6 +875,199 @@ class RecruitmentInterface {
         if (rating >= 70) return '#f59e0b';
         if (rating >= 60) return '#3b82f6';
         return '#6b7280';
+    }
+
+    /**
+     * 渲染球员性格标签
+     * @param {Player} player - 球员对象
+     * @returns {string} HTML字符串
+     */
+    renderPersonalityTag(player) {
+        console.log('renderPersonalityTag called for:', player.name);
+        console.log('player.personalityDimensions:', player.personalityDimensions);
+        console.log('player.personalityProfile:', player.personalityProfile);
+
+        // 获取性格信息
+        let personalityTag = { name: '均衡型', icon: '⚖️', description: '各方面都很均衡' };
+        let dimensions = {};
+
+        if (player.personalityProfile && player.personalityProfile.primaryTag) {
+            personalityTag = player.personalityProfile.primaryTag;
+            dimensions = player.personalityProfile.dimensions || player.personalityDimensions || {};
+            console.log('Using personalityProfile');
+        } else if (player.getPersonalityInfo) {
+            const info = player.getPersonalityInfo();
+            personalityTag = info.tag || personalityTag;
+            dimensions = info.dimensions || player.personalityDimensions || {};
+            console.log('Using getPersonalityInfo');
+        } else if (player.personalityDimensions) {
+            dimensions = player.personalityDimensions;
+            console.log('Using personalityDimensions directly');
+        }
+
+        console.log('Final dimensions:', dimensions);
+        console.log('Final personalityTag:', personalityTag);
+
+        // 找出最高和最低的维度
+        let highestDim = null;
+        let lowestDim = null;
+        let highestVal = -1;
+        let lowestVal = 101;
+
+        const dimNames = {
+            ambition: '雄心',
+            teamOrientation: '团队精神',
+            workEthic: '职业素养',
+            moneyFocus: '金钱观念',
+            competitiveness: '竞争意识',
+            loyalty: '忠诚度',
+            patience: '耐心',
+            pressureHandling: '抗压能力'
+        };
+
+        for (const [key, value] of Object.entries(dimensions)) {
+            if (value > highestVal) {
+                highestVal = value;
+                highestDim = key;
+            }
+            if (value < lowestVal) {
+                lowestVal = value;
+                lowestDim = key;
+            }
+        }
+
+        // 生成维度提示文本
+        let dimensionTooltip = '';
+        for (const [key, value] of Object.entries(dimensions)) {
+            const bar = '█'.repeat(Math.floor(value / 10)) + '░'.repeat(10 - Math.floor(value / 10));
+            dimensionTooltip += `${dimNames[key] || key}: ${value}/100 ${bar}\n`;
+        }
+
+        const html = `
+            <div class="player-personality" title="${dimensionTooltip.trim()}">
+                <span class="personality-icon">${personalityTag.icon || '⚖️'}</span>
+                <span class="personality-name">${personalityTag.name || '均衡型'}</span>
+                ${highestDim && highestVal >= 70 ? `<span class="personality-highlight high">${dimNames[highestDim]}↑</span>` : ''}
+                ${lowestDim && lowestVal <= 30 ? `<span class="personality-highlight low">${dimNames[lowestDim]}↓</span>` : ''}
+            </div>
+        `;
+
+        console.log('renderPersonalityTag returning HTML:', html);
+        return html;
+    }
+
+    /**
+     * 渲染球员性格详情（用于详情弹窗）
+     * @param {Player} player - 球员对象
+     * @returns {string} HTML字符串
+     */
+    renderPersonalityDetail(player) {
+        console.log('renderPersonalityDetail called for:', player.name);
+        console.log('player.personalityDimensions:', player.personalityDimensions);
+        console.log('player.personalityProfile:', player.personalityProfile);
+
+        // 获取性格信息
+        let personalityTag = { name: '均衡型', icon: '⚖️', description: '各方面都很均衡' };
+        let dimensions = {};
+        let effects = {};
+
+        if (player.personalityProfile) {
+            personalityTag = player.personalityProfile.primaryTag || personalityTag;
+            dimensions = player.personalityProfile.dimensions || player.personalityDimensions || {};
+            effects = player.personalityProfile.effects || {};
+        } else if (player.getPersonalityInfo) {
+            const info = player.getPersonalityInfo();
+            personalityTag = info.tag || personalityTag;
+            dimensions = info.dimensions || player.personalityDimensions || {};
+            effects = info.effects || {};
+        } else if (player.personalityDimensions) {
+            dimensions = player.personalityDimensions;
+        }
+
+        const dimNames = {
+            ambition: '雄心',
+            teamOrientation: '团队精神',
+            workEthic: '职业素养',
+            moneyFocus: '金钱观念',
+            competitiveness: '竞争意识',
+            loyalty: '忠诚度',
+            patience: '耐心',
+            pressureHandling: '抗压能力'
+        };
+
+        const dimDescriptions = {
+            ambition: '追求个人成就的欲望',
+            teamOrientation: '重视团队成功胜过个人',
+            workEthic: '训练态度和努力程度',
+            moneyFocus: '对经济利益的重视',
+            competitiveness: '渴望胜利和竞争',
+            loyalty: '对球队和承诺的忠诚',
+            patience: '愿意等待机会的耐心',
+            pressureHandling: '在压力下的表现'
+        };
+
+        // 生成维度条
+        const dimensionBars = Object.entries(dimensions).map(([key, value]) => {
+            const percentage = value;
+            const color = value >= 70 ? '#22c55e' : (value >= 40 ? '#f59e0b' : '#ef4444');
+            return `
+                <div class="personality-dimension-row">
+                    <div class="dimension-label">
+                        <span class="dim-name">${dimNames[key] || key}</span>
+                        <span class="dim-value">${value}</span>
+                    </div>
+                    <div class="dimension-bar-wrapper">
+                        <div class="dimension-bar-bg">
+                            <div class="dimension-bar" style="width: ${percentage}%; background: ${color};"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        // 生成效果说明
+        const effectDescriptions = [];
+        if (effects.scholarshipModifier) {
+            const mod = Math.round((effects.scholarshipModifier - 1) * 100);
+            effectDescriptions.push(`奖学金期望${mod > 0 ? '+' : ''}${mod}%`);
+        }
+        if (effects.trainingEffort) {
+            const mod = Math.round((effects.trainingEffort - 1) * 100);
+            effectDescriptions.push(`训练效果${mod > 0 ? '+' : ''}${mod}%`);
+        }
+        if (effects.clutchPerformance) {
+            const mod = Math.round((effects.clutchPerformance - 1) * 100);
+            effectDescriptions.push(`关键球${mod > 0 ? '+' : ''}${mod}%`);
+        }
+        if (effects.transferLikelihood) {
+            const mod = Math.round((effects.transferLikelihood - 1) * 100);
+            effectDescriptions.push(`转学概率${mod > 0 ? '+' : ''}${mod}%`);
+        }
+
+        return `
+            <div class="personality-detail-section">
+                <div class="personality-header">
+                    <span class="personality-big-icon">${personalityTag.icon || '⚖️'}</span>
+                    <div class="personality-title">
+                        <h3>${personalityTag.name || '均衡型'}</h3>
+                        <p>${personalityTag.description || '各方面都很均衡'}</p>
+                    </div>
+                </div>
+
+                <div class="personality-dimensions">
+                    ${dimensionBars}
+                </div>
+
+                ${effectDescriptions.length > 0 ? `
+                    <div class="personality-effects">
+                        <h5>性格影响</h5>
+                        <div class="effects-list">
+                            ${effectDescriptions.map(eff => `<span class="effect-tag">${eff}</span>`).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+            </div>
+        `;
     }
 
     showNotification(message, type = 'info') {
@@ -1076,7 +1291,36 @@ class RecruitmentInterface {
         const negotiation = window.negotiationManager?.getNegotiation(negotiationId);
         if (!negotiation) return;
 
-        window.negotiationManager.openNegotiationModal(negotiation.playerId);
+        // 重新打开谈判界面，使用现有的谈判数据
+        this.showPlayerDetail(negotiation.player, true);
+    }
+
+    /**
+     * 从详情弹窗发起谈判
+     * @param {string|number} playerId - 球员ID
+     */
+    startNegotiationFromDetail(playerId) {
+        // 转换 playerId 为数字类型（如果可能）
+        const numericPlayerId = parseInt(playerId, 10);
+        const searchId = !isNaN(numericPlayerId) ? numericPlayerId : playerId;
+
+        // 查找球员
+        const player = this.players.find(p => p.id == searchId || p.id === searchId);
+
+        if (!player) {
+            console.error('Player not found for negotiation:', playerId);
+            this.showNotification('找不到该球员', 'error');
+            return;
+        }
+
+        // 关闭当前详情弹窗
+        const modal = document.getElementById('player-modal');
+        if (modal) {
+            modal.style.display = 'none';
+        }
+
+        // 发起谈判
+        this.openNegotiation(player);
     }
 
     openMessageModal(negotiationId) {

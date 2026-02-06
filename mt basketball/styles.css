@@ -9966,6 +9966,664 @@ tr:hover {
     color: #fbbf24;
 }
 
+/* 球员性格显示 */
+/* 新的球员卡片样式 */
+.player-card {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 16px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.player-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+/* 顶部状态栏 */
+.card-top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.player-status-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.player-status-badge.status-free {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+.player-status-badge.status-freshman {
+    background: rgba(59, 130, 246, 0.2);
+    color: #3b82f6;
+}
+
+.player-status-badge.status-transfer {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.2rem;
+    padding: 4px;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+.icon-btn:hover {
+    opacity: 1;
+}
+
+.icon-btn.favorited {
+    opacity: 1;
+}
+
+/* 主要信息区 */
+.card-main-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.player-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--secondary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+}
+
+.player-info {
+    flex: 1;
+}
+
+.player-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 6px 0;
+    color: var(--text-primary);
+}
+
+.player-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.tag {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.position-tag {
+    background: rgba(102, 126, 234, 0.2);
+    color: #667eea;
+}
+
+.year-tag {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.age-tag {
+    background: rgba(100, 116, 139, 0.2);
+    color: #94a3b8;
+}
+
+/* 能力值和潜力 */
+.card-ratings {
+    display: flex;
+    gap: 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+}
+
+.rating-box, .potential-box {
+    flex: 1;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.rating-label, .potential-label {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+}
+
+.rating-value, .potential-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.rating-bar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+    width: 80%;
+    margin-top: auto;
+}
+
+.rating-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+.potential-icon {
+    font-size: 1.2rem;
+    margin-top: 4px;
+}
+
+/* 关键属性 */
+.card-attributes {
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0;
+}
+
+.attr-box {
+    text-align: center;
+}
+
+.attr-name {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    margin-bottom: 2px;
+}
+
+.attr-val {
+    display: block;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* 性格显示 */
+.player-personality {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 10px;
+    background: rgba(102, 126, 234, 0.3) !important;
+    border-radius: 8px;
+    border: 2px solid rgba(102, 126, 234, 0.5) !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-height: 40px;
+    margin: 10px 0;
+    position: relative;
+    z-index: 100;
+}
+
+.personality-icon {
+    font-size: 1.2rem;
+}
+
+.personality-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.personality-highlight {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.personality-highlight.high {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+.personality-highlight.low {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+/* 底部按钮 */
+.card-footer {
+    display: flex;
+    gap: 8px;
+    margin-top: auto;
+}
+
+.card-footer button {
+    flex: 1;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-primary {
+    background: var(--accent-gradient);
+    color: white;
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: var(--text-primary);
+}
+
+.player-personality .personality-icon {
+    font-size: 1.1rem;
+}
+
+.player-personality .personality-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.player-personality .personality-highlight {
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+.player-personality .personality-highlight.high {
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+}
+
+.player-personality .personality-highlight.low {
+    background: rgba(239, 68, 68, 0.2);
+    color: #ef4444;
+}
+
+/* 新的球员详情弹窗样式 */
+.player-detail-new {
+    padding: 20px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+/* 头部信息 */
+.detail-header-new {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin-bottom: 20px;
+}
+
+.detail-avatar-large {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: var(--secondary-gradient);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+}
+
+.detail-header-info {
+    flex: 1;
+}
+
+.detail-header-info h2 {
+    margin: 0 0 10px 0;
+    font-size: 1.5rem;
+    color: var(--text-primary);
+}
+
+.header-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.ht-tag {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.ht-tag.position {
+    background: rgba(102, 126, 234, 0.2);
+    color: #667eea;
+}
+
+.ht-tag.year {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
+.ht-tag.age {
+    background: rgba(100, 116, 139, 0.2);
+    color: #94a3b8;
+}
+
+.header-ratings {
+    display: flex;
+    gap: 20px;
+}
+
+.h-rating-box {
+    text-align: center;
+}
+
+.h-rating-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.h-rating-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-top: 4px;
+}
+
+/* 性格特征区 */
+.detail-personality-section {
+    margin-bottom: 24px;
+}
+
+.detail-personality-section h3 {
+    margin: 0 0 12px 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    padding-bottom: 8px;
+    border-bottom: 2px solid rgba(102, 126, 234, 0.3);
+}
+
+/* 技术属性区 */
+.detail-attributes-section {
+    margin-bottom: 24px;
+}
+
+.detail-attributes-section h3 {
+    margin: 0 0 12px 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    padding-bottom: 8px;
+    border-bottom: 2px solid rgba(102, 126, 234, 0.3);
+}
+
+.attr-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.attr-box-new {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+}
+
+.attr-box-name {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+}
+
+.attr-box-value {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.attr-box-bar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.attr-box-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+}
+
+/* 球员背景区 */
+.detail-background-section {
+    margin-bottom: 24px;
+}
+
+.detail-background-section h3 {
+    margin: 0 0 12px 0;
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    padding-bottom: 8px;
+    border-bottom: 2px solid rgba(102, 126, 234, 0.3);
+}
+
+.bg-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.bg-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 12px;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 8px;
+}
+
+.bg-item .bg-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.bg-item .bg-val {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* 操作按钮 */
+.detail-actions {
+    margin-top: 20px;
+}
+
+.btn-detail-primary {
+    width: 100%;
+    padding: 14px;
+    border-radius: 10px;
+    border: none;
+    background: var(--accent-gradient);
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-detail-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+}
+
+/* 性格详情弹窗样式 */
+.personality-detail-section {
+    background: linear-gradient(145deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.05) 100%);
+    border-radius: 14px;
+    padding: 20px;
+    border: 1px solid rgba(102, 126, 234, 0.15);
+}
+
+.personality-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.personality-big-icon {
+    font-size: 2.5rem;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.1));
+    border-radius: 50%;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.personality-title h3 {
+    margin: 0 0 4px 0;
+    font-size: 1.3rem;
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.personality-title p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.personality-dimensions {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px 20px;
+}
+
+.personality-dimension-row {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dimension-label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.dim-name {
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.dim-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.dimension-bar-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.dimension-bar-bg {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    height: 6px;
+    overflow: hidden;
+}
+
+.dimension-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.dim-value {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    min-width: 28px;
+    text-align: right;
+    text-align: right;
+    min-width: 30px;
+    text-align: right;
+}
+
+.personality-effects {
+    margin-top: 20px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}
+
+.personality-effects h5 {
+    margin: 0 0 10px 0;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.effects-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.effect-tag {
+    padding: 4px 10px;
+    background: rgba(102, 126, 234, 0.15);
+    border-radius: 12px;
+    font-size: 0.8rem;
+    color: var(--accent-color);
+}
+
 /* 球员卡片底部 */
 .card-footer {
     padding: 12px 15px;
@@ -10003,42 +10661,56 @@ tr:hover {
 
 /* 球员详情弹窗 */
 .player-detail-modal {
-    max-width: 700px;
+    max-width: 750px;
     max-height: 90vh;
     overflow-y: auto;
+    background: linear-gradient(145deg, #1a1d29 0%, #0f1117 100%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* 头部区域优化 - 去掉边框 */
 .detail-header {
     display: flex;
     gap: 20px;
-    padding-bottom: 20px;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.03) 100%);
+    border-radius: 16px;
+    margin-bottom: 16px;
+    border: none;
 }
 
 .detail-avatar {
-    width: 100px;
-    height: 100px;
+    width: 90px;
+    height: 90px;
     border-radius: 50%;
-    background: var(--secondary-gradient);
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2.5rem;
+    font-size: 2.2rem;
     font-weight: 700;
     color: white;
-    border: 3px solid rgba(255, 255, 255, 0.3);
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+    flex-shrink: 0;
 }
 
 .detail-info {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .detail-name {
-    font-size: 1.5rem;
+    font-size: 1.6rem;
     font-weight: 700;
     color: var(--text-primary);
-    margin: 0 0 10px 0;
+    margin: 0 0 12px 0;
+    background: linear-gradient(90deg, #fff 0%, #a5b4fc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .detail-tags {
@@ -10047,79 +10719,164 @@ tr:hover {
     gap: 8px;
 }
 
+.detail-tags .tag {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: transform 0.2s ease;
+}
+
+.detail-tags .tag:hover {
+    transform: translateY(-2px);
+}
+
+.detail-tags .tag.position {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+    color: #a5b4fc;
+    border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.detail-tags .tag.year {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+}
+
+.detail-tags .tag.rating {
+    background: linear-gradient(135deg, rgba(6, 214, 160, 0.15), rgba(6, 214, 160, 0.25));
+    color: #06d6a0;
+    border: 1px solid rgba(6, 214, 160, 0.3);
+}
+
+.detail-tags .tag.potential {
+    background: linear-gradient(135deg, rgba(255, 209, 102, 0.15), rgba(255, 209, 102, 0.25));
+    color: #ffd166;
+    border: 1px solid rgba(255, 209, 102, 0.3);
+}
+
+.detail-tags .tag.specialist {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(139, 92, 246, 0.25));
+    color: #c4b5fd;
+    border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+/* 区块样式优化 */
 .detail-section {
-    margin-bottom: 25px;
+    margin-bottom: 24px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .detail-section h4 {
     font-size: 1rem;
     font-weight: 600;
     color: var(--text-primary);
-    margin: 0 0 15px 0;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border-color);
+    margin: 0 0 16px 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
-/* 核心属性区 */
+.detail-section h4::before {
+    content: '';
+    width: 4px;
+    height: 20px;
+    background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+    border-radius: 2px;
+}
+
+/* 核心属性区优化 */
 .core-attributes {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
+    gap: 16px;
 }
 
 .core-attr-card {
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.03);
+    padding: 20px 15px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
     border-radius: 12px;
     text-align: center;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+}
+
+.core-attr-card:hover {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+    transform: translateY(-2px);
 }
 
 .core-attr-value {
-    font-size: 2rem;
+    font-size: 2.2rem;
     font-weight: 800;
+    background: linear-gradient(180deg, #fff 0%, #a5b4fc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .core-attr-label {
     font-size: 0.85rem;
     color: var(--text-muted);
-    margin-top: 5px;
+    margin-top: 8px;
+    font-weight: 500;
 }
 
-/* 详细属性区 */
+/* 详细属性区优化 - 扩大 */
 .detailed-attributes {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
+    gap: 24px;
 }
 
 .attr-category {
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 12px;
+    padding: 22px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0.02) 100%);
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .attr-category h5 {
-    font-size: 0.9rem;
-    font-weight: 600;
-    color: var(--text-secondary);
-    margin: 0 0 12px 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 18px 0;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.attr-category:nth-child(1) h5::before {
+    content: '🔥';
+}
+
+.attr-category:nth-child(2) h5::before {
+    content: '🛡️';
 }
 
 .attr-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
 }
 
 .attr-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    padding: 4px 0;
 }
 
 .attr-row .attr-name {
-    font-size: 0.85rem;
-    color: var(--text-muted);
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    font-weight: 500;
 }
 
 .attr-row .attr-value-bar {
@@ -10577,6 +11334,280 @@ tr:hover {
     background: var(--secondary-gradient);
     border-radius: 4px;
     transition: width 0.5s ease;
+}
+
+/* 竞争界面进度条样式 - 紧凑版 */
+.team-interest-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.interest-bar-bg {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    height: 6px;
+    overflow: hidden;
+}
+
+.interest-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.interest-value {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    min-width: 36px;
+    text-align: right;
+}
+
+/* 竞争界面样式 - 优化配色 - 超紧凑版本 */
+.competition-section {
+    background: linear-gradient(145deg, rgba(17, 138, 178, 0.04) 0%, rgba(7, 59, 76, 0.02) 100%);
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin-bottom: 12px;
+    border: 1px solid rgba(17, 138, 178, 0.08);
+}
+
+.competition-section.signed {
+    text-align: center;
+    padding: 14px;
+    background: linear-gradient(145deg, rgba(6, 214, 160, 0.04) 0%, rgba(6, 214, 160, 0.02) 100%);
+    border: 1px solid rgba(6, 214, 160, 0.12);
+}
+
+.competition-result {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.result-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: bold;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+}
+
+.result-icon.success {
+    background: linear-gradient(135deg, rgba(6, 214, 160, 0.15), rgba(6, 214, 160, 0.05));
+    color: #06d6a0;
+    border: 1px solid rgba(6, 214, 160, 0.25);
+}
+
+.result-icon.failed {
+    background: linear-gradient(135deg, rgba(255, 107, 107, 0.15), rgba(255, 107, 107, 0.05));
+    color: #ff6b6b;
+    border: 1px solid rgba(255, 107, 107, 0.25);
+}
+
+.result-text {
+    font-size: 1rem;
+    font-weight: 700;
+    background: linear-gradient(90deg, #fff 0%, #a5b4fc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.competition-winner {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.competition-overview {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.intensity-badge {
+    padding: 4px 10px;
+    border-radius: 16px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    border: 1px solid;
+    backdrop-filter: blur(10px);
+}
+
+.timer-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    background: linear-gradient(135deg, rgba(255, 209, 102, 0.06), rgba(255, 209, 102, 0.03));
+    border-radius: 16px;
+    font-size: 0.75rem;
+    color: #ffd166;
+    border: 1px solid rgba(255, 209, 102, 0.12);
+    font-weight: 600;
+}
+
+.your-progress-section {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%);
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin-bottom: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+}
+
+.your-progress-section.leading {
+    border-color: rgba(6, 214, 160, 0.25);
+    background: linear-gradient(145deg, rgba(6, 214, 160, 0.06) 0%, rgba(6, 214, 160, 0.02) 100%);
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.progress-label {
+    font-weight: 600;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.progress-status {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+}
+
+.progress-bar-large {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.progress-fill-large {
+    flex: 1;
+    height: 8px;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+.progress-percent {
+    font-size: 0.9rem;
+    font-weight: 700;
+    min-width: 36px;
+    text-align: right;
+}
+
+.competitors-section {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.competitors-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 600;
+}
+
+.competitors-count {
+    background: linear-gradient(135deg, rgba(255, 107, 107, 0.1), rgba(255, 107, 107, 0.03));
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    color: #ff6b6b;
+    border: 1px solid rgba(255, 107, 107, 0.12);
+    font-weight: 600;
+}
+
+.competitors-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.competing-team {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.01) 100%);
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.competing-team .team-name {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    min-width: 70px;
+    font-weight: 500;
+}
+
+/* 竞争指示器 - 球员卡片上 */
+.competition-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin: 8px 0;
+    border: 1px solid;
+}
+
+.competition-indicator.leading {
+    background: rgba(6, 214, 160, 0.1);
+    color: #06d6a0;
+    border-color: rgba(6, 214, 160, 0.3);
+}
+
+.competition-indicator.competing {
+    background: rgba(255, 209, 102, 0.1);
+    color: #ffd166;
+    border-color: rgba(255, 209, 102, 0.3);
+}
+
+.competition-indicator.behind {
+    background: rgba(255, 107, 107, 0.1);
+    color: #ff6b6b;
+    border-color: rgba(255, 107, 107, 0.3);
+}
+
+.competition-indicator.signed-user {
+    background: rgba(6, 214, 160, 0.15);
+    color: #06d6a0;
+    border-color: rgba(6, 214, 160, 0.4);
+}
+
+.competition-indicator.signed-other {
+    background: rgba(107, 114, 128, 0.15);
+    color: #6b7280;
+    border-color: rgba(107, 114, 128, 0.3);
+}
+
+.competition-indicator .competitor-count {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    margin-left: 4px;
 }
 
 .negotiation-offer-info {
@@ -13737,3 +14768,343 @@ tr:hover {
  } 
  
  
+
+/* ================================
+   ��������б��Ż���ʽ
+   ================================ */
+
+/* λ�÷������� */
+.player-group-container {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+/* λ�÷��� */
+.position-group {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    margin-bottom: 24px;
+    transition: all 0.3s ease;
+}
+
+.position-group:hover {
+    border-color: rgba(102, 126, 234, 0.3);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* λ�ñ��� */
+.position-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 24px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.position-title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.position-count {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    background: rgba(255, 255, 255, 0.15);
+    padding: 6px 14px;
+    border-radius: 20px;
+}
+
+/* λ����Ա���� */
+.position-players {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    padding: 24px;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+/* ��Ա��Ƭ�Ż� */
+.player-card-optimized {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.player-card-optimized::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.player-card-optimized:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+    border-color: rgba(102, 126, 234, 0.4);
+}
+
+.player-card-optimized:hover::before {
+    opacity: 1;
+}
+
+/* ��Ա��Ƭͷ�� */
+.player-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.player-position-badge {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.player-rank {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-secondary);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    font-weight: 700;
+    border: 2px solid rgba(255, 255, 255, 0.15);
+}
+
+/* ��Ա��Ƭ���� */
+.player-card-body {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.player-avatar-large {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+}
+
+.player-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.player-name {
+    margin: 0 0 10px 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.player-details {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+}
+
+.detail-label {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.detail-value {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* �꼶���� */
+.year-badge-small {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.year-1 { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+.year-2 { background: rgba(251, 191, 36, 0.2); color: #fbbf24; }
+.year-3 { background: rgba(102, 126, 234, 0.2); color: #667eea; }
+.year-4 { background: rgba(233, 69, 96, 0.2); color: #e94560; }
+
+/* ��Աͳ�� */
+.player-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    font-weight: 500;
+}
+
+.stat-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+}
+
+/* ��Ա������ť */
+.player-card-optimized .player-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.player-card-optimized .action-btn {
+    flex: 1;
+    padding: 10px 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.player-card-optimized .action-btn.view-btn {
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+    color: #667eea;
+    border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.player-card-optimized .action-btn.view-btn:hover {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.player-card-optimized .action-btn.release-btn {
+    background: linear-gradient(135deg, rgba(233, 69, 96, 0.2) 0%, rgba(239, 68, 68, 0.2) 100%);
+    color: #e94560;
+    border: 1px solid rgba(233, 69, 96, 0.3);
+}
+
+.player-card-optimized .action-btn.release-btn:hover {
+    background: linear-gradient(135deg, #e94560 0%, #ef4444 100%);
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(233, 69, 96, 0.4);
+}
+
+/* ��Ӧʽ��� */
+@media (max-width: 1200px) {
+    .position-players {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .position-players {
+        grid-template-columns: 1fr;
+        padding: 16px;
+        gap: 16px;
+    }
+    
+    .player-card-optimized {
+        padding: 16px;
+    }
+    
+    .player-avatar-large {
+        width: 60px;
+        height: 60px;
+        font-size: 1.2rem;
+    }
+    
+    .player-name {
+        font-size: 1.1rem;
+    }
+    
+    .position-header {
+        padding: 14px 18px;
+    }
+    
+    .position-title {
+        font-size: 1.1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .player-card-body {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .player-details {
+        align-items: center;
+    }
+    
+    .detail-item {
+        width: 100%;
+        justify-content: center;
+        gap: 8px;
+    }
+}

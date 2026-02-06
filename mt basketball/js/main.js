@@ -36,13 +36,17 @@ class BasketballManagerApp {
         this.seasonManager = new SeasonManager(this.gameStateManager);
         this.financeManager = new FinanceManager(this.gameStateManager);
         this.eventSystem = new EventSystem(this.gameStateManager);
-        this.gameSimulationAdapter = new GameSimulationAdapter(this.gameEngine, this.gameStateManager);
+        // 游戏模拟功能已移至独立的TV模式页面
         this.gameInitializer = new GameInitializer(this.gameStateManager);
         this.negotiationManager = new NegotiationManager(this.gameStateManager);
         this.enhancedNegotiationManager = new EnhancedNegotiationManager(this.gameStateManager);
         this.skipRuleManager = new SkipRuleManager(this.gameStateManager);
         this.recruitmentInterface = new RecruitmentInterface(this.gameStateManager, this.gameInitializer);
         this.dataSyncManager = new DataSyncManager(this.gameStateManager);
+
+        // 初始化新的签约系统
+        this.signingSystem = new PlayerSigningSystem(this.gameStateManager);
+        this.signingInterface = new SigningInterface(this.gameStateManager, this.signingSystem);
 
         this.pixiRenderer = null;
         this.currentScheduleWeek = 1;
@@ -72,59 +76,84 @@ class BasketballManagerApp {
      * Check if save game exists
      */
     checkSaveGame() {
-        const saveData = localStorage.getItem('basketballManagerSave');
         const saveInfo = document.getElementById('save-info');
         const saveDetails = document.getElementById('save-details');
         const continueBtn = document.getElementById('btn-continue');
         const startWarning = document.getElementById('start-warning');
         
-        if (saveData) {
+        // 首先检查账号系统中的存档
+        let savedState = null;
+        let saveSource = 'account';
+        
+        if (accountManager && accountManager.isLoggedIn()) {
+            savedState = accountManager.loadGameState();
+        }
+        
+        // 如果没有账号存档，检查localStorage
+        if (!savedState) {
+            const saveData = localStorage.getItem('basketballManagerSave');
+            if (saveData) {
+                try {
+                    savedState = JSON.parse(saveData);
+                    saveSource = 'local';
+                } catch (e) {
+                    console.error('Failed to parse local save data:', e);
+                }
+            }
+        }
+        
+        if (savedState) {
             try {
-                const parsed = JSON.parse(saveData);
-                const saveDate = parsed.savedAt ? new Date(parsed.savedAt) : null;
+                const parsed = savedState.state || savedState;
+                const saveDate = savedState.savedAt ? new Date(savedState.savedAt) : null;
                 
-                saveInfo.style.display = 'block';
-                continueBtn.style.display = 'flex';
-                startWarning.style.display = 'block';
+                if (saveInfo) saveInfo.style.display = 'block';
+                if (continueBtn) continueBtn.style.display = 'flex';
+                if (startWarning) startWarning.style.display = 'block';
                 
                 let rosterSize = 0;
-                if (parsed.state?.userTeam?.roster) {
-                    rosterSize = parsed.state.userTeam.roster.length;
+                if (parsed.userTeam?.roster) {
+                    rosterSize = parsed.userTeam.roster.length;
                 }
                 
                 let teamName = '未知';
-                if (parsed.state?.userTeam?.name) {
-                    teamName = parsed.state.userTeam.name;
+                if (parsed.userTeam?.name) {
+                    teamName = parsed.userTeam.name;
                 }
                 
                 let currentDate = '未知';
-                if (parsed.state?.currentDate) {
-                    const date = new Date(parsed.state.currentDate);
+                if (parsed.currentDate) {
+                    const date = new Date(parsed.currentDate);
                     currentDate = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
                 }
                 
                 let seasonPhase = '休赛期';
-                if (parsed.state?.seasonPhase) {
-                    seasonPhase = parsed.state.seasonPhase === 'offseason' ? '休赛期' : 
-                                  parsed.state.seasonPhase === 'preseason' ? '季前赛' : 
-                                  parsed.state.seasonPhase === 'regular' ? '常规赛' : '季后赛';
+                if (parsed.seasonPhase) {
+                    seasonPhase = parsed.seasonPhase === 'offseason' ? '休赛期' : 
+                                  parsed.seasonPhase === 'preseason' ? '季前赛' : 
+                                  parsed.seasonPhase === 'regular' ? '常规赛' : '季后赛';
                 }
                 
-                saveDetails.innerHTML = `
-                    <div>🏀 球队: ${teamName}</div>
-                    <div>👥 球员数: ${rosterSize} 人</div>
-                    <div>📅 日期: ${currentDate}</div>
-                    <div>🎯 阶段: ${seasonPhase}</div>
-                    <div class="save-date">💾 保存时间: ${saveDate ? saveDate.toLocaleString('zh-CN') : '未知'}</div>
-                `;
+                if (saveDetails) {
+                    saveDetails.innerHTML = `
+                        <div>🏀 球队: ${teamName}</div>
+                        <div>👥 球员数: ${rosterSize} 人</div>
+                        <div>📅 日期: ${currentDate}</div>
+                        <div>🎯 阶段: ${seasonPhase}</div>
+                        <div class="save-date">💾 保存时间: ${saveDate ? saveDate.toLocaleString('zh-CN') : '未知'}</div>
+                        <div style="font-size: 12px; color: #6b7280; margin-top: 5px;">
+                            存档位置: ${saveSource === 'account' ? '账号云端' : '本地存储'}
+                        </div>
+                    `;
+                }
             } catch (e) {
                 console.error('Failed to parse save data:', e);
-                saveInfo.style.display = 'none';
+                if (saveInfo) saveInfo.style.display = 'none';
             }
         } else {
-            saveInfo.style.display = 'none';
-            continueBtn.style.display = 'none';
-            startWarning.style.display = 'none';
+            if (saveInfo) saveInfo.style.display = 'none';
+            if (continueBtn) continueBtn.style.display = 'none';
+            if (startWarning) startWarning.style.display = 'none';
         }
     }
     
@@ -177,33 +206,306 @@ class BasketballManagerApp {
     }
     
     /**
-     * Edit team name
+     * Edit team name - 使用自定义对话框替代 prompt
      */
     editTeamName() {
         const state = this.gameStateManager.getState();
         const currentName = state.userTeam?.name || state.teamName || '';
-        
-        const newName = prompt('请输入球队名称:', currentName);
-        
-        if (newName && newName.trim() !== '') {
-            const trimmedName = newName.trim();
-            
-            // Update in game state
-            if (state.userTeam) {
-                state.userTeam.name = trimmedName;
+
+        this.showTeamNameInputDialog(currentName, (newName) => {
+            if (newName && newName.trim() !== '') {
+                const trimmedName = newName.trim();
+
+                // Update in game state
+                if (state.userTeam) {
+                    state.userTeam.name = trimmedName;
+                }
+                this.gameStateManager.set('teamName', trimmedName);
+
+                // Update display
+                this.updateTeamNameDisplay();
+
+                // Save game
+                this.gameStateManager.saveGameState();
+
+                this.showNotification(`球队名称已更新为: ${trimmedName}`, 'success');
             }
-            this.gameStateManager.set('teamName', trimmedName);
-            
-            // Update display
-            this.updateTeamNameDisplay();
-            
-            // Save game
-            this.gameStateManager.saveGameState();
-            
-            this.showNotification(`球队名称已更新为: ${trimmedName}`, 'success');
-        }
+        });
     }
-    
+
+    /**
+     * 显示球队名称输入对话框
+     */
+    showTeamNameInputDialog(defaultName, callback) {
+        // 移除已存在的对话框
+        const existingModal = document.getElementById('team-name-modal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'team-name-modal';
+        modal.className = 'modal team-name-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease;
+        `;
+
+        modal.innerHTML = `
+            <div class="team-name-dialog" style="
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                border-radius: 20px;
+                padding: 40px;
+                max-width: 450px;
+                width: 90%;
+                box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                border: 2px solid rgba(255, 255, 255, 0.1);
+                text-align: center;
+            ">
+                <div class="dialog-icon" style="
+                    font-size: 3rem;
+                    margin-bottom: 20px;
+                ">🏀</div>
+                <h2 style="
+                    color: #ffffff;
+                    font-size: 1.5rem;
+                    margin-bottom: 10px;
+                    font-weight: 700;
+                ">命名你的球队</h2>
+                <p style="
+                    color: #9898a8;
+                    font-size: 0.95rem;
+                    margin-bottom: 25px;
+                ">为你的大学篮球队取一个响亮的名字</p>
+
+                <div class="input-wrapper" style="
+                    margin-bottom: 25px;
+                ">
+                    <input type="text" id="team-name-input" value="${defaultName}" placeholder="输入球队名称" style="
+                        width: 100%;
+                        padding: 15px 20px;
+                        font-size: 1.1rem;
+                        background: rgba(255, 255, 255, 0.08);
+                        border: 2px solid rgba(255, 255, 255, 0.15);
+                        border-radius: 12px;
+                        color: #ffffff;
+                        outline: none;
+                        transition: all 0.3s ease;
+                        box-sizing: border-box;
+                    ">
+                    <div class="input-hint" style="
+                        margin-top: 8px;
+                        font-size: 0.8rem;
+                        color: #6b7280;
+                        text-align: left;
+                    ">💡 建议格式：XX大学 或 XX学院</div>
+                </div>
+
+                <div class="dialog-buttons" style="
+                    display: flex;
+                    gap: 12px;
+                ">
+                    <button id="cancel-team-name" style="
+                        flex: 1;
+                        padding: 14px 24px;
+                        background: rgba(255, 255, 255, 0.08);
+                        border: 1px solid rgba(255, 255, 255, 0.15);
+                        border-radius: 10px;
+                        color: #d4d4dc;
+                        font-size: 0.95rem;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                    ">取消</button>
+                    <button id="confirm-team-name" style="
+                        flex: 1;
+                        padding: 14px 24px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        border: none;
+                        border-radius: 10px;
+                        color: white;
+                        font-size: 0.95rem;
+                        font-weight: 600;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+                    ">确认</button>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        const input = document.getElementById('team-name-input');
+        const confirmBtn = document.getElementById('confirm-team-name');
+        const cancelBtn = document.getElementById('cancel-team-name');
+
+        // 聚焦输入框并选中文字
+        input.focus();
+        input.select();
+
+        // 输入框焦点样式
+        input.addEventListener('focus', () => {
+            input.style.borderColor = '#667eea';
+            input.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.2)';
+        });
+        input.addEventListener('blur', () => {
+            input.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            input.style.boxShadow = 'none';
+        });
+
+        // 回车确认
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                confirmBtn.click();
+            }
+        });
+
+        // 确认按钮
+        confirmBtn.addEventListener('click', () => {
+            const value = input.value.trim();
+            if (value) {
+                modal.remove();
+                callback(value);
+            } else {
+                input.style.borderColor = '#ef4444';
+                input.placeholder = '请输入球队名称';
+                input.focus();
+            }
+        });
+
+        // 取消按钮
+        cancelBtn.addEventListener('click', () => {
+            modal.remove();
+            callback(null);
+        });
+
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+                callback(null);
+            }
+        });
+    }
+
+    /**
+     * 显示确认对话框
+     */
+    showConfirmDialog(title, message) {
+        return new Promise((resolve) => {
+            const existingModal = document.getElementById('confirm-dialog-modal');
+            if (existingModal) existingModal.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'confirm-dialog-modal';
+            modal.className = 'modal confirm-dialog-modal';
+            modal.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 10000;
+                animation: fadeIn 0.3s ease;
+            `;
+
+            modal.innerHTML = `
+                <div class="confirm-dialog" style="
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    border-radius: 20px;
+                    padding: 35px;
+                    max-width: 400px;
+                    width: 90%;
+                    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                    border: 2px solid rgba(255, 255, 255, 0.1);
+                    text-align: center;
+                ">
+                    <div class="dialog-icon" style="
+                        font-size: 2.5rem;
+                        margin-bottom: 15px;
+                    ">⚠️</div>
+                    <h2 style="
+                        color: #ffffff;
+                        font-size: 1.3rem;
+                        margin-bottom: 12px;
+                        font-weight: 700;
+                    ">${title}</h2>
+                    <p style="
+                        color: #9898a8;
+                        font-size: 0.95rem;
+                        margin-bottom: 25px;
+                        line-height: 1.5;
+                    ">${message}</p>
+
+                    <div class="dialog-buttons" style="
+                        display: flex;
+                        gap: 12px;
+                    ">
+                        <button id="cancel-confirm" style="
+                            flex: 1;
+                            padding: 12px 20px;
+                            background: rgba(255, 255, 255, 0.08);
+                            border: 1px solid rgba(255, 255, 255, 0.15);
+                            border-radius: 10px;
+                            color: #d4d4dc;
+                            font-size: 0.9rem;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                        ">取消</button>
+                        <button id="confirm-action" style="
+                            flex: 1;
+                            padding: 12px 20px;
+                            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+                            border: none;
+                            border-radius: 10px;
+                            color: white;
+                            font-size: 0.9rem;
+                            font-weight: 600;
+                            cursor: pointer;
+                            transition: all 0.3s ease;
+                            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+                        ">确定</button>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            const confirmBtn = document.getElementById('confirm-action');
+            const cancelBtn = document.getElementById('cancel-confirm');
+
+            confirmBtn.addEventListener('click', () => {
+                modal.remove();
+                resolve(true);
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                modal.remove();
+                resolve(false);
+            });
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    modal.remove();
+                    resolve(false);
+                }
+            });
+        });
+    }
+
     /**
      * Start the actual game initialization
      */
@@ -230,12 +532,19 @@ class BasketballManagerApp {
             console.log('Initializing Game State Manager...');
             await this.gameStateManager.initialize();
 
-            // If loading save, don't create new game
+            // If loading save, load the saved game state
             if (!loadSave) {
                 console.log('Initializing new game with empty roster...');
                 this.gameInitializer.initializeNewGame();
             } else {
-                console.log('Loaded save game, preserving roster...');
+                console.log('Loading saved game state...');
+                const loadedState = await this.gameStateManager.loadGameState();
+                if (loadedState) {
+                    console.log('Game state loaded successfully');
+                } else {
+                    console.warn('Failed to load game state, starting new game');
+                    this.gameInitializer.initializeNewGame();
+                }
             }
 
             // Initialize all modules in sequence
@@ -315,9 +624,13 @@ class BasketballManagerApp {
             
             // Set global reference for negotiation manager
             window.negotiationManager = this.negotiationManager;
-            
+
             // Set global reference for recruitment interface
             window.recruitmentInterface = this.recruitmentInterface;
+
+            // Set global reference for signing system
+            window.signingSystem = this.signingSystem;
+            window.signingInterface = this.signingInterface;
             
             // Set global notification function
             window.showNotification = (message, type = 'info') => {
@@ -800,12 +1113,7 @@ class BasketballManagerApp {
      */
     startGame(game) {
         this.gameEngine.setScheduleManager(this.scheduleManager);
-        
-        if (this.gameSimulationAdapter) {
-            this.showGameModeSelection(game);
-        } else {
-            this.gameEngine.startGame(game);
-        }
+        this.showGameModeSelection(game);
     }
 
     /**
@@ -925,7 +1233,14 @@ class BasketballManagerApp {
 
         quickSimBtn.addEventListener('click', () => {
             modal.remove();
-            this.gameSimulationAdapter.launchSimulation(game);
+            // 打开TV模式模拟页面
+            const tvWindow = window.open('game-tv.html', '_blank', 'width=900,height=700');
+            if (tvWindow) {
+                tvWindow.onload = () => {
+                    // 可以在这里传递比赛数据
+                    console.log('TV模式已打开，比赛:', game);
+                };
+            }
         });
 
         fullSimBtn.addEventListener('click', () => {
@@ -2098,8 +2413,8 @@ async function continueGame() {
     // Show app element
     document.getElementById('app').style.display = 'block';
     
-    // Load game state
-    await app.gameStateManager.loadGameState();
+    // Initialize game with save data
+    await app.startGameInitialization(true);
     
     // Start the app
     app.start();
@@ -2116,44 +2431,67 @@ async function startNewGame() {
         showNotification('游戏未加载', 'error');
         return;
     }
-    
+
     if (!accountManager || !accountManager.isLoggedIn()) {
         showNotification('请先登录', 'error');
         return;
     }
-    
+
     // Check if there's a save in the account and warn user
     const savedState = accountManager.loadGameState();
     if (savedState) {
-        if (!confirm('开始新游戏将覆盖当前存档，确定继续吗？')) {
+        const confirmed = await app.showConfirmDialog(
+            '开始新游戏',
+            '开始新游戏将覆盖当前存档，确定继续吗？'
+        );
+        if (!confirmed) {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="btn-icon">✨</span><span class="btn-text">新游戏</span>';
             return;
         }
         // Clear the save
         window.app.gameStateManager.clearSave();
     }
-    
+
     const btn = document.querySelector('.start-btn.secondary');
     btn.disabled = true;
     btn.innerHTML = '<span>⏳</span> <span class="btn-text">初始化中...</span>';
-    
+
     // Hide start screen
     app.hideStartScreen();
-    
+
     // Show app element
     document.getElementById('app').style.display = 'block';
-    
+
     // Start initialization without save (new game)
     await app.startGameInitialization(false);
-    
+
     // Start the app
     app.start();
-    
-    // Update team name display
-    app.updateTeamNameDisplay();
-    updateOffseasonPanel();
-    renderScholarshipPanel();
-    
-    showNotification('新游戏已开始', 'success');
+
+    // 显示球队命名对话框
+    setTimeout(() => {
+        app.showTeamNameInputDialog('', (teamName) => {
+            if (teamName && teamName.trim()) {
+                const state = app.gameStateManager.getState();
+                if (state.userTeam) {
+                    state.userTeam.name = teamName.trim();
+                }
+                app.gameStateManager.set('teamName', teamName.trim());
+                app.gameStateManager.saveGameState();
+                app.updateTeamNameDisplay();
+                showNotification(`欢迎来到 ${teamName.trim()}！`, 'success');
+            } else {
+                // 使用默认名称
+                const state = app.gameStateManager.getState();
+                const defaultName = state.userTeam?.name || '我的大学';
+                showNotification(`使用默认名称: ${defaultName}`, 'info');
+                app.updateTeamNameDisplay();
+            }
+            updateOffseasonPanel();
+            renderScholarshipPanel();
+        });
+    }, 500);
 }
 
 function editTeamName() {

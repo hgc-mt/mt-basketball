@@ -16,8 +16,50 @@ class AccountManager {
         this.loadAccounts();
         this.loadCurrentUser();
 
+        // 如果没有账号，创建预设账号
+        if (this.accounts.length === 0) {
+            this.createDefaultAccounts();
+        }
+
         this.isInitialized = true;
         console.log('Account Manager initialized');
+    }
+
+    createDefaultAccounts() {
+        // 从配置文件获取默认账号
+        const defaultAccounts = DEFAULT_ACCOUNTS_CONFIG ? DEFAULT_ACCOUNTS_CONFIG.getAccounts() : [
+            { username: 'coach1', password: '123456', email: 'coach1@game.com', description: '新手教练' },
+            { username: 'coach2', password: '123456', email: 'coach2@game.com', description: '资深教练' },
+            { username: 'coach3', password: '123456', email: 'coach3@game.com', description: '传奇教练' },
+            { username: 'test', password: '123456', email: 'test@game.com', description: '测试账号' }
+        ];
+
+        // 从配置文件获取默认游戏数据
+        const defaultGameData = DEFAULT_ACCOUNTS_CONFIG ? DEFAULT_ACCOUNTS_CONFIG.getDefaultGameData() : {
+            gameState: null,
+            settings: { gameSpeed: 1, autoSimulate: false, difficulty: 'normal', soundEnabled: true, musicEnabled: true },
+            statistics: { totalGamesPlayed: 0, totalWins: 0, totalLosses: 0, championships: 0, seasonsPlayed: 0 }
+        };
+
+        defaultAccounts.forEach(acc => {
+            const account = {
+                id: Date.now() + Math.random(),
+                username: acc.username,
+                password: this.hashPassword(acc.password),
+                email: acc.email,
+                description: acc.description,
+                role: acc.role || '用户',
+                avatar: acc.avatar || '👤',
+                createdAt: new Date().toISOString(),
+                lastLogin: null,
+                gameData: JSON.parse(JSON.stringify(defaultGameData))
+            };
+            this.accounts.push(account);
+        });
+
+        this.saveAccounts();
+        console.log('✅ 默认账号已创建:', defaultAccounts.map(a => `${a.username}(${a.description})`).join(', '));
+        console.log('📁 账号信息配置文件: js/configs/defaultAccounts.js');
     }
 
     loadAccounts() {
@@ -243,8 +285,8 @@ class AccountManager {
     hashPassword(password) {
         let hash = 0;
         for (let i = 0; i < password.length; i++) {
-            const char = password.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
+            const charCode = password.charCodeAt(i);
+            hash = ((hash << 5) - hash) + charCode;
             hash = hash & hash;
         }
         return hash.toString(16);

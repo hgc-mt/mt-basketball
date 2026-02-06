@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>大学篮球经理</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="css/competitive-recruitment.css">
+    <link rel="stylesheet" href="css/signing-interface.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.3.2/pixi.min.js"></script>
+    <script src="js/modules/playerSigningSystem.js"></script>
+    <script src="js/modules/signingInterface.js"></script>
     <script src="js/configs/scholarshipConfig.js"></script>
+    <script src="js/configs/defaultAccounts.js"></script>
     <script src="js/utils/performanceOptimizer.js"></script>
     <script src="js/utils/performanceBenchmark.js"></script>
     <script src="js/modules/accountManager.js"></script>
@@ -34,9 +39,20 @@
                 </div>
                 <div class="form-group">
                     <label>密码</label>
-                    <input type="password" id="login-password" placeholder="请输入密码">
+                    <input type="password" id="login-password" placeholder="请输入密码" value="123456">
                 </div>
                 <button class="account-btn primary" onclick="login()">登录</button>
+                
+                <!-- 预设账号快捷选择 -->
+                <div class="preset-accounts">
+                    <p class="preset-title">👤 快速选择账号（密码均为 123456）</p>
+                    <div class="preset-buttons">
+                        <button class="preset-btn" onclick="selectPresetAccount('coach1')">新手教练</button>
+                        <button class="preset-btn" onclick="selectPresetAccount('coach2')">资深教练</button>
+                        <button class="preset-btn" onclick="selectPresetAccount('coach3')">传奇教练</button>
+                        <button class="preset-btn" onclick="selectPresetAccount('test')">测试账号</button>
+                    </div>
+                </div>
             </div>
 
             <!-- 注册表单 -->
@@ -737,6 +753,10 @@
                         <span class="tab-text">已签约</span>
                         <span class="tab-badge" id="tab-badge-signed">0</span>
                     </button>
+                    <button class="recruit-tab-btn dashboard-btn" onclick="if(window.recruitmentInterface && window.recruitmentInterface.competitiveInterface) window.recruitmentInterface.competitiveInterface.showRecruitmentDashboard();">
+                        <span class="tab-icon">📊</span>
+                        <span class="tab-text">招募仪表盘</span>
+                    </button>
                 </div>
                 
                 <!-- 可用球员页签内容 -->
@@ -1289,6 +1309,8 @@
 
     <!-- Game Scripts -->
     <script src="js/data/gameData.js"></script>
+    <script src="js/configs/playerPersonalityConfig.js"></script>
+    <script src="js/configs/teamStylesConfig.js"></script>
     <script src="js/modules/dataModels.js"></script>
     <script src="js/modules/gameStateManager.js"></script>
     <script src="js/modules/dataSyncManager.js"></script>
@@ -1310,6 +1332,13 @@
     <script src="js/modules/seasonManager.js"></script>
     <script src="js/modules/financeManager.js"></script>
     <script src="js/modules/eventSystem.js"></script>
+    <script src="js/modules/playerRatingSystem.js"></script>
+    <script src="js/modules/playerGrowthSystem.js"></script>
+    <script src="js/modules/seniorSpecialistSystem.js"></script>
+    <script src="js/modules/aiCoachingSystem.js"></script>
+    <script src="js/modules/aiCoachingReport.js"></script>
+    <script src="js/modules/recruitmentCompetitionSystem.js"></script>
+    <script src="js/modules/competitiveRecruitmentInterface.js"></script>
     <script src="js/modules/gameInitializer.js"></script>
     <script src="js/modules/negotiationManager.js?v=2"></script>
     <script src="js/modules/skipRuleManager.js"></script>
@@ -1317,7 +1346,7 @@
     <script src="js/modules/recruitmentInterface.js"></script>
     <script src="js/modules/nbaGameUI.js"></script>
     <script src="js/modules/gameEngine.js"></script>
-    <script src="js/modules/gameSimulationAdapter.js"></script>
+    <script src="js/modules/autoGameSimulation.js"></script>
     <script src="js/modules/uiManager.js"></script>
     <script src="js/modules/pixiRenderer.js"></script>
     <script src="js/main.js"></script>

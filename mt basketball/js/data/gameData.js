@@ -462,10 +462,11 @@ const GameConstants = {
     GAMES_PER_SEASON: 30,
     CONFERENCE_GAMES_PER_SEASON: 18,
     
-    // Team constants
-    MAX_SCHOLARSHIPS: 5,
-    MIN_ROSTER_SIZE: 8,
-    MAX_ROSTER_SIZE: 15,
+    // Team constants - 参考NCAA D1规则
+    MAX_SCHOLARSHIPS: 13,        // 每队最多13份全额奖学金等效名额
+    MIN_ROSTER_SIZE: 11,         // 最少11人
+    MAX_ROSTER_SIZE: 15,         // 最多15人
+    OPTIMAL_ROSTER_SIZE: 13,     // 最佳阵容规模
     
     // Player constants
     MIN_PLAYER_AGE: 17,

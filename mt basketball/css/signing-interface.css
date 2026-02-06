@@ -1,0 +1,581 @@
+/**
+ * 球员签约界面样式
+ */
+
+/* 签约模态框 */
+.signing-modal .modal-content {
+    max-width: 700px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.signing-content {
+    padding: 0;
+}
+
+/* 球员信息区 */
+.player-info-section {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 25px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.player-avatar-large {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+}
+
+.player-details {
+    flex: 1;
+}
+
+.player-name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 10px 0;
+}
+
+.player-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.player-tags .tag {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.player-tags .tag.superstar {
+    background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%);
+    color: white;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); }
+    50% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+}
+
+/* 报价信息区 */
+.offer-info-section {
+    padding: 25px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.offer-info-section h4 {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin: 0 0 20px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.offer-analysis {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.analysis-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+}
+
+.analysis-item.highlight {
+    background: rgba(102, 126, 234, 0.15);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.analysis-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.analysis-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.analysis-value.expected {
+    color: #10b981;
+    font-size: 1.2rem;
+}
+
+/* 报价范围 */
+.offer-range {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.range-item {
+    text-align: center;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.range-label {
+    display: block;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.range-value {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.range-value.min {
+    color: #ef4444;
+}
+
+.range-value.max {
+    color: #3b82f6;
+}
+
+.range-value.top {
+    color: #f59e0b;
+}
+
+/* 超级球星警告 */
+.superstar-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 15px;
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 10px;
+}
+
+.warning-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.warning-text {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+/* 直接签约提示 */
+.direct-sign-info {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 15px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 10px;
+}
+
+.info-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.info-text {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+/* 报价输入区 */
+.offer-input-section {
+    padding: 25px;
+}
+
+.offer-input-section h4 {
+    font-size: 1.1rem;
+    color: var(--text-primary);
+    margin: 0 0 20px 0;
+}
+
+.offer-input-container {
+    margin-bottom: 20px;
+}
+
+.input-group {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 5px;
+    margin-bottom: 15px;
+}
+
+.input-group:focus-within {
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+}
+
+.currency {
+    padding: 0 15px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-muted);
+}
+
+.offer-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 15px 10px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    outline: none;
+}
+
+.offer-input::placeholder {
+    color: var(--text-muted);
+    font-size: 1rem;
+}
+
+/* 快速报价按钮 */
+.quick-offers {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.quick-offer-btn {
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.quick-offer-btn:hover {
+    background: rgba(102, 126, 234, 0.15);
+    border-color: rgba(102, 126, 234, 0.4);
+    transform: translateY(-2px);
+}
+
+.quick-offer-btn.highlight {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.4);
+    color: #10b981;
+}
+
+.quick-offer-btn.highlight:hover {
+    background: rgba(16, 185, 129, 0.25);
+}
+
+.quick-offer-btn.max {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #f59e0b;
+}
+
+.quick-offer-btn.max:hover {
+    background: rgba(245, 158, 11, 0.25);
+}
+
+/* 报价评估 */
+.offer-evaluation {
+    margin-top: 20px;
+}
+
+.evaluation-result {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px 20px;
+    border-radius: 10px;
+    border: 1px solid transparent;
+}
+
+.evaluation-result.too-low {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.evaluation-result.direct-sign {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.evaluation-result.good {
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.evaluation-result.fair {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.3);
+}
+
+.evaluation-result.low {
+    background: rgba(107, 114, 128, 0.1);
+    border-color: rgba(107, 114, 128, 0.3);
+}
+
+.evaluation-icon {
+    font-size: 2rem;
+    flex-shrink: 0;
+}
+
+.evaluation-content {
+    flex: 1;
+}
+
+.evaluation-text {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+}
+
+.evaluation-ratio {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* 底部按钮 */
+.signing-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+    padding: 20px 25px;
+    background: rgba(255, 255, 255, 0.03);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn-primary, .btn-secondary {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* 签约成功页面 */
+.signing-success {
+    text-align: center;
+    padding: 40px;
+}
+
+.success-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    animation: bounce 1s ease infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+.signing-success h2 {
+    font-size: 1.8rem;
+    color: #10b981;
+    margin-bottom: 20px;
+}
+
+.success-message {
+    margin-bottom: 30px;
+}
+
+.player-reaction {
+    font-size: 1.2rem;
+    font-style: italic;
+    color: var(--text-primary);
+    margin-bottom: 15px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    border-left: 4px solid #10b981;
+}
+
+.signing-detail {
+    font-size: 1rem;
+    color: var(--text-muted);
+}
+
+.offer-amount {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #10b981;
+    margin-top: 10px;
+}
+
+/* 签约被拒绝页面 */
+.signing-rejected {
+    text-align: center;
+    padding: 40px;
+}
+
+.rejected-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+}
+
+.signing-rejected h2 {
+    font-size: 1.8rem;
+    color: #ef4444;
+    margin-bottom: 20px;
+}
+
+.rejected-message {
+    margin-bottom: 30px;
+}
+
+.rejected-message .player-reaction {
+    border-left-color: #ef4444;
+}
+
+.rejected-detail {
+    font-size: 1rem;
+    color: var(--text-muted);
+}
+
+/* 谈判对话框 */
+.negotiation-modal .modal-content {
+    max-width: 500px;
+}
+
+.negotiation-body {
+    padding: 25px;
+}
+
+.player-reaction {
+    display: flex;
+    align-items: flex-start;
+    gap: 15px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.reaction-icon {
+    font-size: 2rem;
+}
+
+.reaction-text {
+    font-size: 1.1rem;
+    font-style: italic;
+    color: var(--text-primary);
+    line-height: 1.5;
+    margin: 0;
+}
+
+.negotiation-info {
+    text-align: center;
+    margin-bottom: 25px;
+}
+
+.negotiation-info p {
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.negotiation-hint {
+    font-size: 0.9rem;
+    color: var(--text-secondary) !important;
+    background: rgba(102, 126, 234, 0.1);
+    padding: 15px;
+    border-radius: 8px;
+}
+
+.negotiation-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.negotiation-actions button {
+    flex: 1;
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
+    .offer-analysis {
+        grid-template-columns: 1fr;
+    }
+    
+    .offer-range {
+        grid-template-columns: 1fr;
+    }
+    
+    .quick-offers {
+        grid-template-columns: 1fr;
+    }
+    
+    .player-info-section {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .signing-footer {
+        flex-direction: column;
+    }
+    
+    .signing-footer button {
+        width: 100%;
+    }
+}

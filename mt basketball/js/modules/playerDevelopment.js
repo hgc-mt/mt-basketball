@@ -137,7 +137,10 @@ class PlayerDevelopment {
         }
 
         // Also update player-development screen if it exists
-        this.updatePlayerDevelopmentScreen();
+        // 避免循环调用，直接更新球员列表
+        if (userTeam) {
+            this.updatePlayerList(userTeam);
+        }
     }
 
     updatePlayerDevelopmentScreen() {
@@ -149,8 +152,7 @@ class PlayerDevelopment {
         // Update player list
         this.updatePlayerList(userTeam);
 
-        // Update training options
-        this.updateTrainingScreen();
+        // 注意：不要在这里调用 updateTrainingScreen，避免循环调用
     }
 
     updatePlayerList(team) {

@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>比赛直播 - TV模式</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            background: #0a0a0a;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        /* TV 外壳 */
+        .tv-container {
+            width: 100%;
+            max-width: 900px;
+            background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 
+                0 20px 60px rgba(0,0,0,0.8),
+                inset 0 2px 5px rgba(255,255,255,0.1);
+        }
+
+        .tv-screen {
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+            aspect-ratio: 16/10;
+        }
+
+        /* 屏幕内容 */
+        .screen-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 顶部信息栏 */
+        .top-bar {
+            background: linear-gradient(180deg, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.6) 100%);
+            padding: 10px 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #e94560;
+        }
+
+        .match-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .team-badge {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .team-name {
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .vs-text {
+            color: #e94560;
+            font-weight: 900;
+            font-size: 0.9rem;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: #ef4444;
+            color: #fff;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #fff;
+            border-radius: 50%;
+        }
+
+        /* 比分显示 */
+        .score-board {
+            background: linear-gradient(180deg, #1a1a2e 0%, #0f0f1a 100%);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+        }
+
+        .team-score-display {
+            text-align: center;
+        }
+
+        .score-number {
+            font-size: 4rem;
+            font-weight: 900;
+            color: #fff;
+            font-family: 'Arial Black', sans-serif;
+            text-shadow: 0 0 20px rgba(255,255,255,0.3);
+            line-height: 1;
+        }
+
+        .score-number.leading {
+            color: #fbbf24;
+            text-shadow: 0 0 30px rgba(251, 191, 36, 0.5);
+        }
+
+        .team-name-small {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            margin-top: 5px;
+        }
+
+        .game-info-center {
+            text-align: center;
+        }
+
+        .quarter-badge {
+            background: #e94560;
+            color: #fff;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 8px;
+            display: inline-block;
+        }
+
+        .time-display {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* 球场可视化 */
+        .court-view {
+            flex: 1;
+            background: linear-gradient(180deg, #1e3a5f 0%, #0f1f33 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .court-lines {
+            position: absolute;
+            inset: 0;
+            opacity: 0.3;
+        }
+
+        .court-center-line {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: rgba(255,255,255,0.5);
+            transform: translateX(-50%);
+        }
+
+        .court-center-circle {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 80px;
+            height: 80px;
+            border: 2px solid rgba(255,255,255,0.5);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .three-point-line {
+            position: absolute;
+            top: 50%;
+            width: 120px;
+            height: 200px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 0 100% 100% 0;
+            transform: translateY(-50%);
+        }
+
+        .three-point-line.left {
+            left: 0;
+            border-radius: 0 100% 100% 0;
+        }
+
+        .three-point-line.right {
+            right: 0;
+            border-radius: 100% 0 0 100%;
+        }
+
+        /* 篮筐 */
+        .basket {
+            position: absolute;
+            top: 50%;
+            width: 40px;
+            height: 50px;
+            transform: translateY(-50%);
+        }
+
+        .basket.left {
+            left: 5px;
+        }
+
+        .basket.right {
+            right: 5px;
+        }
+
+        .basket-rim {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #ff6b6b;
+            border-radius: 50%;
+            top: 0;
+        }
+
+        .basket.left .basket-rim {
+            right: 0;
+        }
+
+        .basket.right .basket-rim {
+            left: 0;
+        }
+
+        .basket-net {
+            position: absolute;
+            width: 20px;
+            height: 25px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.3) 0%, transparent 100%);
+            top: 25px;
+        }
+
+        .basket.left .basket-net {
+            right: 5px;
+        }
+
+        .basket.right .basket-net {
+            left: 5px;
+        }
+
+        .backboard {
+            position: absolute;
+            width: 6px;
+            height: 40px;
+            background: rgba(255,255,255,0.5);
+            top: 5px;
+        }
+
+        .basket.left .backboard {
+            left: 0;
+        }
+
+        .basket.right .backboard {
+            right: 0;
+        }
+
+        /* 球员 */
+        .players-container {
+            position: absolute;
+            inset: 0;
+        }
+
+        .player-dot {
+            position: absolute;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.7rem;
+            color: #fff;
+            transition: all 0.5s ease;
+            border: 2px solid rgba(255,255,255,0.5);
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .player-dot.home {
+            background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
+        }
+
+        .player-dot.away {
+            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+        }
+
+        .player-dot.has-ball {
+            border-color: #fbbf24;
+            box-shadow: 0 0 20px #fbbf24;
+            animation: bounce 0.5s infinite alternate;
+        }
+
+        @keyframes bounce {
+            from { transform: scale(1); }
+            to { transform: scale(1.1); }
+        }
+
+        .player-name-tag {
+            position: absolute;
+            bottom: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            white-space: nowrap;
+        }
+
+        /* 篮球 */
+        .basketball {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.3);
+            transition: all 0.3s ease;
+            z-index: 10;
+        }
+
+        /* 播报区域 */
+        .commentary-section {
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+            padding: 15px;
+            min-height: 120px;
+        }
+
+        .commentary-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            color: #fbbf24;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .commentary-text {
+            color: #fff;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            min-height: 30px;
+        }
+
+        .commentary-text.highlight {
+            color: #fbbf24;
+            font-weight: 700;
+            font-size: 1.2rem;
+        }
+
+        /* 事件滚动条 */
+        .events-ticker {
+            background: rgba(0,0,0,0.5);
+            padding: 10px 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            max-height: 100px;
+            overflow-y: auto;
+        }
+
+        .event-item {
+            display: flex;
+            gap: 10px;
+            padding: 5px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 0.85rem;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .event-time {
+            color: #64748b;
+            min-width: 50px;
+            font-weight: 600;
+        }
+
+        .event-text {
+            color: #cbd5e1;
+        }
+
+        .event-item.score .event-text { color: #4ade80; }
+        .event-item.three .event-text { color: #fbbf24; }
+        .event-item.miss .event-text { color: #94a3b8; }
+        .event-item.violation .event-text { color: #ef4444; }
+
+        /* 投篮轨迹动画 */
+        .shot-trajectory {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: radial-gradient(circle, #fbbf24 0%, transparent 70%);
+            border-radius: 50%;
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        @keyframes shotArc {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.5);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+        }
+
+        .shot-trajectory.made {
+            background: radial-gradient(circle, #4ade80 0%, transparent 70%);
+        }
+
+        .shot-trajectory.missed {
+            background: radial-gradient(circle, #ef4444 0%, transparent 70%);
+        }
+
+        /* TV 控制按钮 */
+        .tv-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .tv-btn {
+            padding: 10px 25px;
+            border: none;
+            border-radius: 25px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .tv-btn-primary {
+            background: linear-gradient(135deg, #e94560 0%, #ff6b6b 100%);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(233, 69, 96, 0.4);
+        }
+
+        .tv-btn-secondary {
+            background: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .tv-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+
+        .tv-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 速度选择 */
+        .speed-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #94a3b8;
+            font-size: 0.85rem;
+        }
+
+        .speed-options {
+            display: flex;
+            gap: 5px;
+        }
+
+        .speed-btn {
+            padding: 5px 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.05);
+            color: #94a3b8;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .speed-btn:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+
+        .speed-btn.active {
+            background: #e94560;
+            color: #fff;
+            border-color: #e94560;
+        }
+
+        /* 统计面板 */
+        .stats-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            color: #94a3b8;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 15px;
+            margin-bottom: 3px;
+        }
+
+        .stat-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .stat-home { color: #e94560; }
+        .stat-away { color: #3b82f6; }
+
+        /* 投篮动画 */
+        .shot-animation {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(251,191,36,0.8) 0%, transparent 70%);
+            animation: shotArc 1s ease-out forwards;
+            pointer-events: none;
+        }
+
+        @keyframes shotArc {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+
+        /* 响应式 */
+        @media (max-width: 600px) {
+            .score-number {
+                font-size: 2.5rem;
+            }
+            .time-display {
+                font-size: 1.5rem;
+            }
+            .player-dot {
+                width: 28px;
+                height: 28px;
+                font-size: 0.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="tv-container">
+        <div class="tv-screen">
+            <div class="screen-content">
+                <!-- 顶部信息栏 -->
+                <div class="top-bar">
+                    <div class="match-info">
+                        <div class="team-badge">
+                            <span class="team-name" id="home-team-name">湖人</span>
+                        </div>
+                        <span class="vs-text">VS</span>
+                        <div class="team-badge">
+                            <span class="team-name" id="away-team-name">勇士</span>
+                        </div>
+                    </div>
+                    <div class="live-indicator" id="live-indicator" style="display: none;">
+                        <span class="live-dot"></span>
+                        <span>LIVE</span>
+                    </div>
+                </div>
+
+                <!-- 比分显示 -->
+                <div class="score-board">
+                    <div class="team-score-display">
+                        <div class="score-number" id="home-score">0</div>
+                        <div class="team-name-small" id="home-name-small">湖人</div>
+                    </div>
+                    <div class="game-info-center">
+                        <div class="quarter-badge" id="quarter">第一节</div>
+                        <div class="time-display" id="game-time">12:00</div>
+                    </div>
+                    <div class="team-score-display">
+                        <div class="score-number" id="away-score">0</div>
+                        <div class="team-name-small" id="away-name-small">勇士</div>
+                    </div>
+                </div>
+
+                <!-- 球场可视化 -->
+                <div class="court-view">
+                    <div class="court-lines">
+                        <div class="court-center-line"></div>
+                        <div class="court-center-circle"></div>
+                        <div class="three-point-line left"></div>
+                        <div class="three-point-line right"></div>
+                    </div>
+                    
+                    <!-- 篮筐 -->
+                    <div class="basket left">
+                        <div class="backboard"></div>
+                        <div class="basket-rim"></div>
+                        <div class="basket-net"></div>
+                    </div>
+                    <div class="basket right">
+                        <div class="backboard"></div>
+                        <div class="basket-rim"></div>
+                        <div class="basket-net"></div>
+                    </div>
+                    
+                    <div class="players-container" id="players-container">
+                        <!-- 球员位置 -->
+                    </div>
+                    <div class="basketball" id="basketball" style="display: none;"></div>
+                    
+                    <!-- 统计覆盖层 -->
+                    <div class="stats-overlay">
+                        <div class="stat-row">
+                            <span class="stat-home" id="stat-home-fg">0%</span>
+                            <span>投篮</span>
+                            <span class="stat-away" id="stat-away-fg">0%</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-home" id="stat-home-3p">0%</span>
+                            <span>三分</span>
+                            <span class="stat-away" id="stat-away-3p">0%</span>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-home" id="stat-home-reb">0</span>
+                            <span>篮板</span>
+                            <span class="stat-away" id="stat-away-reb">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 播报区域 -->
+                <div class="commentary-section">
+                    <div class="commentary-header">
+                        <span>🎙️</span>
+                        <span>现场解说</span>
+                    </div>
+                    <div class="commentary-text" id="commentary">比赛即将开始...</div>
+                </div>
+
+                <!-- 事件滚动条 -->
+                <div class="events-ticker" id="events-ticker">
+                    <!-- 事件动态添加 -->
+                </div>
+            </div>
+        </div>
+
+        <!-- TV 控制 -->
+        <div class="tv-controls">
+            <button class="tv-btn tv-btn-primary" id="start-btn" onclick="startBroadcast()">📺 开始直播</button>
+            <button class="tv-btn tv-btn-secondary" id="reset-btn" onclick="resetBroadcast()">🔄 换台</button>
+            <div class="speed-selector">
+                <span>倍速:</span>
+                <div class="speed-options">
+                    <button class="speed-btn active" onclick="setSpeed(1)">1x</button>
+                    <button class="speed-btn" onclick="setSpeed(2)">2x</button>
+                    <button class="speed-btn" onclick="setSpeed(4)">4x</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/modules/autoGameSimulation.js"></script>
+    <script>
+        let simulation = new AutoGameSimulation();
+        let currentSpeed = 1;
+        
+        // 默认球队数据
+        const defaultTeams = {
+            home: {
+                name: '洛杉矶湖人',
+                players: [
+                    { name: '詹姆斯', position: 'SF', rating: 95 },
+                    { name: '戴维斯', position: 'PF', rating: 93 },
+                    { name: '拉塞尔', position: 'PG', rating: 84 },
+                    { name: '里夫斯', position: 'SG', rating: 82 },
+                    { name: '八村塁', position: 'C', rating: 80 }
+                ]
+            },
+            away: {
+                name: '金州勇士',
+                players: [
+                    { name: '库里', position: 'PG', rating: 96 },
+                    { name: '汤普森', position: 'SG', rating: 88 },
+                    { name: '威金斯', position: 'SF', rating: 85 },
+                    { name: '格林', position: 'PF', rating: 84 },
+                    { name: '鲁尼', position: 'C', rating: 79 }
+                ]
+            }
+        };
+
+        // 球员位置配置
+        const playerPositions = {
+            home: [
+                { x: 20, y: 50 }, // PG
+                { x: 30, y: 25 }, // SG
+                { x: 30, y: 75 }, // SF
+                { x: 40, y: 40 }, // PF
+                { x: 40, y: 60 }  // C
+            ],
+            away: [
+                { x: 80, y: 50 }, // PG
+                { x: 70, y: 25 }, // SG
+                { x: 70, y: 75 }, // SF
+                { x: 60, y: 40 }, // PF
+                { x: 60, y: 60 }  // C
+            ]
+        };
+
+        function init() {
+            renderPlayers();
+            initializeGame();
+        }
+
+        function renderPlayers() {
+            const container = document.getElementById('players-container');
+            container.innerHTML = '';
+
+            ['home', 'away'].forEach(side => {
+                const team = defaultTeams[side];
+                team.players.forEach((player, index) => {
+                    const pos = playerPositions[side][index];
+                    const dot = document.createElement('div');
+                    dot.className = `player-dot ${side}`;
+                    dot.id = `player-${side}-${index}`;
+                    dot.style.left = `${pos.x}%`;
+                    dot.style.top = `${pos.y}%`;
+                    dot.style.transform = 'translate(-50%, -50%)';
+                    dot.innerHTML = `
+                        ${player.position}
+                        <div class="player-name-tag">${player.name}</div>
+                    `;
+                    container.appendChild(dot);
+                });
+            });
+        }
+
+        function initializeGame() {
+            simulation.initialize(defaultTeams.home, defaultTeams.away, currentSpeed);
+            
+            // 设置回调
+            simulation.onUpdate = onGameUpdate;
+            simulation.onEvent = onGameEvent;
+            simulation.onComplete = onGameComplete;
+            
+            updateDisplay();
+        }
+
+        function startBroadcast() {
+            if (simulation.isRunning) return;
+            
+            simulation.start();
+            document.getElementById('start-btn').disabled = true;
+            document.getElementById('start-btn').textContent = '🔴 直播中...';
+            document.getElementById('live-indicator').style.display = 'flex';
+            
+            setCommentary('比赛开始！双方球员入场...');
+        }
+
+        function resetBroadcast() {
+            simulation.stop();
+            initializeGame();
+            
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('start-btn').textContent = '📺 开始直播';
+            document.getElementById('live-indicator').style.display = 'none';
+            document.getElementById('events-ticker').innerHTML = '';
+            
+            // 重置球员位置
+            renderPlayers();
+            
+            setCommentary('比赛即将开始...');
+        }
+
+        function setSpeed(speed) {
+            currentSpeed = speed;
+            simulation.setSpeed(speed);
+            
+            document.querySelectorAll('.speed-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        function onGameUpdate(status) {
+            updateDisplay(status);
+            updatePlayerAnimation(status);
+        }
+
+        function onGameEvent(event) {
+            addEventToTicker(event);
+            
+            // 更新解说
+            if (['score', 'three', 'miss', 'rebound_off', 'rebound_def', 'violation'].includes(event.type)) {
+                setCommentary(event.text, event.type === 'score' || event.type === 'three');
+            }
+
+            // 投篮动画
+            if (event.type === 'score' || event.type === 'three' || event.type === 'miss') {
+                const status = simulation.getStatus();
+                if (status && status.ballHandler) {
+                    const side = status.possession;
+                    const isHome = side === 'home';
+                    const playerDot = document.querySelector('.player-dot.has-ball');
+                    if (playerDot) {
+                        const fromX = parseFloat(playerDot.style.left);
+                        const fromY = parseFloat(playerDot.style.top);
+                        const toX = isHome ? 90 : 10;
+                        const toY = 50;
+                        const made = event.type === 'score' || event.type === 'three';
+                        showShotAnimation(fromX, fromY, toX, toY, made);
+                    }
+                }
+            }
+        }
+
+        function onGameComplete(result) {
+            document.getElementById('start-btn').disabled = false;
+            document.getElementById('start-btn').textContent = '📺 比赛结束';
+            document.getElementById('live-indicator').style.display = 'none';
+            
+            setCommentary(`🏆 比赛结束！${result.winner}获胜！`, true);
+        }
+
+        function updateDisplay(status = null) {
+            if (!status) status = simulation.getStatus();
+            if (!status) return;
+
+            // 更新比分
+            document.getElementById('home-score').textContent = status.homeScore;
+            document.getElementById('away-score').textContent = status.awayScore;
+            
+            // 高亮领先方
+            document.getElementById('home-score').classList.toggle('leading', status.homeScore > status.awayScore);
+            document.getElementById('away-score').classList.toggle('leading', status.awayScore > status.homeScore);
+            
+            // 更新时间
+            const minutes = Math.floor(status.timeRemaining / 60);
+            const seconds = status.timeRemaining % 60;
+            document.getElementById('game-time').textContent = 
+                `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            
+            // 更新节次
+            const quarterNames = ['第一节', '第二节', '第三节', '第四节'];
+            document.getElementById('quarter').textContent = quarterNames[status.quarter - 1] || '加时';
+            
+            // 更新统计
+            if (status.stats) {
+                updateStats(status.stats);
+            }
+        }
+
+        function updateStats(stats) {
+            const calcPct = (made, attempted) => attempted > 0 ? Math.round(made / attempted * 100) + '%' : '0%';
+            
+            document.getElementById('stat-home-fg').textContent = calcPct(stats.home.fg.made, stats.home.fg.attempted);
+            document.getElementById('stat-away-fg').textContent = calcPct(stats.away.fg.made, stats.away.fg.attempted);
+            document.getElementById('stat-home-3p').textContent = calcPct(stats.home.tp.made, stats.home.tp.attempted);
+            document.getElementById('stat-away-3p').textContent = calcPct(stats.away.tp.made, stats.away.tp.attempted);
+            document.getElementById('stat-home-reb').textContent = stats.home.reb;
+            document.getElementById('stat-away-reb').textContent = stats.away.reb;
+        }
+
+        // 球员移动动画
+        function movePlayer(side, index, targetX, targetY) {
+            const player = document.getElementById(`player-${side}-${index}`);
+            if (player) {
+                player.style.left = `${targetX}%`;
+                player.style.top = `${targetY}%`;
+            }
+        }
+
+        // 随机移动所有球员（模拟比赛中的跑位）
+        function animateAllPlayers() {
+            ['home', 'away'].forEach(side => {
+                const basePositions = playerPositions[side];
+                basePositions.forEach((pos, index) => {
+                    // 在基础位置附近随机移动
+                    const offsetX = (Math.random() - 0.5) * 10;
+                    const offsetY = (Math.random() - 0.5) * 10;
+                    const newX = Math.max(5, Math.min(95, pos.x + offsetX));
+                    const newY = Math.max(10, Math.min(90, pos.y + offsetY));
+                    movePlayer(side, index, newX, newY);
+                });
+            });
+        }
+
+        // 投篮动画
+        function showShotAnimation(fromX, fromY, toX, toY, made) {
+            const court = document.querySelector('.court-view');
+            const trajectory = document.createElement('div');
+            trajectory.className = `shot-trajectory ${made ? 'made' : 'missed'}`;
+            trajectory.style.left = `${fromX}%`;
+            trajectory.style.top = `${fromY}%`;
+            trajectory.style.animation = 'shotArc 1s ease-out forwards';
+            court.appendChild(trajectory);
+
+            // 抛物线移动
+            let progress = 0;
+            const animateShot = () => {
+                progress += 0.05;
+                if (progress <= 1) {
+                    const currentX = fromX + (toX - fromX) * progress;
+                    const currentY = fromY + (toY - fromY) * progress - Math.sin(progress * Math.PI) * 20;
+                    trajectory.style.left = `${currentX}%`;
+                    trajectory.style.top = `${currentY}%`;
+                    requestAnimationFrame(animateShot);
+                } else {
+                    setTimeout(() => trajectory.remove(), 200);
+                }
+            };
+            animateShot();
+        }
+
+        function updatePlayerAnimation(status) {
+            if (!status.ballHandler) return;
+            
+            // 清除所有持球标记
+            document.querySelectorAll('.player-dot').forEach(dot => {
+                dot.classList.remove('has-ball');
+            });
+            
+            // 标记持球球员
+            const side = status.possession;
+            const team = side === 'home' ? status.homeTeam : status.awayTeam;
+            const playerIndex = team.lineup.findIndex(p => p.id === status.ballHandler.id);
+            
+            if (playerIndex >= 0) {
+                const playerDot = document.getElementById(`player-${side}-${playerIndex}`);
+                if (playerDot) {
+                    playerDot.classList.add('has-ball');
+                    
+                    // 移动球到该球员位置
+                    const ball = document.getElementById('basketball');
+                    ball.style.display = 'block';
+                    ball.style.left = playerDot.style.left;
+                    ball.style.top = playerDot.style.top;
+
+                    // 球员向篮筐移动（进攻）
+                    const isHome = side === 'home';
+                    const basketX = isHome ? 90 : 10;
+                    const basketY = 50;
+                    const currentX = parseFloat(playerDot.style.left);
+                    const currentY = parseFloat(playerDot.style.top);
+                    
+                    // 向篮筐方向移动一点
+                    const moveX = currentX + (basketX - currentX) * 0.3;
+                    const moveY = currentY + (basketY - currentY) * 0.3;
+                    movePlayer(side, playerIndex, moveX, moveY);
+
+                    // 其他球员也随机移动
+                    setTimeout(() => animateAllPlayers(), 300);
+                }
+            }
+        }
+
+        function addEventToTicker(event) {
+            const ticker = document.getElementById('events-ticker');
+            
+            const item = document.createElement('div');
+            item.className = `event-item ${event.type}`;
+            item.innerHTML = `
+                <span class="event-time">${event.time}</span>
+                <span class="event-text">${event.text}</span>
+            `;
+            
+            ticker.insertBefore(item, ticker.firstChild);
+            
+            // 限制事件数量
+            while (ticker.children.length > 20) {
+                ticker.removeChild(ticker.lastChild);
+            }
+        }
+
+        function setCommentary(text, highlight = false) {
+            const commentary = document.getElementById('commentary');
+            commentary.textContent = text;
+            commentary.classList.toggle('highlight', highlight);
+        }
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

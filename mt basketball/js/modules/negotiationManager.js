@@ -99,7 +99,7 @@ class NegotiationManager {
             playerName: player.name,
             playerPosition: player.position,
             playerYear: player.year,
-            playerRating: player.getOverallRating(),
+            playerRating: player.getOverallRating ? player.getOverallRating() : (player.rating || 50),
             playerPotential: player.potential,
             
             teamId: userTeam.id,
@@ -134,75 +134,135 @@ class NegotiationManager {
     }
 
     calculateRecommendedScholarship(player) {
+        // 优先使用玩家的scholarshipRequirement（已由Player类根据新系统计算）
         if (player.scholarshipRequirement) {
             const req = player.scholarshipRequirement;
+            // 返回推荐值，考虑一定浮动
             if (req.flexible) {
-                const variance = (req.max - req.min) * 0.3;
+                const variance = (req.max - req.min) * 0.2; // 降低浮动范围
                 const recommended = req.preferred + (Math.random() * variance * 2 - variance);
-                return Math.max(req.min, Math.min(req.max, Math.round(recommended * 100) / 100));
+                // 将结果映射到最近的奖学金等级
+                return this.mapToScholarshipLevel(Math.max(req.min, Math.min(req.max, Math.round(recommended * 100) / 100)));
             } else {
-                return req.preferred;
+                return this.mapToScholarshipLevel(req.preferred);
             }
         }
         
-        const rating = player.getOverallRating();
-        const potential = player.potential;
-        const year = player.year;
+        // 如果没有scholarshipRequirement，使用新的5级系统计算
+        const rating = player.getOverallRating ? player.getOverallRating() : (player.rating || 50);
+        const potential = player.potential || 60;
+        const maxVal = Math.max(rating, potential);
         
-        let baseScholarship = 0.5;
+        // 直接映射到5级奖学金系统
+        if (maxVal >= 80) return 1.0;      // 全额
+        if (maxVal >= 72) return 0.6;      // 主要
+        if (maxVal >= 65) return 0.35;     // 部分
+        if (maxVal >= 58) return 0.15;     // 基础
+        return 0;                           // 无奖学金
+    }
+    
+    /**
+     * 将任意奖学金值映射到标准5级
+     * @param {number} value - 原始值
+     * @returns {number} 标准等级值
+     */
+    mapToScholarshipLevel(value) {
+        // 5级奖学金标准值
+        const levels = [0, 0.15, 0.35, 0.6, 1.0];
         
-        if (rating >= 80) baseScholarship = 1.0;
-        else if (rating >= 70) baseScholarship = 0.85;
-        else if (rating >= 60) baseScholarship = 0.7;
-        else if (rating >= 50) baseScholarship = 0.5;
+        // 找到最近的等级
+        let closest = levels[0];
+        let minDiff = Math.abs(value - levels[0]);
         
-        if (potential >= 85) baseScholarship += 0.15;
-        else if (potential >= 75) baseScholarship += 0.1;
+        for (const level of levels) {
+            const diff = Math.abs(value - level);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closest = level;
+            }
+        }
         
-        if (year === 4) baseScholarship -= 0.1;
-        else if (year === 3) baseScholarship -= 0.05;
-        
-        baseScholarship = Math.max(0.25, Math.min(1.0, baseScholarship));
-        
-        return Math.round(baseScholarship * 100) / 100;
+        return closest;
     }
 
     calculateAcceptanceProbability(player, scholarship, playingTime) {
-        const rating = player.getOverallRating();
-        const potential = player.potential;
-        const year = player.year;
+        // 处理从localStorage加载的普通对象（没有getOverallRating方法）
+        const rating = player.getOverallRating ? player.getOverallRating() : (player.rating || 50);
+        const potential = player.potential || 60;
+        const year = player.year || 1;
         
-        let probability = 50;
+        // 基础接受概率
+        let probability = 40;
         
+        // 根据奖学金要求计算
         if (player.scholarshipRequirement) {
             const req = player.scholarshipRequirement;
             
+            // 低于最低要求 - 几乎不可能接受
             if (scholarship < req.min) {
-                probability -= 40;
-            } else if (scholarship >= req.max) {
-                probability += 20;
-            } else {
+                probability -= 50;
+            } 
+            // 达到或超过最高期望 - 大幅提升概率
+            else if (scholarship >= req.max) {
+                probability += 30;
+            } 
+            // 在可接受范围内
+            else {
                 const range = req.max - req.min;
-                const position = (scholarship - req.min) / range;
-                probability += position * 20 - 10;
+                const position = range > 0 ? (scholarship - req.min) / range : 0;
+                // 线性插值：在范围内概率从-20到+15
+                probability += position * 35 - 20;
             }
             
+            // 达到或超过期望值 - 额外加成
             if (scholarship >= req.preferred) {
-                probability += 10;
+                probability += 15;
             }
         } else {
-            probability += (scholarship - 0.5) * 30;
+            // 没有明确要求时的默认逻辑
+            // 映射到5级系统评估
+            const maxVal = Math.max(rating, potential);
+            let expectedLevel = 0;
+            if (maxVal >= 80) expectedLevel = 1.0;
+            else if (maxVal >= 72) expectedLevel = 0.6;
+            else if (maxVal >= 65) expectedLevel = 0.35;
+            else if (maxVal >= 58) expectedLevel = 0.15;
+            
+            if (scholarship >= expectedLevel) {
+                probability += 20;
+            } else {
+                probability -= 20;
+            }
         }
         
-        probability += (rating - 60) * 0.5;
-        probability += (potential - 70) * 0.3;
+        // 能力值影响（能力越高越挑剔）
+        if (rating >= 80) {
+            probability -= 10; // 明星球员更挑剔
+        } else if (rating >= 70) {
+            probability -= 5;
+        } else if (rating <= 55) {
+            probability += 10; // 普通球员更容易满足
+        }
         
-        if (year === 1) probability += 10;
-        else if (year === 2) probability += 5;
-        else if (year === 4) probability -= 15;
+        // 年级影响
+        if (year === 1) {
+            probability += 8;  // 新生更看重发展机会
+        } else if (year === 2) {
+            probability += 3;
+        } else if (year === 4) {
+            probability -= 10; // 大四学生更现实，但也更挑剔
+        }
         
-        probability += (playingTime - 20) * 0.5;
+        // 出场时间承诺影响
+        if (playingTime >= 30) {
+            probability += 15; // 承诺主力位置
+        } else if (playingTime >= 20) {
+            probability += 5;  // 承诺轮换位置
+        } else if (playingTime < 10) {
+            probability -= 15; // 出场时间太少
+        }
         
+        // 确保概率在合理范围内（5%-95%）
         probability = Math.max(5, Math.min(95, probability));
         
         return Math.round(probability);
@@ -631,7 +691,7 @@ class NegotiationManager {
                 position: player.position,
                 age: player.age,
                 year: player.year,
-                rating: player.getOverallRating(),
+                rating: player.getOverallRating ? player.getOverallRating() : (player.rating || 50),
                 potential: player.potential,
                 attributes: player.attributes
             } : null,
@@ -716,7 +776,7 @@ class NegotiationManager {
                         <div class="player-tags">
                             <span class="tag position">${Positions[player.position]}</span>
                             <span class="tag year">${this.getYearLabel(player.year)}</span>
-                            <span class="tag rating">能力值: ${player.getOverallRating()}</span>
+                            <span class="tag rating">能力值: ${player.getOverallRating ? player.getOverallRating() : (player.rating || 50)}</span>
                             <span class="tag potential">潜力: ${player.potential}</span>
                         </div>
                     </div>

@@ -75,6 +75,23 @@ function showAccountMessage(message, type = 'info') {
     }, 5000);
 }
 
+function selectPresetAccount(username) {
+    document.getElementById('login-username').value = username;
+    document.getElementById('login-password').value = '123456';
+    
+    // 自动登录
+    const result = accountManager.login(username, '123456');
+    
+    if (result.success) {
+        showAccountMessage(`欢迎回来，${username}！`, 'success');
+        setTimeout(() => {
+            showStartScreen(result.account);
+        }, 800);
+    } else {
+        showAccountMessage(result.message, 'error');
+    }
+}
+
 function login() {
     const username = document.getElementById('login-username').value.trim();
     const password = document.getElementById('login-password').value;

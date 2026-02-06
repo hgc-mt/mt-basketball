@@ -21,19 +21,19 @@ class ModuleInterfaceManager {
 
     /**
      * Register scholarship calculation interface
-     * @param {Object} interface - Scholarship interface implementation
+     * @param {Object} scholarshipInterface - Scholarship interface implementation
      */
-    registerScholarshipInterface(interface) {
-        this.interfaces.scholarship = interface;
+    registerScholarshipInterface(scholarshipInterface) {
+        this.interfaces.scholarship = scholarshipInterface;
         console.log('奖学金计算接口已注册');
     }
 
     /**
      * Register schedule interface
-     * @param {Object} interface - Schedule interface implementation
+     * @param {Object} scheduleInterface - Schedule interface implementation
      */
-    registerScheduleInterface(interface) {
-        this.interfaces.schedule = interface;
+    registerScheduleInterface(scheduleInterface) {
+        this.interfaces.schedule = scheduleInterface;
         console.log('赛程接口已注册');
     }
 
