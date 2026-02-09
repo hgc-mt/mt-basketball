@@ -48,6 +48,11 @@ class RecruitmentInterface {
 
         this.loadFavorites();
         this.loadPlayers();
+        
+        // 初始化 PixiJS 渲染器
+        if (window.recruitmentPixiRenderer && !window.recruitmentPixiRenderer.isInitialized) {
+            await window.recruitmentPixiRenderer.init();
+        }
 
         console.log('RecruitmentInterface initialize:', {
             playersLoaded: this.players.length,
@@ -528,6 +533,16 @@ class RecruitmentInterface {
 
         // 绑定事件
         this.bindCardEvents();
+        
+        // 添加 PixiJS 入场动画
+        if (window.recruitmentPixiRenderer && window.recruitmentPixiRenderer.isInitialized) {
+            const cards = container.querySelectorAll('.player-card');
+            cards.forEach((card, index) => {
+                setTimeout(() => {
+                    window.recruitmentPixiRenderer.animateCardEntry(card, index);
+                }, index * 30);
+            });
+        }
     }
 
     createPlayerCard(player) {
@@ -1914,10 +1929,18 @@ class RecruitmentInterface {
             
             if (result && result.success) {
                 this.showNotification('报价已提交，谈判开始！', 'success');
+                
+                // PixiJS 谈判开启动画
+                if (window.recruitmentPixiRenderer && window.recruitmentPixiRenderer.isInitialized) {
+                    const centerX = window.innerWidth / 2;
+                    const centerY = window.innerHeight / 2;
+                    window.recruitmentPixiRenderer.animateNegotiationStart(centerX, centerY);
+                }
+                
                 // 显示谈判详情
                 setTimeout(() => {
                     this.showPlayerDetail(player, true);
-                }, 100);
+                }, 300);
             } else {
                 this.showNotification(result?.message || '提交报价失败', 'error');
             }
@@ -2041,11 +2064,26 @@ class RecruitmentInterface {
      * @param {HTMLElement} resultDiv - 结果显示容器
      */
     executeRecruitmentAction(playerId, actionType, resultDiv) {
+        // 获取按钮位置用于动画
+        const btn = document.querySelector(`#recruitment-actions-${playerId} [data-action="${actionType}"]`);
+        let btnRect = null;
+        if (btn) {
+            btnRect = btn.getBoundingClientRect();
+        }
+
         // 使用竞争系统执行行动
         if (window.recruitmentCompetitionSystem) {
             const result = window.recruitmentCompetitionSystem.playerTakeAction(playerId, actionType);
             
             if (result.success) {
+                // PixiJS 动画效果
+                if (window.recruitmentPixiRenderer && window.recruitmentPixiRenderer.isInitialized && btnRect) {
+                    const centerX = btnRect.left + btnRect.width / 2;
+                    const centerY = btnRect.top + btnRect.height / 2;
+                    window.recruitmentPixiRenderer.animateRecruitmentAction(actionType, centerX, centerY);
+                    window.recruitmentPixiRenderer.animateInterestIncrease(centerX, centerY - 80, result.interestIncrease);
+                }
+                
                 // 显示成功结果
                 if (resultDiv) {
                     resultDiv.innerHTML = `
@@ -2077,6 +2115,15 @@ class RecruitmentInterface {
         } else {
             // 如果没有竞争系统，显示模拟结果
             const mockResult = this.getMockActionResult(actionType);
+            
+            // PixiJS 动画效果
+            if (window.recruitmentPixiRenderer && window.recruitmentPixiRenderer.isInitialized && btnRect) {
+                const centerX = btnRect.left + btnRect.width / 2;
+                const centerY = btnRect.top + btnRect.height / 2;
+                window.recruitmentPixiRenderer.animateRecruitmentAction(actionType, centerX, centerY);
+                window.recruitmentPixiRenderer.animateInterestIncrease(centerX, centerY - 80, mockResult.interestIncrease);
+            }
+            
             if (resultDiv) {
                 resultDiv.innerHTML = `
                     <div style="padding: 12px 16px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; display: flex; align-items: center; gap: 10px;">
