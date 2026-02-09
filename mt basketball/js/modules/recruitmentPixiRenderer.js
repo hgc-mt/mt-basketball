@@ -1,6 +1,6 @@
 /**
- * 招募界面 PixiJS 渲染器
- * 为招募系统添加流畅的动画效果和视觉优化
+ * 招募界面 PixiJS 渲染器 - 炫酷动画版
+ * 为招募系统添加电影级别的视觉效果
  */
 
 class RecruitmentPixiRenderer {
@@ -11,6 +11,31 @@ class RecruitmentPixiRenderer {
         this.particles = [];
         this.animations = [];
         this.isInitialized = false;
+        this.easings = {
+            easeOutElastic: (t) => {
+                const c4 = (2 * Math.PI) / 3;
+                return t === 0 ? 0 : t === 1 ? 1 : Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * c4) + 1;
+            },
+            easeOutBack: (t) => {
+                const c1 = 1.70158;
+                const c3 = c1 + 1;
+                return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+            },
+            easeOutBounce: (t) => {
+                const n1 = 7.5625;
+                const d1 = 2.75;
+                if (t < 1 / d1) {
+                    return n1 * t * t;
+                } else if (t < 2 / d1) {
+                    return n1 * (t -= 1.5 / d1) * t + 0.75;
+                } else if (t < 2.5 / d1) {
+                    return n1 * (t -= 2.25 / d1) * t + 0.9375;
+                } else {
+                    return n1 * (t -= 2.625 / d1) * t + 0.984375;
+                }
+            },
+            easeInOutCubic: (t) => t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2
+        };
     }
 
     /**
@@ -37,7 +62,7 @@ class RecruitmentPixiRenderer {
             container.style.width = '100%';
             container.style.height = '100%';
             container.style.pointerEvents = 'none';
-            container.style.zIndex = '1000';
+            container.style.zIndex = '9999';
             document.body.appendChild(container);
         }
 
@@ -87,51 +112,99 @@ class RecruitmentPixiRenderer {
     }
 
     /**
-     * 设置背景效果
+     * 设置背景效果 - 炫酷星空粒子
      */
     setupBackgroundEffects() {
-        // 创建渐变光晕
-        const glow1 = new PIXI.Graphics();
-        glow1.beginFill(0x667eea, 0.05);
-        glow1.drawCircle(0, 0, 300);
-        glow1.endFill();
-        glow1.x = window.innerWidth * 0.2;
-        glow1.y = window.innerHeight * 0.3;
-        this.containers.background.addChild(glow1);
+        // 创建星空粒子
+        this.createStarField();
+        
+        // 创建动态光晕
+        this.createDynamicGlows();
+    }
 
-        const glow2 = new PIXI.Graphics();
-        glow2.beginFill(0x764ba2, 0.05);
-        glow2.drawCircle(0, 0, 400);
-        glow2.endFill();
-        glow2.x = window.innerWidth * 0.8;
-        glow2.y = window.innerHeight * 0.7;
-        this.containers.background.addChild(glow2);
+    /**
+     * 创建星空粒子背景
+     */
+    createStarField() {
+        const starCount = 100;
+        const stars = [];
 
-        // 添加浮动动画
-        this.animateGlow(glow1, 0.02, 20);
-        this.animateGlow(glow2, 0.015, 30);
+        for (let i = 0; i < starCount; i++) {
+            const star = new PIXI.Graphics();
+            const size = Math.random() * 2 + 0.5;
+            const alpha = Math.random() * 0.5 + 0.2;
+            
+            star.beginFill(0xffffff, alpha);
+            star.drawCircle(0, 0, size);
+            star.endFill();
+            
+            star.x = Math.random() * window.innerWidth;
+            star.y = Math.random() * window.innerHeight;
+            star.baseAlpha = alpha;
+            star.twinkleSpeed = Math.random() * 0.02 + 0.01;
+            star.twinklePhase = Math.random() * Math.PI * 2;
+            
+            this.containers.background.addChild(star);
+            stars.push(star);
+        }
+
+        // 闪烁动画
+        this.app.ticker.add(() => {
+            stars.forEach(star => {
+                star.twinklePhase += star.twinkleSpeed;
+                star.alpha = star.baseAlpha + Math.sin(star.twinklePhase) * 0.2;
+            });
+        });
+    }
+
+    /**
+     * 创建动态光晕
+     */
+    createDynamicGlows() {
+        const colors = [0x667eea, 0x764ba2, 0xf093fb, 0x4facfe];
+        
+        colors.forEach((color, index) => {
+            const glow = new PIXI.Graphics();
+            const radius = 200 + Math.random() * 200;
+            
+            // 创建径向渐变效果
+            for (let i = 10; i > 0; i--) {
+                const alpha = 0.03 * i / 10;
+                glow.beginFill(color, alpha);
+                glow.drawCircle(0, 0, radius * i / 10);
+                glow.endFill();
+            }
+            
+            glow.x = Math.random() * window.innerWidth;
+            glow.y = Math.random() * window.innerHeight;
+            
+            this.containers.background.addChild(glow);
+            
+            // 浮动动画
+            this.animateGlowFloating(glow, index);
+        });
     }
 
     /**
      * 光晕浮动动画
      */
-    animateGlow(glow, speed, amplitude) {
-        let time = Math.random() * Math.PI * 2;
-        const originalX = glow.x;
-        const originalY = glow.y;
-
-        const animate = () => {
-            time += speed;
-            glow.x = originalX + Math.sin(time) * amplitude;
-            glow.y = originalY + Math.cos(time * 0.7) * amplitude;
-            glow.alpha = 0.03 + Math.sin(time * 0.5) * 0.02;
-        };
-
-        this.app.ticker.add(animate);
+    animateGlowFloating(glow, index) {
+        const baseX = glow.x;
+        const baseY = glow.y;
+        const speed = 0.0005 + index * 0.0002;
+        const radius = 100 + index * 50;
+        const phase = index * Math.PI / 2;
+        
+        this.app.ticker.add((delta) => {
+            const time = Date.now() * speed;
+            glow.x = baseX + Math.cos(time + phase) * radius;
+            glow.y = baseY + Math.sin(time * 0.7 + phase) * radius * 0.6;
+            glow.alpha = 0.5 + Math.sin(time * 2) * 0.2;
+        });
     }
 
     /**
-     * 创建球员卡片进入动画
+     * 创建球员卡片进入动画 - 炫酷版
      */
     animateCardEntry(element, index = 0) {
         if (!this.isInitialized) return;
@@ -140,110 +213,43 @@ class RecruitmentPixiRenderer {
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
 
-        // 创建进入粒子效果
-        this.createEntryParticles(centerX, centerY, index * 50);
-    }
-
-    /**
-     * 创建进入粒子
-     */
-    createEntryParticles(x, y, delay = 0) {
+        // 延迟执行，创造依次进入效果
         setTimeout(() => {
-            const particleCount = 8;
-            const colors = [0x667eea, 0x764ba2, 0xf093fb, 0xf5576c];
-
-            for (let i = 0; i < particleCount; i++) {
-                const particle = new PIXI.Graphics();
-                const color = colors[Math.floor(Math.random() * colors.length)];
-                const size = 3 + Math.random() * 4;
-
-                particle.beginFill(color, 0.8);
-                particle.drawCircle(0, 0, size);
-                particle.endFill();
-
-                particle.x = x;
-                particle.y = y;
-                particle.alpha = 1;
-
-                this.containers.effects.addChild(particle);
-
-                // 粒子飞散动画
-                const angle = (Math.PI * 2 / particleCount) * i + Math.random() * 0.5;
-                const speed = 2 + Math.random() * 3;
-                const vx = Math.cos(angle) * speed;
-                const vy = Math.sin(angle) * speed;
-
-                let life = 1;
-                const animate = () => {
-                    life -= 0.02;
-                    particle.x += vx;
-                    particle.y += vy;
-                    particle.alpha = life;
-                    particle.scale.set(life);
-
-                    if (life <= 0) {
-                        this.app.ticker.remove(animate);
-                        this.containers.effects.removeChild(particle);
-                        particle.destroy();
-                    }
-                };
-
-                this.app.ticker.add(animate);
-            }
-        }, delay);
+            // 创建冲击波
+            this.createShockwave(centerX, centerY);
+            
+            // 创建粒子爆发
+            this.createCardEntryParticles(centerX, centerY);
+            
+            // 创建光柱
+            this.createLightBeam(centerX, centerY);
+        }, index * 80);
     }
 
     /**
-     * 创建招募行动效果
+     * 创建冲击波
      */
-    animateRecruitmentAction(actionType, x, y) {
-        if (!this.isInitialized) return;
+    createShockwave(x, y) {
+        const wave = new PIXI.Graphics();
+        wave.lineStyle(3, 0x667eea, 0.8);
+        wave.drawCircle(0, 0, 10);
+        wave.x = x;
+        wave.y = y;
+        this.containers.effects.addChild(wave);
 
-        const actionEffects = {
-            'campus_visit': { color: 0x667eea, icon: '🏫', text: '校园参观' },
-            'home_visit': { color: 0x764ba2, icon: '🏠', text: '家访' },
-            'promise_playing_time': { color: 0x10b981, icon: '⏱️', text: '承诺时间' },
-            'highlight_facilities': { color: 0xf59e0b, icon: '🏋️', text: '展示设施' },
-            'emphasize_academics': { color: 0x3b82f6, icon: '📚', text: '强调学术' },
-            'offer_scholarship': { color: 0xef4444, icon: '💰', text: '奖学金' }
-        };
-
-        const effect = actionEffects[actionType] || { color: 0x667eea, icon: '✨', text: '行动' };
-
-        // 创建波纹效果
-        this.createRippleEffect(x, y, effect.color);
-
-        // 创建上升文字
-        this.createFloatingText(x, y - 50, `+${effect.text}`, effect.color);
-
-        // 创建粒子爆发
-        this.createBurstParticles(x, y, effect.color);
-    }
-
-    /**
-     * 创建波纹效果
-     */
-    createRippleEffect(x, y, color) {
-        const ripple = new PIXI.Graphics();
-        ripple.lineStyle(3, color, 0.8);
-        ripple.drawCircle(0, 0, 10);
-        ripple.x = x;
-        ripple.y = y;
-        this.containers.effects.addChild(ripple);
-
-        let scale = 1;
-        let alpha = 0.8;
-
+        let progress = 0;
         const animate = () => {
-            scale += 0.05;
-            alpha -= 0.015;
-            ripple.scale.set(scale);
-            ripple.alpha = alpha;
+            progress += 0.03;
+            const eased = this.easings.easeOutElastic(progress);
+            
+            wave.scale.set(1 + eased * 4);
+            wave.alpha = 0.8 * (1 - progress);
+            wave.rotation += 0.1;
 
-            if (alpha <= 0) {
+            if (progress >= 1) {
                 this.app.ticker.remove(animate);
-                this.containers.effects.removeChild(ripple);
-                ripple.destroy();
+                this.containers.effects.removeChild(wave);
+                wave.destroy();
             }
         };
 
@@ -251,37 +257,43 @@ class RecruitmentPixiRenderer {
     }
 
     /**
-     * 创建浮动文字
+     * 创建光柱效果
      */
-    createFloatingText(x, y, text, color) {
-        const style = new PIXI.TextStyle({
-            fontFamily: 'Arial',
-            fontSize: 18,
-            fontWeight: 'bold',
-            fill: color,
-            dropShadow: true,
-            dropShadowColor: '#000000',
-            dropShadowBlur: 4,
-            dropShadowAngle: Math.PI / 6,
-            dropShadowDistance: 2,
-        });
+    createLightBeam(x, y) {
+        const beam = new PIXI.Graphics();
+        const width = 60;
+        const height = 200;
+        
+        // 渐变光柱
+        for (let i = 0; i < 10; i++) {
+            const alpha = 0.1 * (1 - i / 10);
+            beam.beginFill(0x667eea, alpha);
+            beam.drawRect(-width / 2, -height, width * (1 - i / 10), height / 10);
+            beam.endFill();
+        }
+        
+        beam.x = x;
+        beam.y = y;
+        beam.alpha = 0;
+        beam.scale.y = 0;
+        
+        this.containers.effects.addChild(beam);
 
-        const textObj = new PIXI.Text(text, style);
-        textObj.x = x;
-        textObj.y = y;
-        textObj.anchor.set(0.5);
-        this.containers.ui.addChild(textObj);
-
-        let life = 1;
+        let progress = 0;
         const animate = () => {
-            life -= 0.015;
-            textObj.y -= 1.5;
-            textObj.alpha = life;
+            progress += 0.05;
+            
+            if (progress < 0.3) {
+                beam.alpha = progress / 0.3;
+                beam.scale.y = this.easings.easeOutBack(progress / 0.3);
+            } else if (progress > 0.7) {
+                beam.alpha = 1 - (progress - 0.7) / 0.3;
+            }
 
-            if (life <= 0) {
+            if (progress >= 1) {
                 this.app.ticker.remove(animate);
-                this.containers.ui.removeChild(textObj);
-                textObj.destroy();
+                this.containers.effects.removeChild(beam);
+                beam.destroy();
             }
         };
 
@@ -289,16 +301,23 @@ class RecruitmentPixiRenderer {
     }
 
     /**
-     * 创建粒子爆发
+     * 创建卡片进入粒子 - 炫酷版
      */
-    createBurstParticles(x, y, color) {
-        const particleCount = 12;
+    createCardEntryParticles(x, y) {
+        const particleCount = 20;
+        const colors = [0x667eea, 0x764ba2, 0xf093fb, 0x4facfe, 0x00f2fe];
 
         for (let i = 0; i < particleCount; i++) {
             const particle = new PIXI.Graphics();
-            const size = 2 + Math.random() * 3;
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const size = 4 + Math.random() * 6;
 
-            particle.beginFill(color, 0.9);
+            // 发光效果
+            particle.beginFill(color, 0.3);
+            particle.drawCircle(0, 0, size * 2);
+            particle.endFill();
+            
+            particle.beginFill(color, 0.8);
             particle.drawCircle(0, 0, size);
             particle.endFill();
 
@@ -307,17 +326,23 @@ class RecruitmentPixiRenderer {
 
             this.containers.effects.addChild(particle);
 
-            const angle = (Math.PI * 2 / particleCount) * i + Math.random() * 0.3;
+            const angle = (Math.PI * 2 / particleCount) * i + Math.random() * 0.5;
             const speed = 3 + Math.random() * 4;
             const vx = Math.cos(angle) * speed;
             const vy = Math.sin(angle) * speed;
 
             let life = 1;
+            let scale = 1;
+            
             const animate = () => {
-                life -= 0.025;
-                particle.x += vx;
-                particle.y += vy;
+                life -= 0.015;
+                scale = this.easings.easeOutElastic(1 - life);
+                
+                particle.x += vx * scale;
+                particle.y += vy * scale;
                 particle.alpha = life;
+                particle.scale.set(scale);
+                particle.rotation += 0.15;
 
                 if (life <= 0) {
                     this.app.ticker.remove(animate);
@@ -331,7 +356,218 @@ class RecruitmentPixiRenderer {
     }
 
     /**
-     * 创建兴趣度增加动画
+     * 创建招募行动效果 - 炫酷版
+     */
+    animateRecruitmentAction(actionType, x, y) {
+        if (!this.isInitialized) return;
+
+        const actionEffects = {
+            'campus_visit': { color: 0x667eea, icon: '🏫', text: '校园参观', glowColor: 0x4facfe },
+            'home_visit': { color: 0x764ba2, icon: '🏠', text: '家访', glowColor: 0xa855f7 },
+            'promise_playing_time': { color: 0x10b981, icon: '⏱️', text: '承诺时间', glowColor: 0x34d399 },
+            'highlight_facilities': { color: 0xf59e0b, icon: '🏋️', text: '展示设施', glowColor: 0xfbbf24 },
+            'emphasize_academics': { color: 0x3b82f6, icon: '📚', text: '强调学术', glowColor: 0x60a5fa },
+            'offer_scholarship': { color: 0xef4444, icon: '💰', text: '奖学金', glowColor: 0xf87171 }
+        };
+
+        const effect = actionEffects[actionType] || { color: 0x667eea, icon: '✨', text: '行动', glowColor: 0x4facfe };
+
+        // 创建多层波纹
+        this.createMultiRipple(x, y, effect.glowColor);
+
+        // 创建上升文字
+        this.createFloatingText(x, y - 60, effect.text, effect.color);
+
+        // 创建粒子爆发
+        this.createEnhancedBurstParticles(x, y, effect.glowColor);
+
+        // 创建光晕扩散
+        this.createGlowBurst(x, y, effect.glowColor);
+    }
+
+    /**
+     * 创建多层波纹
+     */
+    createMultiRipple(x, y, color) {
+        for (let i = 0; i < 3; i++) {
+            setTimeout(() => {
+                const ripple = new PIXI.Graphics();
+                ripple.lineStyle(4 - i, color, 0.6 - i * 0.15);
+                ripple.drawCircle(0, 0, 20);
+                ripple.x = x;
+                ripple.y = y;
+                this.containers.effects.addChild(ripple);
+
+                let progress = 0;
+                const animate = () => {
+                    progress += 0.025;
+                    const eased = this.easings.easeOutElastic(progress);
+                    
+                    ripple.scale.set(1 + eased * 5);
+                    ripple.alpha = (0.6 - i * 0.15) * (1 - progress);
+                    ripple.rotation += 0.05;
+
+                    if (progress >= 1) {
+                        this.app.ticker.remove(animate);
+                        this.containers.effects.removeChild(ripple);
+                        ripple.destroy();
+                    }
+                };
+
+                this.app.ticker.add(animate);
+            }, i * 100);
+        }
+    }
+
+    /**
+     * 创建光晕爆发
+     */
+    createGlowBurst(x, y, color) {
+        const glow = new PIXI.Graphics();
+        
+        for (let i = 5; i > 0; i--) {
+            glow.beginFill(color, 0.1);
+            glow.drawCircle(0, 0, 30 * i);
+            glow.endFill();
+        }
+        
+        glow.x = x;
+        glow.y = y;
+        glow.scale.set(0);
+        
+        this.containers.effects.addChild(glow);
+
+        let progress = 0;
+        const animate = () => {
+            progress += 0.04;
+            const eased = this.easings.easeOutBack(progress);
+            
+            glow.scale.set(eased * 2);
+            glow.alpha = 1 - progress;
+
+            if (progress >= 1) {
+                this.app.ticker.remove(animate);
+                this.containers.effects.removeChild(glow);
+                glow.destroy();
+            }
+        };
+
+        this.app.ticker.add(animate);
+    }
+
+    /**
+     * 创建浮动文字 - 炫酷版
+     */
+    createFloatingText(x, y, text, color) {
+        const style = new PIXI.TextStyle({
+            fontFamily: 'Arial',
+            fontSize: 24,
+            fontWeight: 'bold',
+            fill: color,
+            dropShadow: true,
+            dropShadowColor: '#000000',
+            dropShadowBlur: 8,
+            dropShadowAngle: Math.PI / 6,
+            dropShadowDistance: 3,
+            stroke: '#ffffff',
+            strokeThickness: 2
+        });
+
+        const textObj = new PIXI.Text(text, style);
+        textObj.x = x;
+        textObj.y = y;
+        textObj.anchor.set(0.5);
+        textObj.scale.set(0);
+        textObj.alpha = 0;
+        
+        this.containers.ui.addChild(textObj);
+
+        let progress = 0;
+        const animate = () => {
+            progress += 0.025;
+            
+            if (progress < 0.3) {
+                // 弹入
+                const eased = this.easings.easeOutBack(progress / 0.3);
+                textObj.scale.set(eased);
+                textObj.alpha = eased;
+            } else if (progress < 0.7) {
+                // 停留
+                textObj.scale.set(1 + Math.sin((progress - 0.3) * 10) * 0.05);
+                textObj.alpha = 1;
+            } else {
+                // 淡出
+                textObj.y -= 2;
+                textObj.alpha = 1 - (progress - 0.7) / 0.3;
+            }
+
+            if (progress >= 1) {
+                this.app.ticker.remove(animate);
+                this.containers.ui.removeChild(textObj);
+                textObj.destroy();
+            }
+        };
+
+        this.app.ticker.add(animate);
+    }
+
+    /**
+     * 创建增强粒子爆发
+     */
+    createEnhancedBurstParticles(x, y, color) {
+        const particleCount = 30;
+        const colors = [color, 0xffffff, color];
+
+        for (let i = 0; i < particleCount; i++) {
+            const particle = new PIXI.Graphics();
+            const particleColor = colors[Math.floor(Math.random() * colors.length)];
+            const size = 3 + Math.random() * 5;
+
+            // 发光效果
+            particle.beginFill(particleColor, 0.4);
+            particle.drawCircle(0, 0, size * 1.5);
+            particle.endFill();
+            
+            particle.beginFill(particleColor, 1);
+            particle.drawCircle(0, 0, size);
+            particle.endFill();
+
+            particle.x = x;
+            particle.y = y;
+
+            this.containers.effects.addChild(particle);
+
+            const angle = (Math.PI * 2 / particleCount) * i + Math.random() * 0.5;
+            const speed = 4 + Math.random() * 6;
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed;
+
+            let life = 1;
+            let scale = 1;
+            
+            const animate = () => {
+                life -= 0.02;
+                scale = this.easings.easeOutElastic(1 - life);
+                
+                particle.x += vx * scale;
+                particle.y += vy * scale;
+                particle.alpha = life;
+                particle.scale.set(scale);
+                particle.rotation += 0.2;
+
+                if (life <= 0) {
+                    this.app.ticker.remove(animate);
+                    this.containers.effects.removeChild(particle);
+                    particle.destroy();
+                }
+            };
+
+            this.app.ticker.add(animate);
+        }
+    }
+
+    /**
+     * 创建兴趣度增加动画 - 炫酷版
      */
     animateInterestIncrease(x, y, amount) {
         if (!this.isInitialized) return;
@@ -339,11 +575,16 @@ class RecruitmentPixiRenderer {
         // 创建上升的数字
         const style = new PIXI.TextStyle({
             fontFamily: 'Arial',
-            fontSize: 28,
+            fontSize: 36,
             fontWeight: 'bold',
-            fill: 0x10b981,
-            stroke: '#000000',
-            strokeThickness: 3,
+            fill: ['#10b981', '#34d399'], // 渐变
+            dropShadow: true,
+            dropShadowColor: '#000000',
+            dropShadowBlur: 10,
+            dropShadowAngle: Math.PI / 6,
+            dropShadowDistance: 4,
+            stroke: '#ffffff',
+            strokeThickness: 4
         });
 
         const text = new PIXI.Text(`+${amount}%`, style);
@@ -351,28 +592,34 @@ class RecruitmentPixiRenderer {
         text.y = y;
         text.anchor.set(0.5);
         text.scale.set(0);
+        text.alpha = 0;
+        
         this.containers.ui.addChild(text);
 
-        let time = 0;
+        // 创建数字周围的旋转光环
+        this.createRotatingRing(x, y);
+
+        let progress = 0;
         const animate = () => {
-            time += 0.05;
+            progress += 0.02;
             
-            // 缩放动画
-            if (time < 0.3) {
-                text.scale.set(time / 0.3 * 1.2);
-            } else if (time < 0.5) {
-                text.scale.set(1.2 - (time - 0.3) / 0.2 * 0.2);
+            if (progress < 0.25) {
+                // 弹入动画
+                const eased = this.easings.easeOutElastic(progress / 0.25);
+                text.scale.set(eased);
+                text.alpha = eased;
+            } else if (progress < 0.6) {
+                // 脉冲效果
+                const pulse = 1 + Math.sin((progress - 0.25) * 15) * 0.1;
+                text.scale.set(pulse);
+                text.alpha = 1;
             } else {
-                text.scale.set(1);
-                text.y -= 2;
+                // 上升淡出
+                text.y -= 3;
+                text.alpha = 1 - (progress - 0.6) / 0.4;
             }
 
-            // 淡出
-            if (time > 1.5) {
-                text.alpha -= 0.03;
-            }
-
-            if (text.alpha <= 0) {
+            if (progress >= 1) {
                 this.app.ticker.remove(animate);
                 this.containers.ui.removeChild(text);
                 text.destroy();
@@ -386,17 +633,54 @@ class RecruitmentPixiRenderer {
     }
 
     /**
-     * 创建庆祝粒子
+     * 创建旋转光环
+     */
+    createRotatingRing(x, y) {
+        const ring = new PIXI.Graphics();
+        ring.lineStyle(3, 0x10b981, 0.6);
+        ring.drawCircle(0, 0, 50);
+        ring.x = x;
+        ring.y = y;
+        ring.scale.set(0);
+        
+        this.containers.effects.addChild(ring);
+
+        let progress = 0;
+        const animate = () => {
+            progress += 0.03;
+            
+            const eased = this.easings.easeOutBack(progress);
+            ring.scale.set(eased);
+            ring.rotation += 0.15;
+            ring.alpha = 0.6 * (1 - progress);
+
+            if (progress >= 1) {
+                this.app.ticker.remove(animate);
+                this.containers.effects.removeChild(ring);
+                ring.destroy();
+            }
+        };
+
+        this.app.ticker.add(animate);
+    }
+
+    /**
+     * 创建庆祝粒子 - 炫酷版
      */
     createCelebrationParticles(x, y) {
-        const colors = [0x10b981, 0x34d399, 0x6ee7b7, 0xfbbf24, 0xf59e0b];
-        const particleCount = 20;
+        const colors = [0x10b981, 0x34d399, 0x6ee7b7, 0xfbbf24, 0xf59e0b, 0xffffff];
+        const particleCount = 40;
 
         for (let i = 0; i < particleCount; i++) {
             const particle = new PIXI.Graphics();
             const color = colors[Math.floor(Math.random() * colors.length)];
-            const size = 3 + Math.random() * 4;
+            const size = 4 + Math.random() * 6;
 
+            // 发光效果
+            particle.beginFill(color, 0.3);
+            particle.drawCircle(0, 0, size * 2);
+            particle.endFill();
+            
             particle.beginFill(color, 1);
             particle.drawCircle(0, 0, size);
             particle.endFill();
@@ -406,21 +690,26 @@ class RecruitmentPixiRenderer {
 
             this.containers.effects.addChild(particle);
 
-            const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI;
-            const speed = 5 + Math.random() * 6;
+            const angle = -Math.PI / 2 + (Math.random() - 0.5) * Math.PI * 1.5;
+            const speed = 6 + Math.random() * 8;
             let vx = Math.cos(angle) * speed;
             let vy = Math.sin(angle) * speed;
-            let gravity = 0.3;
+            let gravity = 0.4;
 
             let life = 1;
+            let scale = 1;
+            
             const animate = () => {
-                life -= 0.015;
+                life -= 0.012;
+                scale = this.easings.easeOutElastic(1 - life);
+                
                 vx *= 0.98;
                 vy += gravity;
-                particle.x += vx;
-                particle.y += vy;
+                particle.x += vx * scale;
+                particle.y += vy * scale;
                 particle.alpha = life;
-                particle.rotation += 0.1;
+                particle.scale.set(scale);
+                particle.rotation += 0.15;
 
                 if (life <= 0) {
                     this.app.ticker.remove(animate);
@@ -431,6 +720,208 @@ class RecruitmentPixiRenderer {
 
             this.app.ticker.add(animate);
         }
+    }
+
+    /**
+     * 创建谈判开启效果 - 炫酷版
+     */
+    animateNegotiationStart(x, y) {
+        if (!this.isInitialized) return;
+
+        // 创建扩散圆环
+        for (let i = 0; i < 4; i++) {
+            setTimeout(() => {
+                this.createExpandingRing(x, y, i);
+            }, i * 150);
+        }
+
+        // 创建中心闪光
+        this.createCenterFlash(x, y);
+
+        // 创建粒子爆发
+        this.createNegotiationBurst(x, y);
+
+        // 创建上升的光柱
+        this.createRisingBeam(x, y);
+    }
+
+    /**
+     * 创建扩展圆环
+     */
+    createExpandingRing(x, y, index) {
+        const ring = new PIXI.Graphics();
+        const colors = [0x667eea, 0x764ba2, 0xf093fb, 0x4facfe];
+        const color = colors[index % colors.length];
+        
+        ring.lineStyle(4, color, 0.8);
+        ring.drawCircle(0, 0, 30);
+        ring.x = x;
+        ring.y = y;
+        ring.scale.set(0);
+        
+        this.containers.effects.addChild(ring);
+
+        let progress = 0;
+        const animate = () => {
+            progress += 0.025;
+            const eased = this.easings.easeOutElastic(progress);
+            
+            ring.scale.set(1 + eased * 6);
+            ring.alpha = 0.8 * (1 - progress);
+            ring.rotation += 0.1;
+
+            if (progress >= 1) {
+                this.app.ticker.remove(animate);
+                this.containers.effects.removeChild(ring);
+                ring.destroy();
+            }
+        };
+
+        this.app.ticker.add(animate);
+    }
+
+    /**
+     * 创建中心闪光
+     */
+    createCenterFlash(x, y) {
+        const flash = new PIXI.Graphics();
+        
+        // 多层光晕
+        for (let i = 8; i > 0; i--) {
+            flash.beginFill(0xffffff, 0.1);
+            flash.drawCircle(0, 0, 20 * i);
+            flash.endFill();
+        }
+        
+        flash.x = x;
+        flash.y = y;
+        flash.alpha = 0;
+        
+        this.containers.effects.addChild(flash);
+
+        let progress = 0;
+        const animate = () => {
+            progress += 0.04;
+            
+            if (progress < 0.3) {
+                flash.alpha = progress / 0.3;
+                flash.scale.set(1 + progress * 3);
+            } else {
+                flash.alpha = 1 - (progress - 0.3) / 0.7;
+                flash.scale.set(1.9 + (progress - 0.3) * 2);
+            }
+
+            if (progress >= 1) {
+                this.app.ticker.remove(animate);
+                this.containers.effects.removeChild(flash);
+                flash.destroy();
+            }
+        };
+
+        this.app.ticker.add(animate);
+    }
+
+    /**
+     * 创建谈判粒子爆发
+     */
+    createNegotiationBurst(x, y) {
+        const colors = [0x667eea, 0x764ba2, 0xf093fb, 0x4facfe, 0x00f2fe, 0xffffff];
+        const particleCount = 50;
+
+        for (let i = 0; i < particleCount; i++) {
+            const particle = new PIXI.Graphics();
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const size = 3 + Math.random() * 7;
+
+            // 发光效果
+            particle.beginFill(color, 0.3);
+            particle.drawCircle(0, 0, size * 2);
+            particle.endFill();
+            
+            particle.beginFill(color, 1);
+            particle.drawCircle(0, 0, size);
+            particle.endFill();
+
+            particle.x = x;
+            particle.y = y;
+
+            this.containers.effects.addChild(particle);
+
+            const angle = (Math.PI * 2 / particleCount) * i + Math.random() * 0.5;
+            const speed = 5 + Math.random() * 10;
+            const vx = Math.cos(angle) * speed;
+            const vy = Math.sin(angle) * speed;
+
+            let life = 1;
+            let scale = 1;
+            
+            const animate = () => {
+                life -= 0.015;
+                scale = this.easings.easeOutElastic(1 - life);
+                
+                particle.x += vx * scale;
+                particle.y += vy * scale;
+                particle.alpha = life;
+                particle.scale.set(scale);
+                particle.rotation += 0.2;
+
+                if (life <= 0) {
+                    this.app.ticker.remove(animate);
+                    this.containers.effects.removeChild(particle);
+                    particle.destroy();
+                }
+            };
+
+            this.app.ticker.add(animate);
+        }
+    }
+
+    /**
+     * 创建上升光柱
+     */
+    createRisingBeam(x, y) {
+        const beam = new PIXI.Graphics();
+        const width = 100;
+        const height = 300;
+        
+        // 渐变光柱
+        for (let i = 0; i < 15; i++) {
+            const alpha = 0.08 * (1 - i / 15);
+            const color = i % 2 === 0 ? 0x667eea : 0x764ba2;
+            beam.beginFill(color, alpha);
+            beam.drawRect(-width / 2 * (1 - i / 15), -height * (1 - i / 15), width * (1 - i / 15), height / 15);
+            beam.endFill();
+        }
+        
+        beam.x = x;
+        beam.y = y;
+        beam.alpha = 0;
+        beam.scale.y = 0;
+        
+        this.containers.effects.addChild(beam);
+
+        let progress = 0;
+        const animate = () => {
+            progress += 0.03;
+            
+            if (progress < 0.4) {
+                const eased = this.easings.easeOutBack(progress / 0.4);
+                beam.alpha = eased;
+                beam.scale.y = eased;
+            } else if (progress > 0.7) {
+                beam.alpha = 1 - (progress - 0.7) / 0.3;
+            }
+
+            beam.y -= 2;
+
+            if (progress >= 1) {
+                this.app.ticker.remove(animate);
+                this.containers.effects.removeChild(beam);
+                beam.destroy();
+            }
+        };
+
+        this.app.ticker.add(animate);
     }
 
     /**
@@ -445,23 +936,22 @@ class RecruitmentPixiRenderer {
 
         // 创建点击波纹
         const ripple = new PIXI.Graphics();
-        ripple.beginFill(0xffffff, 0.3);
-        ripple.drawCircle(0, 0, 5);
+        ripple.beginFill(0xffffff, 0.4);
+        ripple.drawCircle(0, 0, 10);
         ripple.endFill();
         ripple.x = centerX;
         ripple.y = centerY;
         this.containers.effects.addChild(ripple);
 
-        let scale = 1;
-        let alpha = 0.3;
-
+        let progress = 0;
         const animate = () => {
-            scale += 0.15;
-            alpha -= 0.02;
-            ripple.scale.set(scale);
-            ripple.alpha = alpha;
+            progress += 0.08;
+            const eased = this.easings.easeOutElastic(progress);
+            
+            ripple.scale.set(1 + eased * 8);
+            ripple.alpha = 0.4 * (1 - progress);
 
-            if (alpha <= 0) {
+            if (progress >= 1) {
                 this.app.ticker.remove(animate);
                 this.containers.effects.removeChild(ripple);
                 ripple.destroy();
@@ -469,67 +959,6 @@ class RecruitmentPixiRenderer {
         };
 
         this.app.ticker.add(animate);
-    }
-
-    /**
-     * 创建谈判开启效果
-     */
-    animateNegotiationStart(x, y) {
-        if (!this.isInitialized) return;
-
-        // 创建扩散圆环
-        for (let i = 0; i < 3; i++) {
-            setTimeout(() => {
-                const ring = new PIXI.Graphics();
-                ring.lineStyle(2, 0x667eea, 0.6);
-                ring.drawCircle(0, 0, 30);
-                ring.x = x;
-                ring.y = y;
-                this.containers.effects.addChild(ring);
-
-                let scale = 1;
-                let alpha = 0.6;
-
-                const animate = () => {
-                    scale += 0.08;
-                    alpha -= 0.015;
-                    ring.scale.set(scale);
-                    ring.alpha = alpha;
-
-                    if (alpha <= 0) {
-                        this.app.ticker.remove(animate);
-                        this.containers.effects.removeChild(ring);
-                        ring.destroy();
-                    }
-                };
-
-                this.app.ticker.add(animate);
-            }, i * 200);
-        }
-
-        // 创建中心闪光
-        const flash = new PIXI.Graphics();
-        flash.beginFill(0xffffff, 1);
-        flash.drawCircle(0, 0, 50);
-        flash.endFill();
-        flash.x = x;
-        flash.y = y;
-        this.containers.effects.addChild(flash);
-
-        let flashAlpha = 1;
-        const flashAnimate = () => {
-            flashAlpha -= 0.05;
-            flash.alpha = flashAlpha;
-            flash.scale.set(2 - flashAlpha);
-
-            if (flashAlpha <= 0) {
-                this.app.ticker.remove(flashAnimate);
-                this.containers.effects.removeChild(flash);
-                flash.destroy();
-            }
-        };
-
-        this.app.ticker.add(flashAnimate);
     }
 
     /**
