@@ -363,6 +363,28 @@
     transform: none;
 }
 
+/* 承诺签约按钮样式 */
+.recruitment-action-btn.commit {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    border-color: rgba(16, 185, 129, 0.5);
+}
+
+.recruitment-action-btn.commit:hover {
+    border-color: rgba(16, 185, 129, 0.8);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+/* 取消承诺按钮样式 */
+.recruitment-action-btn.cancel {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+.recruitment-action-btn.cancel:hover {
+    border-color: rgba(239, 68, 68, 0.8);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
 .action-name {
     font-size: 15px;
     font-weight: 600;

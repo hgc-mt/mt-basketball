@@ -15,6 +15,9 @@ class RecruitmentCompetitionSystem {
         // 球员招募状态跟踪
         this.playerRecruitmentStatus = new Map();
         
+        // 承诺签约跟踪 - 存储玩家承诺的球员
+        this.playerCommitments = new Map(); // playerId -> { committedAt, expiresAt, teamId }
+        
         // 竞争配置
         this.competitionConfig = {
             // 基础竞争强度
@@ -684,6 +687,22 @@ class RecruitmentCompetitionSystem {
      * 检查是否可以签约
      */
     checkForCommitment(status) {
+        // 检查是否有承诺锁定
+        const commitment = this.getPlayerCommitment(status.playerId);
+        if (commitment) {
+            // 如果有承诺，只有承诺的球队可以签约
+            if (commitment.teamId === 'user') {
+                // 玩家承诺的球员，检查玩家兴趣度是否足够
+                if (status.playerInterestInUser >= 70) {
+                    // 玩家可以在承诺期内随时签约
+                    return; // 不自动签约，等待玩家手动签约
+                }
+            } else {
+                // AI承诺的球员，其他球队不能签约
+                return;
+            }
+        }
+        
         // 找出兴趣度最高的球队
         let maxInterest = status.playerInterestInUser;
         let leadingTeam = 'user';
@@ -812,10 +831,15 @@ class RecruitmentCompetitionSystem {
         
         // 扣除预算
         if (cost > 0) {
-            const state = this.gameStateManager.getState();
-            if (state.recruitmentBudget !== undefined) {
-                state.recruitmentBudget -= cost;
-                this.gameStateManager.set('recruitmentBudget', state.recruitmentBudget);
+            if (window.recruitmentBudgetManager) {
+                window.recruitmentBudgetManager.spendBudget(cost, actionType);
+            } else {
+                // 兼容旧代码
+                const state = this.gameStateManager.getState();
+                if (state.recruitmentBudget !== undefined) {
+                    state.recruitmentBudget -= cost;
+                    this.gameStateManager.set('recruitmentBudget', state.recruitmentBudget);
+                }
             }
         }
         
@@ -986,6 +1010,221 @@ class RecruitmentCompetitionSystem {
         }
         
         this.isInitialized = true;
+    }
+    
+    /**
+     * 承诺签约 - 当球员兴趣度≥80%时可以承诺签约
+     * @param {string} playerId - 球员ID
+     * @returns {Object} - 承诺结果
+     */
+    commitToPlayer(playerId) {
+        const status = this.playerRecruitmentStatus.get(playerId);
+        if (!status) {
+            return { success: false, message: '球员未在招募中' };
+        }
+        
+        if (status.isSigned) {
+            return { success: false, message: '该球员已签约其他球队' };
+        }
+        
+        // 检查是否已被其他球队承诺
+        const existingCommitment = this.playerCommitments.get(playerId);
+        if (existingCommitment) {
+            // 检查是否过期
+            const now = Date.now();
+            if (existingCommitment.expiresAt > now) {
+                if (existingCommitment.teamId === 'user') {
+                    return { success: false, message: '你已经承诺了该球员' };
+                } else {
+                    return { success: false, message: '该球员已被其他球队承诺' };
+                }
+            }
+        }
+        
+        // 检查兴趣度是否足够
+        if (status.playerInterestInUser < 80) {
+            return { 
+                success: false, 
+                message: `球员兴趣度不足，需要≥80%（当前${status.playerInterestInUser}%）`,
+                currentInterest: status.playerInterestInUser,
+                requiredInterest: 80
+            };
+        }
+        
+        // 创建承诺
+        const now = Date.now();
+        const lockDuration = 14 * 24 * 60 * 60 * 1000; // 14天（毫秒）
+        const commitment = {
+            playerId: playerId,
+            teamId: 'user',
+            committedAt: now,
+            expiresAt: now + lockDuration,
+            playerName: status.playerName
+        };
+        
+        this.playerCommitments.set(playerId, commitment);
+        
+        // 更新球员状态
+        status.isCommitted = true;
+        status.committedTeam = 'user';
+        status.commitmentExpiry = now + lockDuration;
+        
+        console.log(`[承诺签约] 玩家承诺签约球员 ${status.playerName}，锁定14天`);
+        
+        return {
+            success: true,
+            message: `成功承诺签约 ${status.playerName}！你有14天时间腾出奖学金名额`,
+            commitment: commitment,
+            expiresAt: commitment.expiresAt
+        };
+    }
+    
+    /**
+     * 检查球员是否被承诺
+     * @param {string} playerId - 球员ID
+     * @returns {Object|null} - 承诺信息
+     */
+    getPlayerCommitment(playerId) {
+        const commitment = this.playerCommitments.get(playerId);
+        if (!commitment) return null;
+        
+        // 检查是否过期
+        const now = Date.now();
+        if (commitment.expiresAt <= now) {
+            // 过期，清除承诺
+            this.playerCommitments.delete(playerId);
+            
+            // 更新球员状态
+            const status = this.playerRecruitmentStatus.get(playerId);
+            if (status) {
+                status.isCommitted = false;
+                status.committedTeam = null;
+                status.commitmentExpiry = null;
+            }
+            
+            return null;
+        }
+        
+        return commitment;
+    }
+    
+    /**
+     * 检查是否可以签约（考虑承诺状态）
+     * @param {string} playerId - 球员ID
+     * @param {string} teamId - 球队ID
+     * @returns {Object} - 检查结果
+     */
+    canSignPlayer(playerId, teamId = 'user') {
+        const status = this.playerRecruitmentStatus.get(playerId);
+        if (!status) {
+            return { canSign: false, reason: '球员未在招募中' };
+        }
+        
+        if (status.isSigned) {
+            return { canSign: false, reason: '球员已签约' };
+        }
+        
+        // 检查承诺状态
+        const commitment = this.getPlayerCommitment(playerId);
+        if (commitment && commitment.teamId !== teamId) {
+            const daysRemaining = Math.ceil((commitment.expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
+            return { 
+                canSign: false, 
+                reason: `该球员被其他球队锁定，还剩${daysRemaining}天`,
+                locked: true,
+                daysRemaining
+            };
+        }
+        
+        return { canSign: true, commitment: commitment };
+    }
+    
+    /**
+     * 获取所有活跃的承诺
+     * @returns {Array} - 承诺列表
+     */
+    getActiveCommitments() {
+        const commitments = [];
+        const now = Date.now();
+        
+        for (const [playerId, commitment] of this.playerCommitments) {
+            if (commitment.expiresAt > now) {
+                const daysRemaining = Math.ceil((commitment.expiresAt - now) / (24 * 60 * 60 * 1000));
+                commitments.push({
+                    ...commitment,
+                    daysRemaining
+                });
+            }
+        }
+        
+        return commitments.sort((a, b) => a.expiresAt - b.expiresAt);
+    }
+    
+    /**
+     * 取消承诺
+     * @param {string} playerId - 球员ID
+     * @returns {Object} - 取消结果
+     */
+    cancelCommitment(playerId) {
+        const commitment = this.playerCommitments.get(playerId);
+        if (!commitment) {
+            return { success: false, message: '没有该球员的承诺' };
+        }
+        
+        if (commitment.teamId !== 'user') {
+            return { success: false, message: '无法取消其他球队的承诺' };
+        }
+        
+        // 删除承诺
+        this.playerCommitments.delete(playerId);
+        
+        // 更新球员状态
+        const status = this.playerRecruitmentStatus.get(playerId);
+        if (status) {
+            status.isCommitted = false;
+            status.committedTeam = null;
+            status.commitmentExpiry = null;
+        }
+        
+        console.log(`[承诺签约] 玩家取消了对 ${commitment.playerName} 的承诺`);
+        
+        return { 
+            success: true, 
+            message: `已取消对 ${commitment.playerName} 的承诺`,
+            playerName: commitment.playerName
+        };
+    }
+    
+    /**
+     * 每日更新 - 清理过期承诺
+     */
+    dailyUpdate() {
+        const now = Date.now();
+        let expiredCount = 0;
+        
+        for (const [playerId, commitment] of this.playerCommitments) {
+            if (commitment.expiresAt <= now) {
+                // 承诺过期
+                this.playerCommitments.delete(playerId);
+                
+                // 更新球员状态
+                const status = this.playerRecruitmentStatus.get(playerId);
+                if (status) {
+                    status.isCommitted = false;
+                    status.committedTeam = null;
+                    status.commitmentExpiry = null;
+                }
+                
+                console.log(`[承诺签约] 球员 ${commitment.playerName} 的承诺已过期`);
+                expiredCount++;
+            }
+        }
+        
+        if (expiredCount > 0) {
+            console.log(`[承诺签约] 清理了 ${expiredCount} 个过期承诺`);
+        }
+        
+        return expiredCount;
     }
 }
 

@@ -1,12 +1,19 @@
 /**
  * 球员签约系统
- * 实现真实的球员转会签约流程
+ * 实现真实的球员转会签约流程 - 基于奖学金等级制度
  * 
  * 核心功能：
- * 1. 球员预期报价计算（基于能力、潜力、年级等因素）
- * 2. 直接签约逻辑（报价远超预期时直接签约）
+ * 1. 球员预期奖学金等级计算（基于能力、潜力、年级等因素）
+ * 2. 直接签约逻辑（提供足够高的奖学金等级时直接签约）
  * 3. 超级球星特殊签约规则
  * 4. 谈判流程管理
+ * 
+ * 奖学金等级：
+ * - full: 全额奖学金 (100%) - 占用1.0份额
+ * - major: 主要奖学金 (60%) - 占用0.6份额  
+ * - partial: 部分奖学金 (35%) - 占用0.35份额
+ * - minimal: 基础奖学金 (15%) - 占用0.15份额
+ * - none: 无奖学金 (0%) - 不占用份额
  */
 
 class PlayerSigningSystem {
@@ -15,49 +22,59 @@ class PlayerSigningSystem {
         
         // 签约配置参数
         this.config = {
-            // 直接签约阈值（报价超过预期的百分比）
-            directSignThreshold: 1.5,  // 150% 预期价格可直接签约
+            // 直接签约条件：提供≥预期等级的奖学金，且兴趣度≥此阈值
+            directSignInterestThreshold: 85,  // 兴趣度≥85%可直接签约
             
             // 超级球星判定标准
             superstarThreshold: 85,    // 能力值85+为超级球星
             
             // 超级球星签约难度
-            superstarDirectSignThreshold: 2.0,  // 超级球星需要200%报价才能直接签约
+            superstarInterestThreshold: 95,  // 超级球星需要兴趣度≥95%才能签约
             superstarForceNegotiation: true,     // 超级球星强制进入谈判
             
-            // 顶价设定（系统最高报价限制）
-            maxOfferMultiplier: 2.5,   // 最高报价为预期的250%
+            // 奖学金等级定义（与ScholarshipConfig保持一致）
+            scholarshipLevels: {
+                full: { name: '全额奖学金', percentage: 1.0, value: 1.0, minRating: 78 },
+                major: { name: '主要奖学金', percentage: 0.6, value: 0.6, minRating: 70 },
+                partial: { name: '部分奖学金', percentage: 0.35, value: 0.35, minRating: 60 },
+                minimal: { name: '基础奖学金', percentage: 0.15, value: 0.15, minRating: 50 },
+                none: { name: '无奖学金', percentage: 0, value: 0, minRating: 0 }
+            },
             
-            // 年级影响系数
+            // 年级影响系数（年级越大，对奖学金要求越低）
             yearMultipliers: {
-                1: 1.0,   // 大一
-                2: 1.2,   // 大二
-                3: 1.5,   // 大三
-                4: 1.8    // 大四
+                1: 1.0,   // 大一：标准需求
+                2: 0.9,   // 大二：需求降低10%
+                3: 0.75,  // 大三：需求降低25%
+                4: 0.5    // 大四：需求降低50%（急于找工作/打职业）
             },
             
             // 潜力影响系数
             potentialMultipliers: {
-                elite: 1.5,      // 90+ 潜力
-                excellent: 1.3,  // 80-89 潜力
-                good: 1.1,       // 70-79 潜力
-                normal: 1.0      // <70 潜力
+                elite: 1.2,      // 90+ 潜力：要求更高奖学金
+                excellent: 1.1,  // 80-89 潜力
+                good: 1.0,       // 70-79 潜力：标准
+                normal: 0.8      // <70 潜力：要求较低
             }
         };
     }
 
     /**
-     * 计算球员预期报价
+     * 计算球员预期奖学金等级
      * @param {Object} player - 球员对象
-     * @returns {Object} 预期报价信息
+     * @returns {Object} 预期奖学金信息
      */
-    calculateExpectedOffer(player) {
+    calculateExpectedScholarship(player) {
         const rating = player.rating || (player.getOverallRating ? player.getOverallRating() : 50);
         const potential = player.potential || 50;
         const year = player.year || 1;
         
-        // 基础报价（基于能力值）
-        let baseOffer = rating * 1000;
+        // 基础需求等级（基于能力值）
+        let baseLevel = 'none';
+        if (rating >= 78) baseLevel = 'full';
+        else if (rating >= 70) baseLevel = 'major';
+        else if (rating >= 60) baseLevel = 'partial';
+        else if (rating >= 50) baseLevel = 'minimal';
         
         // 潜力加成
         let potentialLevel = 'normal';
@@ -67,14 +84,24 @@ class PlayerSigningSystem {
         
         const potentialMultiplier = this.config.potentialMultipliers[potentialLevel];
         
-        // 年级加成
+        // 年级加成（年级越大，需求越低）
         const yearMultiplier = this.config.yearMultipliers[year] || 1.0;
         
-        // 计算预期报价范围
-        const expectedOffer = Math.round(baseOffer * potentialMultiplier * yearMultiplier);
-        const minAcceptable = Math.round(expectedOffer * 0.7);  // 最低可接受报价 70%
-        const maxExpected = Math.round(expectedOffer * 1.3);    // 最高预期 130%
-        const topOffer = Math.round(expectedOffer * this.config.maxOfferMultiplier);  // 顶价
+        // 计算预期奖学金等级（数值化）
+        const levels = ['none', 'minimal', 'partial', 'major', 'full'];
+        const levelValues = { none: 0, minimal: 0.15, partial: 0.35, major: 0.6, full: 1.0 };
+        
+        let expectedValue = levelValues[baseLevel] * potentialMultiplier * yearMultiplier;
+        
+        // 根据数值确定预期等级
+        let expectedLevel = 'none';
+        if (expectedValue >= 0.9) expectedLevel = 'full';
+        else if (expectedValue >= 0.5) expectedLevel = 'major';
+        else if (expectedValue >= 0.25) expectedLevel = 'partial';
+        else if (expectedValue >= 0.08) expectedLevel = 'minimal';
+        
+        // 最低可接受等级（降一级）
+        const minAcceptableLevel = this.getLowerScholarshipLevel(expectedLevel);
         
         // 判断是否超级球星
         const isSuperstar = rating >= this.config.superstarThreshold;
@@ -94,82 +121,143 @@ class PlayerSigningSystem {
             isSuperstar,
             potentialLevel,
             difficultyLevel,
-            baseOffer,
-            expectedOffer,      // 预期报价
-            minAcceptable,      // 最低可接受
-            maxExpected,        // 最高预期
-            topOffer,           // 系统顶价
-            directSignThreshold: isSuperstar 
-                ? this.config.superstarDirectSignThreshold 
-                : this.config.directSignThreshold,
-            forceNegotiation: isSuperstar && this.config.superstarForceNegotiation
+            baseLevel,
+            expectedLevel,      // 预期奖学金等级
+            expectedValue,      // 预期数值（0-1）
+            minAcceptableLevel, // 最低可接受等级
+            directSignInterestThreshold: isSuperstar 
+                ? this.config.superstarInterestThreshold 
+                : this.config.directSignInterestThreshold,
+            forceNegotiation: isSuperstar && this.config.superstarForceNegotiation,
+            // 兼容旧接口（用于signingInterface.js）
+            expectedOffer: expectedValue,
+            minAcceptable: levelValues[minAcceptableLevel],
+            maxExpected: Math.min(1.0, expectedValue * 1.3),
+            topOffer: 1.0,
+            directSignThreshold: isSuperstar ? 1.5 : 1.2  // 用于显示，实际使用兴趣度阈值
         };
+    }
+    
+    /**
+     * 获取低一级的奖学金等级
+     */
+    getLowerScholarshipLevel(level) {
+        const levels = ['full', 'major', 'partial', 'minimal', 'none'];
+        const index = levels.indexOf(level);
+        if (index === -1 || index >= levels.length - 1) return 'none';
+        return levels[index + 1];
+    }
+    
+    /**
+     * 获取奖学金等级数值
+     */
+    getScholarshipValue(level) {
+        const values = { none: 0, minimal: 0.15, partial: 0.35, major: 0.6, full: 1.0 };
+        return values[level] || 0;
     }
 
     /**
-     * 评估签约报价
+     * 计算球员预期报价（兼容旧接口，调用 calculateExpectedScholarship）
      * @param {Object} player - 球员对象
-     * @param {number} offeredAmount - 报价金额
+     * @returns {Object} 预期报价信息
+     */
+    calculateExpectedOffer(player) {
+        return this.calculateExpectedScholarship(player);
+    }
+
+    /**
+     * 评估签约奖学金等级
+     * @param {Object} player - 球员对象
+     * @param {string} offeredLevel - 提供的奖学金等级 (full/major/partial/minimal/none)
+     * @param {number} playerInterest - 球员对球队的兴趣度 (0-100)
      * @returns {Object} 评估结果
      */
-    evaluateOffer(player, offeredAmount) {
-        const offerInfo = this.calculateExpectedOffer(player);
-        const ratio = offeredAmount / offerInfo.expectedOffer;
+    evaluateScholarshipOffer(player, offeredLevel, playerInterest = 0) {
+        const offerInfo = this.calculateExpectedScholarship(player);
+        const offeredValue = this.getScholarshipValue(offeredLevel);
+        
+        // 检查提供的奖学金是否满足预期
+        const meetsExpectation = offeredValue >= offerInfo.expectedValue;
+        const meetsMinimum = offeredValue >= this.getScholarshipValue(offerInfo.minAcceptableLevel);
         
         let result = {
             success: false,
             method: null,  // 'direct' | 'negotiation' | 'rejected'
             message: '',
             offerInfo,
-            offeredAmount,
-            ratio,
+            offeredLevel,
+            offeredValue,
+            playerInterest,
+            meetsExpectation,
             playerReaction: ''
         };
 
-        // 低于最低可接受报价
-        if (offeredAmount < offerInfo.minAcceptable) {
+        // 低于最低可接受等级
+        if (!meetsMinimum) {
             result.method = 'rejected';
-            result.message = '报价过低，球员直接拒绝了你的报价';
+            result.message = `奖学金等级过低，球员期望至少${offerInfo.minAcceptableLevel}，但你只提供了${offeredLevel}`;
             result.playerReaction = this.getRejectionReaction('too_low', offerInfo.isSuperstar);
             return result;
         }
 
         // 超级球星特殊处理
         if (offerInfo.isSuperstar) {
-            if (offerInfo.forceNegotiation && ratio < offerInfo.directSignThreshold) {
-                // 超级球星强制谈判
+            // 超级球星需要满足预期等级 + 高兴趣度
+            if (!meetsExpectation || playerInterest < this.config.superstarInterestThreshold) {
                 result.method = 'negotiation';
-                result.message = '这是一位超级球星，需要通过谈判才能签约';
+                result.message = '这是一位超级球星，需要提供满足期望的奖学金并且兴趣度达到95%以上';
                 result.playerReaction = this.getSuperstarReaction('force_negotiation');
                 return result;
             }
         }
 
-        // 直接签约判断
-        if (ratio >= offerInfo.directSignThreshold) {
+        // 直接签约判断：满足预期等级 + 兴趣度达标
+        if (meetsExpectation && playerInterest >= this.config.directSignInterestThreshold) {
             result.success = true;
             result.method = 'direct';
-            result.message = `报价极具诚意！球员${offerInfo.isSuperstar ? '经过考虑后' : '欣然'}接受了你的报价`;
-            result.playerReaction = this.getAcceptanceReaction(ratio, offerInfo.isSuperstar);
+            result.message = `你提供了球员期望的${offeredLevel}奖学金，球员${offerInfo.isSuperstar ? '经过考虑后' : '欣然'}接受了你的offer！`;
+            result.playerReaction = this.getAcceptanceReaction(1.0, offerInfo.isSuperstar);
             return result;
         }
 
-        // 进入谈判流程
-        result.method = 'negotiation';
-        result.message = '球员对你的报价感兴趣，希望进一步谈判';
-        result.playerReaction = this.getNegotiationReaction(ratio, offerInfo);
+        // 满足最低要求但未达预期，或兴趣度不够
+        if (!meetsExpectation) {
+            result.method = 'negotiation';
+            result.message = `球员期望${offerInfo.expectedLevel}奖学金，但你只提供了${offeredLevel}，需要进一步谈判`;
+            result.playerReaction = this.getNegotiationReaction(0.8, offerInfo);
+        } else if (playerInterest < this.config.directSignInterestThreshold) {
+            result.method = 'negotiation';
+            result.message = `奖学金条件符合期望，但球员兴趣度(${playerInterest}%)还不够高，需要继续培养关系`;
+            result.playerReaction = this.getNegotiationReaction(1.0, offerInfo);
+        }
         
         return result;
     }
+    
+    /**
+     * 评估签约报价（兼容旧接口，使用金额）
+     * @deprecated 请使用 evaluateScholarshipOffer
+     */
+    evaluateOffer(player, offeredAmount) {
+        // 将金额转换为等级（兼容旧代码）
+        let offeredLevel = 'none';
+        if (offeredAmount >= 0.9) offeredLevel = 'full';
+        else if (offeredAmount >= 0.5) offeredLevel = 'major';
+        else if (offeredAmount >= 0.25) offeredLevel = 'partial';
+        else if (offeredAmount >= 0.08) offeredLevel = 'minimal';
+        
+        return this.evaluateScholarshipOffer(player, offeredLevel);
+    }
 
     /**
-     * 尝试直接签约
+     * 尝试直接签约（基于奖学金等级和兴趣度）
      * @param {Object} player - 球员对象
-     * @param {number} offeredAmount - 报价金额
+     * @param {string} offeredLevel - 提供的奖学金等级
+     * @param {number} playerInterest - 球员兴趣度 (0-100)
      * @returns {Object} 签约结果
      */
-    attemptDirectSigning(player, offeredAmount) {
-        const evaluation = this.evaluateOffer(player, offeredAmount);
+    attemptDirectSigning(player, offeredLevel, playerInterest = 0) {
+        const evaluation = this.evaluateScholarshipOffer(player, offeredLevel, playerInterest);
         
         if (evaluation.method === 'direct' && evaluation.success) {
             // 直接签约成功
@@ -177,7 +265,9 @@ class PlayerSigningSystem {
                 success: true,
                 method: 'direct_signing',
                 player: player,
-                offeredAmount: offeredAmount,
+                offeredLevel: offeredLevel,
+                offeredValue: evaluation.offeredValue,
+                playerInterest: playerInterest,
                 message: evaluation.message,
                 playerReaction: evaluation.playerReaction,
                 timestamp: new Date().toISOString()
@@ -188,7 +278,9 @@ class PlayerSigningSystem {
             success: false,
             method: evaluation.method,
             player: player,
-            offeredAmount: offeredAmount,
+            offeredLevel: offeredLevel,
+            offeredValue: evaluation.offeredValue,
+            playerInterest: playerInterest,
             message: evaluation.message,
             playerReaction: evaluation.playerReaction,
             offerInfo: evaluation.offerInfo,

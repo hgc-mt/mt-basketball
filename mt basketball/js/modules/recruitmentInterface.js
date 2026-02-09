@@ -414,6 +414,11 @@ class RecruitmentInterface {
             const negotiations = state.activeNegotiations || [];
             activeNegotiations.textContent = negotiations.length;
         }
+        
+        // 更新招募预算显示
+        if (window.recruitmentBudgetManager) {
+            updateRecruitmentBudgetDisplay();
+        }
     }
 
     // 预计算玩家统计数据
@@ -669,7 +674,8 @@ class RecruitmentInterface {
             }
 
             if (action === 'negotiate') {
-                this.openNegotiation(player);
+                // 先显示报价设置弹窗，而不是直接开始谈判
+                this.showOfferSetupModal(player);
             } else if (action === 'detail') {
                 // 使用竞争性招募界面显示详情
                 if (this.competitiveInterface) {
@@ -718,6 +724,12 @@ class RecruitmentInterface {
             try {
                 // 先启动谈判
                 window.negotiationManager.startNegotiation(player.id);
+                
+                // 同时初始化竞争系统的招募状态
+                if (window.recruitmentCompetitionSystem) {
+                    window.recruitmentCompetitionSystem.initializePlayerRecruitment(player);
+                }
+                
                 // 然后显示详情弹窗（带谈判界面）
                 this.showPlayerDetail(player, true);
             } catch (error) {
@@ -813,11 +825,135 @@ class RecruitmentInterface {
                             ${player.status === 'freshman_recruit' ? '发起招募' : (player.status === 'transfer_wanted' ? '申请转会' : '发起谈判')}
                         </button>
                     </div>
-                ` : ''}
+                ` : `
+                    <!-- 谈判界面 -->
+                    <div class="negotiation-panel" id="negotiation-panel-${player.id}" style="background: linear-gradient(145deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%); border-radius: 16px; padding: 20px; margin-top: 20px;">
+                        <!-- 头部 -->
+                        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 1.5rem;">💬</span>
+                                <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-primary);">招募谈判</h3>
+                            </div>
+                            <span id="neg-status-badge-${player.id}" style="padding: 6px 12px; background: rgba(16, 185, 129, 0.2); color: #10b981; border-radius: 20px; font-size: 0.8rem; font-weight: 500;">进行中</span>
+                        </div>
+                        
+                        <!-- 状态信息 -->
+                        <div class="negotiation-status-info" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+                            <div class="status-item" style="text-align: center; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+                                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 6px;">当前轮次</div>
+                                <div id="neg-round-${player.id}" style="font-size: 1.1rem; font-weight: 600; color: var(--text-primary);">1/5</div>
+                            </div>
+                            <div class="status-item" style="text-align: center; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+                                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 6px;">成功率</div>
+                                <div id="neg-probability-${player.id}" style="font-size: 1.1rem; font-weight: 600; color: #f59e0b;">--</div>
+                            </div>
+                            <div class="status-item" style="text-align: center; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+                                <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 6px;">剩余天数</div>
+                                <div id="neg-days-${player.id}" style="font-size: 1.1rem; font-weight: 600; color: #3b82f6;">7天</div>
+                            </div>
+                        </div>
+                        
+                        <!-- 当前报价 -->
+                        <div class="offer-section" style="background: rgba(255,255,255,0.03); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                                <span style="font-size: 1.1rem;">📋</span>
+                                <h4 style="margin: 0; font-size: 0.95rem; color: var(--text-primary);">当前报价</h4>
+                            </div>
+                            <div class="offer-details" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                                <div class="offer-item" style="text-align: center; padding: 12px; background: rgba(102, 126, 234, 0.1); border-radius: 10px;">
+                                    <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 4px;">💰 奖学金</div>
+                                    <div id="neg-scholarship-${player.id}" style="font-size: 1rem; font-weight: 600; color: #667eea;">--</div>
+                                </div>
+                                <div class="offer-item" style="text-align: center; padding: 12px; background: rgba(16, 185, 129, 0.1); border-radius: 10px;">
+                                    <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 4px;">⏱️ 出场时间</div>
+                                    <div id="neg-playingtime-${player.id}" style="font-size: 1rem; font-weight: 600; color: #10b981;">--</div>
+                                </div>
+                                <div class="offer-item" style="text-align: center; padding: 12px; background: rgba(245, 158, 11, 0.1); border-radius: 10px;">
+                                    <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 4px;">🎯 角色定位</div>
+                                    <div id="neg-role-${player.id}" style="font-size: 1rem; font-weight: 600; color: #f59e0b;">--</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 招募行动 -->
+                        <div class="recruitment-actions-section" style="margin-bottom: 20px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                                <span style="font-size: 1.1rem;">🎯</span>
+                                <h4 style="margin: 0; font-size: 0.95rem; color: var(--text-primary);">招募行动</h4>
+                                <span style="font-size: 0.75rem; color: var(--text-muted);">(提升球员兴趣度)</span>
+                            </div>
+                            <div class="recruitment-actions-grid" id="recruitment-actions-${player.id}" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                                <button class="recruitment-action-btn" data-action="campus_visit" data-player-id="${player.id}" style="padding: 12px; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">🏫 校园参观</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">展示校园设施和文化</div>
+                                    <div style="font-size: 0.75rem; color: #f59e0b; margin-top: 4px;">💰 $5,000 | 兴趣度 +8-15%</div>
+                                </button>
+                                <button class="recruitment-action-btn" data-action="home_visit" data-player-id="${player.id}" style="padding: 12px; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">🏠 家访</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">深入了解球员家庭</div>
+                                    <div style="font-size: 0.75rem; color: #f59e0b; margin-top: 4px;">💰 $8,000 | 兴趣度 +10-20%</div>
+                                </button>
+                                <button class="recruitment-action-btn" data-action="promise_playing_time" data-player-id="${player.id}" style="padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">⏱️ 承诺上场时间</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">保证赛季出场时间</div>
+                                    <div style="font-size: 0.75rem; color: #10b981; margin-top: 4px;">免费 | 兴趣度 +5-15%</div>
+                                </button>
+                                <button class="recruitment-action-btn" data-action="highlight_facilities" data-player-id="${player.id}" style="padding: 12px; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">🏋️ 展示设施</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">展示训练设施</div>
+                                    <div style="font-size: 0.75rem; color: #f59e0b; margin-top: 4px;">💰 $2,000 | 兴趣度 +6-12%</div>
+                                </button>
+                                <button class="recruitment-action-btn" data-action="emphasize_academics" data-player-id="${player.id}" style="padding: 12px; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">📚 强调学术</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">突出学术优势</div>
+                                    <div style="font-size: 0.75rem; color: #f59e0b; margin-top: 4px;">💰 $1,000 | 兴趣度 +4-10%</div>
+                                </button>
+                                <button class="recruitment-action-btn" data-action="offer_scholarship" data-player-id="${player.id}" style="padding: 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">💰 提供奖学金</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">正式提供奖学金offer</div>
+                                    <div style="font-size: 0.75rem; color: #f59e0b; margin-top: 4px;">免费 | 兴趣度 +15-25%</div>
+                                </button>
+                            </div>
+                            <div id="action-result-${player.id}" style="margin-top: 12px;"></div>
+                        </div>
+
+                        <!-- 操作按钮 -->
+                        <div class="negotiation-actions-panel" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                            <button class="neg-action-btn primary" onclick="window.recruitmentInterface.makeOffer('${player.id}')" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 10px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+                                <span>📤</span> 提交报价
+                            </button>
+                            <button class="neg-action-btn secondary" onclick="window.recruitmentInterface.modifyOffer('${player.id}')" style="flex: 1; padding: 12px; background: rgba(102, 126, 234, 0.2); color: #667eea; border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 10px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+                                <span>✏️</span> 修改报价
+                            </button>
+                            <button class="neg-action-btn danger" onclick="window.recruitmentInterface.endNegotiation('${player.id}')" style="padding: 12px 16px; background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
+                                <span>❌</span> 结束
+                            </button>
+                        </div>
+                        
+                        <!-- 谈判记录 -->
+                        <div class="negotiation-history" id="neg-history-${player.id}" style="background: rgba(0,0,0,0.2); border-radius: 12px; padding: 16px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                                <span style="font-size: 1.1rem;">📜</span>
+                                <h4 style="margin: 0; font-size: 0.95rem; color: var(--text-primary);">谈判记录</h4>
+                            </div>
+                            <div class="history-list" id="neg-history-list-${player.id}" style="display: flex; flex-direction: column; gap: 8px;">
+                                <div class="history-item" style="display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; font-size: 0.85rem;">
+                                    <span style="color: var(--text-muted); font-size: 0.75rem;">刚刚</span>
+                                    <span style="color: var(--text-secondary);">发起招募谈判</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `}
             </div>
         `;
 
         modal.style.display = 'block';
+        
+        // 如果显示谈判界面，加载谈判数据
+        if (showNegotiation) {
+            this.loadNegotiationData(player.id);
+        }
     }
 
     createAttrBox(name, value, color) {
@@ -1289,10 +1425,24 @@ class RecruitmentInterface {
 
     openModifyNegotiation(negotiationId) {
         const negotiation = window.negotiationManager?.getNegotiation(negotiationId);
-        if (!negotiation) return;
+        if (!negotiation) {
+            this.showNotification('找不到谈判记录', 'error');
+            return;
+        }
+
+        // 获取球员信息 - 优先使用player对象，否则通过playerId查找
+        let player = negotiation.player;
+        if (!player && negotiation.playerId) {
+            player = this.players.find(p => p.id == negotiation.playerId || p.id === negotiation.playerId);
+        }
+        
+        if (!player) {
+            this.showNotification('找不到球员信息', 'error');
+            return;
+        }
 
         // 重新打开谈判界面，使用现有的谈判数据
-        this.showPlayerDetail(negotiation.player, true);
+        this.showPlayerDetail(player, true);
     }
 
     /**
@@ -1455,8 +1605,29 @@ class RecruitmentInterface {
             : 0;
         document.getElementById('avg-negotiation-time').textContent = `${avgTime}天`;
 
-        const totalInvestment = negotiations.reduce((sum, n) => sum + Math.round(n.offer.scholarship * 100000), 0);
-        document.getElementById('total-investment').textContent = `$${(totalInvestment / 10000).toFixed(1)}万`;
+        // 计算平均成功率
+        const avgSuccessRate = negotiations.length > 0
+            ? Math.round(negotiations.reduce((sum, n) => sum + (n.acceptanceProbability || 0), 0) / negotiations.length)
+            : 0;
+        document.getElementById('success-rate').textContent = `${avgSuccessRate}%`;
+
+        // 计算累计投入（实际招募行动花费）
+        let totalInvestment = 0;
+        if (window.recruitmentBudgetManager) {
+            const stats = window.recruitmentBudgetManager.getStats();
+            totalInvestment = stats.totalSpent || 0;
+        }
+        
+        // 格式化显示：小于1万显示具体数值，大于1万显示X.X万
+        let investmentText;
+        if (totalInvestment === 0) {
+            investmentText = '$0';
+        } else if (totalInvestment < 10000) {
+            investmentText = `$${totalInvestment}`;
+        } else {
+            investmentText = `$${(totalInvestment / 10000).toFixed(1)}万`;
+        }
+        document.getElementById('total-investment').textContent = investmentText;
     }
 
     renderPendingOfferList() {
@@ -1585,6 +1756,646 @@ class RecruitmentInterface {
         document.getElementById('tab-badge-signed').textContent = signedCount;
 
         document.getElementById('tab-badge-available').textContent = this.players.length;
+    }
+
+    /**
+     * 显示报价设置弹窗（从球员卡片点击招募时使用）
+     * @param {Object} player - 球员对象
+     */
+    showOfferSetupModal(player) {
+        // 创建弹窗
+        let modal = document.getElementById('offer-setup-modal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'offer-setup-modal';
+            modal.className = 'modal';
+            document.body.appendChild(modal);
+        }
+
+        const level = this.getPotentialLevel(player.potential);
+        let rating = player.rating;
+        if (!rating && typeof player.getOverallRating === 'function') {
+            try {
+                rating = player.getOverallRating();
+            } catch (e) {
+                rating = 50;
+            }
+        }
+        if (!rating || isNaN(rating)) {
+            rating = 50;
+        }
+
+        const yearLabels = { 1: '大一', 2: '大二', 3: '大三', 4: '大四' };
+        const initials = player.name.split(' ').map(n => n[0]).join('');
+
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 500px;">
+                <div class="modal-header">
+                    <h3>📋 设置招募报价</h3>
+                    <span class="close" onclick="document.getElementById('offer-setup-modal').style.display='none'">&times;</span>
+                </div>
+                <div class="modal-body" style="padding: 20px;">
+                    <!-- 球员简要信息 -->
+                    <div class="player-mini-info" style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; padding: 15px; background: rgba(102, 126, 234, 0.1); border-radius: 12px;">
+                        <div class="player-avatar" style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: 600;">${initials}</div>
+                        <div class="player-info">
+                            <div class="player-name" style="font-weight: 600; color: var(--text-primary);">${player.name}</div>
+                            <div class="player-tags" style="display: flex; gap: 8px; margin-top: 5px;">
+                                <span class="tag" style="padding: 2px 8px; background: ${level.color}20; color: ${level.color}; border-radius: 4px; font-size: 0.75rem;">${level.icon} ${player.potential}潜力</span>
+                                <span class="tag" style="padding: 2px 8px; background: rgba(102, 126, 234, 0.2); color: #667eea; border-radius: 4px; font-size: 0.75rem;">${rating}能力</span>
+                                <span class="tag" style="padding: 2px 8px; background: rgba(16, 185, 129, 0.2); color: #10b981; border-radius: 4px; font-size: 0.75rem;">${yearLabels[player.year]}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 报价表单 -->
+                    <div class="offer-form">
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500;">奖学金比例</label>
+                            <select id="setup-scholarship-${player.id}" class="form-select" style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem;">
+                                <option value="1.0">全额奖学金 (100%)</option>
+                                <option value="0.75">主要奖学金 (75%)</option>
+                                <option value="0.5" selected>部分奖学金 (50%)</option>
+                                <option value="0.25">基础奖学金 (25%)</option>
+                                <option value="0">无奖学金</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500;">承诺出场时间</label>
+                            <select id="setup-playingtime-${player.id}" class="form-select" style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem;">
+                                <option value="35">首发主力 (35+分钟)</option>
+                                <option value="25" selected>重要轮换 (25-30分钟)</option>
+                                <option value="15">普通轮换 (15-20分钟)</option>
+                                <option value="5">替补 (5-10分钟)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 16px;">
+                            <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500;">角色定位</label>
+                            <select id="setup-role-${player.id}" class="form-select" style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem;">
+                                <option value="核心">球队核心</option>
+                                <option value="主力" selected>首发主力</option>
+                                <option value="轮换">重要轮换</option>
+                                <option value="替补">替补球员</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500;">招募话术（可选）</label>
+                            <textarea id="setup-message-${player.id}" class="form-textarea" placeholder="输入你想对球员说的话..." rows="3" style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; resize: vertical; min-height: 80px;"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- 按钮 -->
+                    <div class="form-actions" style="display: flex; gap: 12px;">
+                        <button class="btn-form-primary" onclick="window.recruitmentInterface.confirmOfferFromSetup(${player.id})" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.3s ease;">
+                            ✓ 确认报价并发起谈判
+                        </button>
+                        <button class="btn-form-secondary" onclick="document.getElementById('offer-setup-modal').style.display='none'" style="flex: 1; padding: 12px 20px; background: rgba(107, 114, 128, 0.2); color: var(--text-secondary); border: 1px solid rgba(107, 114, 128, 0.3); border-radius: 10px; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.3s ease;">
+                            ✕ 取消
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        modal.style.display = 'block';
+    }
+
+    /**
+     * 从报价设置弹窗确认报价
+     * @param {number} playerId - 球员ID
+     */
+    confirmOfferFromSetup(playerId) {
+        // 获取表单数据
+        const scholarshipSelect = document.getElementById(`setup-scholarship-${playerId}`);
+        const playingTimeSelect = document.getElementById(`setup-playingtime-${playerId}`);
+        const roleSelect = document.getElementById(`setup-role-${playerId}`);
+        const messageTextarea = document.getElementById(`setup-message-${playerId}`);
+        
+        const offer = {
+            scholarship: parseFloat(scholarshipSelect?.value || 0.5),
+            playingTime: parseInt(playingTimeSelect?.value || 25),
+            role: roleSelect?.value || '主力',
+            message: messageTextarea?.value || ''
+        };
+        
+        // 查找球员
+        const player = this.players.find(p => p.id == playerId || p.id === playerId);
+        if (!player) {
+            this.showNotification('找不到球员信息', 'error');
+            return;
+        }
+        
+        // 检查谈判管理器
+        if (!window.negotiationManager) {
+            this.showNotification('谈判系统未加载', 'error');
+            return;
+        }
+        
+        try {
+            // 关闭报价设置弹窗
+            const modal = document.getElementById('offer-setup-modal');
+            if (modal) modal.style.display = 'none';
+            
+            // 启动谈判
+            const negotiation = window.negotiationManager.startNegotiation(player.id);
+            
+            if (!negotiation) {
+                this.showNotification('发起谈判失败', 'error');
+                return;
+            }
+            
+            // 同时初始化竞争系统的招募状态
+            if (window.recruitmentCompetitionSystem) {
+                window.recruitmentCompetitionSystem.initializePlayerRecruitment(player);
+            }
+            
+            // 提交报价
+            const result = window.negotiationManager.makeOffer(negotiation.id, offer);
+            
+            if (result && result.success) {
+                this.showNotification('报价已提交，谈判开始！', 'success');
+                // 显示谈判详情
+                setTimeout(() => {
+                    this.showPlayerDetail(player, true);
+                }, 100);
+            } else {
+                this.showNotification(result?.message || '提交报价失败', 'error');
+            }
+        } catch (error) {
+            console.error('Negotiation error:', error);
+            this.showNotification('谈判系统错误: ' + error.message, 'error');
+        }
+    }
+
+    /**
+     * 加载谈判数据到界面
+     * @param {string|number} playerId - 球员ID
+     */
+    loadNegotiationData(playerId) {
+        // 从negotiationManager获取所有谈判，找到对应playerId的
+        let negotiation = null;
+        
+        if (window.negotiationManager) {
+            // 尝试从activeNegotiations Map中获取
+            if (window.negotiationManager.activeNegotiations) {
+                for (const [id, neg] of window.negotiationManager.activeNegotiations) {
+                    if (neg.playerId == playerId || neg.player?.id == playerId) {
+                        negotiation = neg;
+                        negotiation.id = id;
+                        break;
+                    }
+                }
+            }
+            
+            // 如果没找到，尝试getNegotiation方法
+            if (!negotiation) {
+                negotiation = window.negotiationManager.getNegotiation?.(playerId);
+            }
+        }
+        
+        if (!negotiation) {
+            console.warn('No negotiation found for player:', playerId);
+            return;
+        }
+
+        // 更新状态显示
+        const statusEl = document.getElementById(`neg-status-${playerId}`);
+        const roundEl = document.getElementById(`neg-round-${playerId}`);
+        const probEl = document.getElementById(`neg-probability-${playerId}`);
+        const scholarshipEl = document.getElementById(`neg-scholarship-${playerId}`);
+        const playingTimeEl = document.getElementById(`neg-playingtime-${playerId}`);
+        const roleEl = document.getElementById(`neg-role-${playerId}`);
+
+        if (statusEl) {
+            const statusMap = {
+                'active': '进行中',
+                'pending': '等待回复',
+                'countered': '还价中',
+                'accepted': '已接受',
+                'rejected': '已拒绝'
+            };
+            statusEl.textContent = statusMap[negotiation.status] || negotiation.status || '进行中';
+        }
+
+        if (roundEl) {
+            roundEl.textContent = `${negotiation.round || 1}/${negotiation.maxRounds || 5}`;
+        }
+
+        if (probEl) {
+            probEl.textContent = `${negotiation.acceptanceProbability || 0}%`;
+        }
+
+        if (scholarshipEl && negotiation.offer) {
+            scholarshipEl.textContent = `${Math.round((negotiation.offer.scholarship || 0) * 100)}%`;
+        }
+
+        if (playingTimeEl && negotiation.offer) {
+            playingTimeEl.textContent = `${negotiation.offer.playingTime || 0}分钟`;
+        }
+
+        if (roleEl && negotiation.offer) {
+            const roleMap = {
+                '核心': '⭐ 核心球星',
+                '主力': '🏀 首发主力',
+                '轮换': '🔄 重要轮换',
+                '替补': '🪑 替补球员',
+                'star': '⭐ 核心球星',
+                'starter': '🏀 首发主力',
+                'rotation': '🔄 重要轮换',
+                'bench': '🪑 替补球员'
+            };
+            roleEl.textContent = roleMap[negotiation.offer.role] || negotiation.offer.role || '待定';
+        }
+
+        // 更新历史记录
+        this.updateNegotiationHistory(playerId, negotiation.history);
+        
+        // 绑定招募行动按钮事件
+        this.bindRecruitmentActionButtons(playerId);
+    }
+    
+    /**
+     * 绑定招募行动按钮事件
+     * @param {string|number} playerId - 球员ID
+     */
+    bindRecruitmentActionButtons(playerId) {
+        const actionButtons = document.querySelectorAll(`#recruitment-actions-${playerId} .recruitment-action-btn`);
+        const resultDiv = document.getElementById(`action-result-${playerId}`);
+        
+        actionButtons.forEach(btn => {
+            // 移除旧的事件监听器（避免重复绑定）
+            const newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            
+            newBtn.addEventListener('click', () => {
+                const actionType = newBtn.dataset.action;
+                this.executeRecruitmentAction(playerId, actionType, resultDiv);
+            });
+        });
+    }
+    
+    /**
+     * 执行招募行动
+     * @param {string|number} playerId - 球员ID
+     * @param {string} actionType - 行动类型
+     * @param {HTMLElement} resultDiv - 结果显示容器
+     */
+    executeRecruitmentAction(playerId, actionType, resultDiv) {
+        // 使用竞争系统执行行动
+        if (window.recruitmentCompetitionSystem) {
+            const result = window.recruitmentCompetitionSystem.playerTakeAction(playerId, actionType);
+            
+            if (result.success) {
+                // 显示成功结果
+                if (resultDiv) {
+                    resultDiv.innerHTML = `
+                        <div style="padding: 12px 16px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.2rem;">✅</span>
+                            <div>
+                                <div style="font-weight: 600; color: #10b981;">${result.message}</div>
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">球员兴趣度 +${result.interestIncrease}%</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                this.showNotification(`${result.message} (兴趣度 +${result.interestIncrease}%)`, 'success');
+                
+                // 更新成功率显示
+                this.updateNegotiationProbability(playerId);
+            } else {
+                // 显示失败结果
+                if (resultDiv) {
+                    resultDiv.innerHTML = `
+                        <div style="padding: 12px 16px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; display: flex; align-items: center; gap: 10px;">
+                            <span style="font-size: 1.2rem;">❌</span>
+                            <div style="font-weight: 600; color: #ef4444;">${result.message}</div>
+                        </div>
+                    `;
+                }
+                this.showNotification(result.message, 'warning');
+            }
+        } else {
+            // 如果没有竞争系统，显示模拟结果
+            const mockResult = this.getMockActionResult(actionType);
+            if (resultDiv) {
+                resultDiv.innerHTML = `
+                    <div style="padding: 12px 16px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; display: flex; align-items: center; gap: 10px;">
+                        <span style="font-size: 1.2rem;">✅</span>
+                        <div>
+                            <div style="font-weight: 600; color: #10b981;">${mockResult.message}</div>
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">球员兴趣度 +${mockResult.interestIncrease}%</div>
+                        </div>
+                    </div>
+                `;
+            }
+            this.showNotification(`${mockResult.message} (兴趣度 +${mockResult.interestIncrease}%)`, 'success');
+        }
+    }
+    
+    /**
+     * 获取模拟行动结果（当竞争系统不可用时使用）
+     * @param {string} actionType - 行动类型
+     * @returns {Object} 行动结果
+     */
+    getMockActionResult(actionType) {
+        const actionResults = {
+            'campus_visit': { message: '校园参观给球员留下了深刻印象', interestIncrease: 12 },
+            'home_visit': { message: '家访增进了彼此了解', interestIncrease: 15 },
+            'promise_playing_time': { message: '上场时间承诺增加了吸引力', interestIncrease: 10 },
+            'highlight_facilities': { message: '先进的训练设施令人印象深刻', interestIncrease: 9 },
+            'emphasize_academics': { message: '学术优势得到了认可', interestIncrease: 7 },
+            'offer_scholarship': { message: '奖学金offer让球员非常心动', interestIncrease: 20 }
+        };
+        return actionResults[actionType] || { message: '行动执行成功', interestIncrease: 5 };
+    }
+    
+    /**
+     * 更新谈判成功率显示
+     * @param {string|number} playerId - 球员ID
+     */
+    updateNegotiationProbability(playerId) {
+        const probEl = document.getElementById(`neg-probability-${playerId}`);
+        if (!probEl || !window.recruitmentCompetitionSystem) return;
+        
+        // 获取球员招募状态
+        const status = window.recruitmentCompetitionSystem.getPlayerRecruitmentStatus(playerId);
+        if (status) {
+            probEl.textContent = `${status.playerInterestInUser}%`;
+        }
+    }
+
+    /**
+     * 更新谈判历史显示
+     * @param {string|number} playerId - 球员ID
+     * @param {Array} history - 历史记录
+     */
+    updateNegotiationHistory(playerId, history) {
+        const historyList = document.getElementById(`neg-history-list-${playerId}`);
+        if (!historyList || !history) return;
+
+        historyList.innerHTML = history.map(entry => {
+            const time = new Date(entry.timestamp).toLocaleString('zh-CN', {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+            
+            const actionMap = {
+                'started': '发起招募谈判',
+                'offer_submitted': '提交报价',
+                'countered': '对方还价',
+                'accepted': '接受报价',
+                'rejected': '拒绝报价',
+                'message_sent': '发送消息'
+            };
+
+            return `
+                <div class="history-item">
+                    <span class="history-time">${time}</span>
+                    <span class="history-action">${actionMap[entry.action] || entry.action}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    /**
+     * 提交报价
+     * @param {string|number} playerId - 球员ID
+     */
+    makeOffer(playerId) {
+        const negotiation = window.negotiationManager?.getNegotiationByPlayerId?.(playerId) ||
+                           window.negotiationManager?.getNegotiation?.(playerId);
+        
+        if (!negotiation) {
+            this.showNotification('找不到谈判记录', 'error');
+            return;
+        }
+
+        // 提交当前报价
+        const result = window.negotiationManager?.makeOffer?.(negotiation.id, negotiation.offer);
+        
+        if (result && result.success) {
+            this.showNotification('报价已提交，等待对方回复', 'success');
+            this.loadNegotiationData(playerId);
+        } else {
+            this.showNotification(result?.message || '提交失败', 'error');
+        }
+    }
+
+    /**
+     * 修改报价
+     * @param {string|number} playerId - 球员ID
+     */
+    modifyOffer(playerId) {
+        // 从negotiationManager获取所有谈判，找到对应playerId的
+        let negotiation = null;
+        
+        if (window.negotiationManager) {
+            // 尝试从activeNegotiations Map中获取
+            if (window.negotiationManager.activeNegotiations) {
+                for (const [id, neg] of window.negotiationManager.activeNegotiations) {
+                    if (neg.playerId == playerId || neg.player?.id == playerId) {
+                        negotiation = neg;
+                        negotiation.id = id;
+                        break;
+                    }
+                }
+            }
+            
+            // 如果没找到，尝试getNegotiation方法
+            if (!negotiation) {
+                negotiation = window.negotiationManager.getNegotiation?.(playerId);
+            }
+        }
+        
+        if (!negotiation) {
+            this.showNotification('找不到谈判记录', 'error');
+            console.error('Negotiation not found for player:', playerId);
+            return;
+        }
+
+        // 打开修改报价弹窗
+        this.showModifyOfferModal(negotiation.id || playerId);
+    }
+
+    /**
+     * 结束谈判
+     * @param {string|number} playerId - 球员ID
+     */
+    endNegotiation(playerId) {
+        if (!confirm('确定要结束这场招募谈判吗？')) return;
+
+        const negotiation = window.negotiationManager?.getNegotiationByPlayerId?.(playerId) ||
+                           window.negotiationManager?.getNegotiation?.(playerId);
+        
+        if (!negotiation) {
+            this.showNotification('找不到谈判记录', 'error');
+            return;
+        }
+
+        const result = window.negotiationManager?.withdrawNegotiation?.(negotiation.id);
+        
+        if (result !== false) {
+            this.showNotification('谈判已结束', 'info');
+            // 关闭弹窗
+            const modal = document.getElementById('player-modal');
+            if (modal) modal.style.display = 'none';
+            // 刷新列表
+            this.renderPlayerCards();
+        }
+    }
+
+    /**
+     * 显示修改报价弹窗
+     * @param {string|number} negotiationId - 谈判ID
+     */
+    showModifyOfferModal(negotiationId) {
+        const negotiation = window.negotiationManager?.getNegotiation?.(negotiationId);
+        if (!negotiation) {
+            this.showNotification('找不到谈判记录', 'error');
+            return;
+        }
+
+        // 获取球员信息
+        const player = negotiation.player || this.players.find(p => p.id == negotiation.playerId);
+        if (!player) {
+            this.showNotification('找不到球员信息', 'error');
+            return;
+        }
+
+        const level = this.getPotentialLevel(player.potential);
+        const yearLabels = { 1: '大一', 2: '大二', 3: '大三', 4: '大四' };
+        const initials = player.name.split(' ').map(n => n[0]).join('');
+
+        // 创建弹窗
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.id = 'modify-offer-modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 480px; border-radius: 16px; overflow: hidden;">
+                <!-- 头部 -->
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; color: white;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 600;">${initials}</div>
+                        <div>
+                            <h3 style="margin: 0; font-size: 1.1rem;">✏️ 修改报价</h3>
+                            <div style="font-size: 0.85rem; opacity: 0.9; margin-top: 4px;">${player.name} · ${yearLabels[player.year]} · ${level.icon} ${player.potential}潜力</div>
+                        </div>
+                    </div>
+                    <span class="close" onclick="this.closest('.modal').remove()" style="position: absolute; right: 20px; top: 20px; font-size: 1.5rem; cursor: pointer; opacity: 0.8;">&times;</span>
+                </div>
+                
+                <!-- 内容 -->
+                <div class="modal-body" style="padding: 24px;">
+                    <div class="offer-form">
+                        <!-- 奖学金 -->
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 10px;">
+                                <span>💰 奖学金比例</span>
+                                <span id="mod-scholarship-val" style="color: var(--accent-color); font-weight: 600;">${Math.round((negotiation.offer?.scholarship || 0.5) * 100)}%</span>
+                            </label>
+                            <input type="range" id="mod-scholarship" min="0" max="100" value="${Math.round((negotiation.offer?.scholarship || 0.5) * 100)}" 
+                                style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #667eea 0%, #764ba2 ${(negotiation.offer?.scholarship || 0.5) * 100}%, rgba(255,255,255,0.1) ${(negotiation.offer?.scholarship || 0.5) * 100}%); -webkit-appearance: none; cursor: pointer;"
+                                oninput="this.style.background = 'linear-gradient(to right, #667eea 0%, #764ba2 ' + this.value + '%, rgba(255,255,255,0.1) ' + this.value + '%)'; document.getElementById('mod-scholarship-val').textContent = this.value + '%'">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">
+                                <span>0%</span>
+                                <span>50%</span>
+                                <span>100%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 出场时间 -->
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label style="display: flex; justify-content: space-between; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 10px;">
+                                <span>⏱️ 承诺出场时间</span>
+                                <span id="mod-playingtime-val" style="color: var(--accent-color); font-weight: 600;">${negotiation.offer?.playingTime || 20}分钟/场</span>
+                            </label>
+                            <input type="range" id="mod-playingtime" min="5" max="40" step="5" value="${negotiation.offer?.playingTime || 20}" 
+                                style="width: 100%; height: 6px; border-radius: 3px; background: linear-gradient(to right, #667eea 0%, #764ba2 ${((negotiation.offer?.playingTime || 20) / 40) * 100}%, rgba(255,255,255,0.1) ${((negotiation.offer?.playingTime || 20) / 40) * 100}%); -webkit-appearance: none; cursor: pointer;"
+                                oninput="this.style.background = 'linear-gradient(to right, #667eea 0%, #764ba2 ' + (this.value/40*100) + '%, rgba(255,255,255,0.1) ' + (this.value/40*100) + '%)'; document.getElementById('mod-playingtime-val').textContent = this.value + '分钟/场'">
+                            <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">
+                                <span>5分钟</span>
+                                <span>20分钟</span>
+                                <span>40分钟</span>
+                            </div>
+                        </div>
+                        
+                        <!-- 角色定位 -->
+                        <div class="form-group" style="margin-bottom: 10px;">
+                            <label style="display: block; font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 10px;">🎯 角色定位</label>
+                            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 12px; background: ${negotiation.offer?.role === '核心' ? 'rgba(102, 126, 234, 0.2)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${negotiation.offer?.role === '核心' ? '#667eea' : 'transparent'}; border-radius: 10px; cursor: pointer; transition: all 0.2s;">
+                                    <input type="radio" name="mod-role" value="核心" ${negotiation.offer?.role === '核心' ? 'checked' : ''} style="display: none;">
+                                    <span>⭐ 核心球星</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 12px; background: ${negotiation.offer?.role === '主力' ? 'rgba(102, 126, 234, 0.2)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${negotiation.offer?.role === '主力' ? '#667eea' : 'transparent'}; border-radius: 10px; cursor: pointer; transition: all 0.2s;">
+                                    <input type="radio" name="mod-role" value="主力" ${negotiation.offer?.role === '主力' ? 'checked' : ''} style="display: none;">
+                                    <span>🏀 首发主力</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 12px; background: ${negotiation.offer?.role === '轮换' ? 'rgba(102, 126, 234, 0.2)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${negotiation.offer?.role === '轮换' ? '#667eea' : 'transparent'}; border-radius: 10px; cursor: pointer; transition: all 0.2s;">
+                                    <input type="radio" name="mod-role" value="轮换" ${negotiation.offer?.role === '轮换' ? 'checked' : ''} style="display: none;">
+                                    <span>🔄 重要轮换</span>
+                                </label>
+                                <label style="display: flex; align-items: center; gap: 8px; padding: 12px; background: ${negotiation.offer?.role === '替补' ? 'rgba(102, 126, 234, 0.2)' : 'rgba(255,255,255,0.05)'}; border: 2px solid ${negotiation.offer?.role === '替补' ? '#667eea' : 'transparent'}; border-radius: 10px; cursor: pointer; transition: all 0.2s;">
+                                    <input type="radio" name="mod-role" value="替补" ${negotiation.offer?.role === '替补' ? 'checked' : ''} style="display: none;">
+                                    <span>🪑 替补球员</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 按钮 -->
+                    <div class="modal-actions" style="margin-top: 24px; display: flex; gap: 12px;">
+                        <button class="btn-secondary" onclick="this.closest('.modal').remove()" style="flex: 1; padding: 12px; background: rgba(107, 114, 128, 0.2); color: var(--text-secondary); border: 1px solid rgba(107, 114, 128, 0.3); border-radius: 10px; font-size: 0.95rem; cursor: pointer;">取消</button>
+                        <button class="btn-primary" id="save-offer-btn" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-size: 0.95rem; cursor: pointer; font-weight: 500;">💾 保存报价</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.style.display = 'block';
+
+        // 绑定角色选择事件
+        modal.querySelectorAll('input[name="mod-role"]').forEach(radio => {
+            radio.addEventListener('change', (e) => {
+                modal.querySelectorAll('input[name="mod-role"]').forEach(r => {
+                    const label = r.closest('label');
+                    if (r.checked) {
+                        label.style.background = 'rgba(102, 126, 234, 0.2)';
+                        label.style.borderColor = '#667eea';
+                    } else {
+                        label.style.background = 'rgba(255,255,255,0.05)';
+                        label.style.borderColor = 'transparent';
+                    }
+                });
+            });
+        });
+
+        // 绑定保存按钮
+        document.getElementById('save-offer-btn').addEventListener('click', () => {
+            const selectedRole = modal.querySelector('input[name="mod-role"]:checked')?.value || '主力';
+            const newOffer = {
+                scholarship: parseInt(document.getElementById('mod-scholarship').value) / 100,
+                playingTime: parseInt(document.getElementById('mod-playingtime').value),
+                role: selectedRole
+            };
+
+            // 更新报价
+            if (window.negotiationManager?.updateOffer) {
+                window.negotiationManager.updateOffer(negotiationId, newOffer);
+            } else if (negotiation.offer) {
+                // 直接修改谈判对象
+                Object.assign(negotiation.offer, newOffer);
+            }
+
+            // 更新显示
+            this.loadNegotiationData(negotiation.playerId || negotiation.player?.id || player.id);
+            
+            modal.remove();
+            this.showNotification('报价已更新', 'success');
+        });
     }
 }
 

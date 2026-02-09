@@ -18,36 +18,66 @@ const AgeYearConfig = {
 };
 
 /**
- * 潜力评估配置 - 修正版本
- * 82人中：最多1个天骄之子(90+)，3个精英(80+)
- * 天之骄子概率：1/82 ≈ 1.2%
- * 精英概率：3/82 ≈ 3.7%（不含天骄之子）
+ * 潜力评估配置 - 增强版
+ * 让强队更强，冠军球队能力达到90
+ * 
+ * 调整思路：
+ * - 超级天才(95+潜力)：约0.3%概率（300人中1人）- 十年一遇
+ * - 顶级精英(90-94潜力)：约2-3%概率（每年2-3人）
+ * - 优秀(80-89潜力)：约15-20%概率（每年15-25人）
+ * - 基础能力提高，让强队平均85，冠军90
  */
 const PotentialConfig = {
     // 大一新生基础潜力值配置（用于其他球队球员）
     freshmanBase: {
-        mean: 68,                   // 平均值 68（降低，减少高潜力球员）
-        stdDev: 5,                  // 标准差 ±5
-        highPotentialRatio: 0.037,  // 3.7% 精英 (80-89)
-        heavenFavorRate: 0.012,     // 1.2% 天之骄子 (90+) - 82人中约1人
-        heavenFavorMin: 90
+        mean: 72,                   // 平均值提高到72
+        stdDev: 6,                  // 标准差
+        // 分层潜力概率 - 提高精英概率
+        superstarRate: 0.003,       // 0.3% 超级天才 (95-99) - 十年一遇
+        superstarMin: 95,
+        topEliteRate: 0.025,        // 2.5% 顶级精英 (90-94) - 每年2-3人
+        topEliteMin: 90,
+        excellentRate: 0.18,        // 18% 优秀 (80-89) - 每年15-25人
+        excellentMin: 80
     },
     
-    // 招募中心/资源池球员配置（略高，因为这是玩家能招募的最后机会）
+    // 招募中心/资源池球员配置（玩家招募渠道）
     poolPlayerBase: {
-        mean: 70,                   // 平均值略高
-        stdDev: 5,                  // 标准差
-        highPotentialRatio: 0.05,   // 5% 精英 (80-89)
-        heavenFavorRate: 0.015,     // 1.5% 天之骄子 (90+) - 略高
-        heavenFavorMin: 90
+        mean: 74,                   // 平均值更高
+        stdDev: 6,                  // 标准差
+        superstarRate: 0.005,       // 0.5% 超级天才 (95-99)
+        superstarMin: 95,
+        topEliteRate: 0.03,         // 3% 顶级精英 (90-94)
+        topEliteMin: 90,
+        excellentRate: 0.20,        // 20% 优秀 (80-89)
+        excellentMin: 80
     },
     
-    // 年级衰减配置
+    // 高能力+高潜力组合控制（关键配置）
+    // 逻辑：提高基础能力，让强队平均85，冠军90
+    // 80-89潜力：能力78左右（优秀球员）
+    // 90-94潜力：能力80左右（精英球员）
+    // 95+潜力：超级天才，能力82-88
+    highPotentialRatingCap: {
+        // 普通球员基础能力（潜力<80）
+        normal: { baseRating: 75, variance: 8 },  // 基础75，范围67-83
+        
+        // 80-89潜力：优秀球员，能力78左右
+        80: { baseRating: 78, maxRating: 82, highRatingChance: 0.4 },   // 基础78，40%到82
+        
+        // 90-94潜力：精英球员，能力80左右
+        90: { baseRating: 80, maxRating: 85, highRatingChance: 0.5 },   // 基础80，50%到85
+        
+        // 95+潜力：超级天才，能力82-88
+        95: { baseRating: 82, maxRating: 88, highRatingChance: 0.6 }    // 基础82，60%到88
+    },
+    
+    // 年级成长配置 - 增强版
     yearDecay: {
-        1: { potentialDecay: 0, ratingBoost: 0 },           // 大一
-        2: { potentialDecay: { min: 10, max: 20 }, ratingBoost: { min: 8, max: 12 } },   // 大二
-        3: { potentialDecay: { min: 10, max: 20 }, ratingBoost: { min: 10, max: 15 } },  // 大三
-        4: { potentialDecay: { min: 25, max: 40 }, ratingBoost: { min: 12, max: 18 } }   // 大四
+        1: { potentialDecay: 0, ratingBoost: 0 },           // 大一：基础
+        2: { potentialDecay: { min: 8, max: 15 }, ratingBoost: { min: 10, max: 15 } },   // 大二：+10-15
+        3: { potentialDecay: { min: 10, max: 18 }, ratingBoost: { min: 12, max: 18 } },  // 大三：+12-18
+        4: { potentialDecay: { min: 15, max: 25 }, ratingBoost: { min: 15, max: 22 } }   // 大四：+15-22
     },
     
     // 潜力等级阈值
@@ -273,7 +303,7 @@ class GameInitializer {
      * @param {boolean} isFreshmanClass - Whether this is part of the current freshman generation
      * @returns {number} Generated potential
      */
-    generatePotential(year, isFreshmanClass = false) {
+    generatePotential(year, isFreshmanClass = false, age = null) {
         // 使用新的评级系统的正态分布生成潜力值
         const baseConfig = PotentialConfig.freshmanBase;
         
@@ -281,29 +311,45 @@ class GameInitializer {
         let potential = this.ratingSystem.normalDistribution(
             baseConfig.mean,
             baseConfig.stdDev,
-            55,
-            90
+            60,  // 最小值提高
+            88   // 最大值
         );
         
-        // 天之骄子概率
+        // 分层潜力生成 - 增强版
         const random = Math.random();
-        if (random < baseConfig.heavenFavorRate) {
-            potential = baseConfig.heavenFavorMin + Math.floor(Math.random() * 6);
+        
+        // 超级天才 (95-99)：0.3% - 十年一遇
+        if (random < baseConfig.superstarRate) {
+            potential = baseConfig.superstarMin + Math.floor(Math.random() * 5);
             this.potentialDistribution.elite++;
-        } else if (random < baseConfig.heavenFavorRate + baseConfig.highPotentialRatio) {
-            potential = 78 + Math.floor(Math.random() * 5);
+        } 
+        // 顶级精英 (90-94)：2.5% - 每年2-3人
+        else if (random < baseConfig.superstarRate + baseConfig.topEliteRate) {
+            potential = baseConfig.topEliteMin + Math.floor(Math.random() * 5);
             this.potentialDistribution.excellent++;
-        } else if (potential >= 70) {
+        } 
+        // 优秀 (80-89)：18% - 每年15-25人
+        else if (random < baseConfig.superstarRate + baseConfig.topEliteRate + baseConfig.excellentRate) {
+            potential = baseConfig.excellentMin + Math.floor(Math.random() * 10);
             this.potentialDistribution.good++;
-        } else {
-            this.potentialDistribution.normal++;
         }
         
         // 根据年级调整潜力（高年级潜力降低）
         const yearDecay = { 1: 0, 2: -3, 3: -6, 4: -10 };
         potential += yearDecay[year] || 0;
         
-        return Math.min(95, Math.max(50, Math.round(potential)));
+        // 根据年龄进一步调整潜力（年龄越大潜力越低）
+        if (age !== null) {
+            const baseAge = 18; // 基础年龄
+            const ageDiff = age - baseAge;
+            if (ageDiff > 0) {
+                // 每大一岁，潜力额外降低 2-4 点
+                const ageDecay = ageDiff * (2 + Math.floor(Math.random() * 3));
+                potential -= ageDecay;
+            }
+        }
+        
+        return Math.min(99, Math.max(50, Math.round(potential)));
     }
 
     /**
@@ -315,7 +361,7 @@ class GameInitializer {
      * @param {boolean} isPoolPlayer - Whether this player is from the recruitment pool
      * @returns {number} Calculated potential
      */
-    calculatePotential(year, attributes, baseRating, isFreshmanClass = false, isPoolPlayer = false) {
+    calculatePotential(year, attributes, baseRating, isFreshmanClass = false, isPoolPlayer = false, age = null) {
         // 统一使用 generatePotential 方法，确保潜力分布符合配置
         const baseConfig = isPoolPlayer ? PotentialConfig.poolPlayerBase : PotentialConfig.freshmanBase;
         
@@ -323,29 +369,45 @@ class GameInitializer {
         let potential = this.ratingSystem.normalDistribution(
             baseConfig.mean,
             baseConfig.stdDev,
-            50,
-            90
+            60,  // 最小值提高
+            88   // 最大值
         );
         
-        // 天之骄子概率
+        // 分层潜力生成 - 增强版
         const random = Math.random();
-        if (random < baseConfig.heavenFavorRate) {
-            potential = baseConfig.heavenFavorMin + Math.floor(Math.random() * 6);
+        
+        // 超级天才 (95-99)：0.3-0.5%
+        if (random < baseConfig.superstarRate) {
+            potential = baseConfig.superstarMin + Math.floor(Math.random() * 5);
             this.potentialDistribution.elite++;
-        } else if (random < baseConfig.heavenFavorRate + baseConfig.highPotentialRatio) {
-            potential = 80 + Math.floor(Math.random() * 10); // 80-89 精英
+        } 
+        // 顶级精英 (90-94)：2.5-3%
+        else if (random < baseConfig.superstarRate + baseConfig.topEliteRate) {
+            potential = baseConfig.topEliteMin + Math.floor(Math.random() * 5);
             this.potentialDistribution.excellent++;
-        } else if (potential >= 70) {
+        } 
+        // 优秀 (80-89)：18-20%
+        else if (random < baseConfig.superstarRate + baseConfig.topEliteRate + baseConfig.excellentRate) {
+            potential = baseConfig.excellentMin + Math.floor(Math.random() * 10);
             this.potentialDistribution.good++;
-        } else {
-            this.potentialDistribution.normal++;
         }
         
         // 根据年级调整潜力（高年级潜力降低）
         const yearDecay = { 1: 0, 2: -3, 3: -6, 4: -10 };
         potential += yearDecay[year] || 0;
         
-        return Math.min(95, Math.max(50, Math.round(potential)));
+        // 根据年龄进一步调整潜力（年龄越大潜力越低）
+        if (age !== null) {
+            const baseAge = 18; // 基础年龄
+            const ageDiff = age - baseAge;
+            if (ageDiff > 0) {
+                // 每大一岁，潜力额外降低 2-4 点
+                const ageDecay = ageDiff * (2 + Math.floor(Math.random() * 3));
+                potential -= ageDecay;
+            }
+        }
+        
+        return Math.min(99, Math.max(50, Math.round(potential)));
     }
     
     /**
@@ -665,7 +727,7 @@ class GameInitializer {
     }
     
     /**
-     * 根据球队风格生成阵容
+     * 根据球队风格生成阵容 - 新版按球队级别分配潜力
      * @param {Team} team - 球队对象
      * @param {Object} style - 球队风格配置
      */
@@ -673,54 +735,37 @@ class GameInitializer {
         const positions = ['PG', 'SG', 'SF', 'PF', 'C'];
         const preferredPositions = style.playerPreferences.preferredPositions || positions;
         
-        // 根据风格的奖学金分配
-        const distribution = style.scholarshipDistribution;
-        const scholarshipDistribution = [
-            { level: 'full', percentage: 1.0, count: distribution.full },
-            { level: 'major', percentage: 0.6, count: distribution.major },
-            { level: 'partial', percentage: 0.35, count: distribution.partial },
-            { level: 'minimal', percentage: 0.15, count: distribution.minimal },
-            { level: 'none', percentage: 0, count: distribution.none }
-        ];
+        // 根据球队级别确定潜力分配策略
+        const teamLevel = this.getTeamLevelByStyle(style);
+        const potentialDistribution = this.getPotentialDistributionByTeamLevel(teamLevel);
         
         let playerIndex = 0;
         
-        for (const tier of scholarshipDistribution) {
+        // 按潜力等级生成球员
+        for (const tier of potentialDistribution) {
             for (let i = 0; i < tier.count; i++) {
                 // 根据风格优先选择位置
                 let position;
                 if (playerIndex < preferredPositions.length) {
-                    // 优先使用风格偏好的位置
                     position = preferredPositions[playerIndex % preferredPositions.length];
                 } else {
-                    // 其他按标准轮换
                     position = positions[playerIndex % positions.length];
                 }
                 
-                // 根据奖学金等级和风格调整球员能力
-                let basePotential = this.getPotentialForScholarshipLevel(tier.level);
+                // 根据年级分布生成球员
+                const year = this.getYearByRosterPosition(playerIndex);
+                const potential = this.generatePotentialForTier(tier.level);
                 
-                // 风格调整：潜力开发型球队球员潜力更高
-                if (style.id === 'DEVELOPMENT_FOCUSED') {
-                    basePotential = Math.min(99, basePotential + 3);
-                }
-                // 豪门球队球员能力更强
-                if (style.id === 'ELITE_DYNASTY') {
-                    basePotential = Math.min(99, basePotential + 5);
-                }
-                // 平民球队球员能力稍弱
-                if (style.id === 'UNDERDOG_GRIT') {
-                    basePotential = Math.max(50, basePotential - 3);
-                }
-                
-                const player = this.createPlayerWithCorrectAgeAndPotential(position, null, false, basePotential);
+                // 创建球员
+                const player = this.createPlayerWithCorrectAgeAndPotential(position, year, false, potential);
                 
                 // 根据风格调整属性权重
                 this.adjustPlayerAttributesByStyle(player, style);
                 
-                // 设置奖学金 - 使用新的5级系统
-                player.scholarship = tier.percentage;
-                player.scholarshipLevel = tier.level;
+                // 设置奖学金 - 根据球员等级
+                const scholarshipInfo = this.getScholarshipForTier(tier.level);
+                player.scholarship = scholarshipInfo.percentage;
+                player.scholarshipLevel = scholarshipInfo.level;
                 
                 // 同步更新scholarshipRequirement
                 player.scholarshipRequirement = this.generateScholarshipRequirement(
@@ -733,6 +778,121 @@ class GameInitializer {
                 playerIndex++;
             }
         }
+    }
+    
+    /**
+     * 根据风格确定球队级别
+     * @param {Object} style - 球队风格
+     * @returns {string} 球队级别
+     */
+    getTeamLevelByStyle(style) {
+        switch (style.id) {
+            case 'ELITE_DYNASTY':
+                return 'champion';      // 冠军级
+            case 'OFFENSIVE_SHOWTIME':
+            case 'DEFENSIVE_JUGGERNAUT':
+                return 'strong';        // 强队
+            case 'ACADEMIC_POWERHOUSE':
+            case 'BALANCED_PROGRAM':
+                return 'average';       // 普通队
+            case 'UNDERDOG_GRIT':
+            case 'DEVELOPMENT_FOCUSED':
+                return 'weak';          // 弱队
+            default:
+                return 'average';
+        }
+    }
+    
+    /**
+     * 根据球队级别获取潜力分配
+     * @param {string} teamLevel - 球队级别
+     * @returns {Array} 潜力分配配置
+     */
+    getPotentialDistributionByTeamLevel(teamLevel) {
+        const distributions = {
+            // 冠军级球队 - 3名核心(90+能力)，5名主力，7名替补
+            champion: [
+                { level: 'superstar', count: 1 },   // 超级天才 95+潜力
+                { level: 'elite', count: 2 },       // 精英 90-94潜力
+                { level: 'starter', count: 3 },     // 主力 85-89潜力
+                { level: 'rotation', count: 2 },    // 轮换 80-84潜力
+                { level: 'bench', count: 3 },       // 替补 75-79潜力
+                { level: 'deep', count: 4 }         // 边缘 70-74潜力
+            ],
+            // 强队 - 1-2名核心，4名主力
+            strong: [
+                { level: 'elite', count: 1 },       // 精英 90-94潜力
+                { level: 'starter', count: 2 },     // 主力 85-89潜力
+                { level: 'rotation', count: 3 },    // 轮换 80-84潜力
+                { level: 'bench', count: 4 },       // 替补 75-79潜力
+                { level: 'deep', count: 5 }         // 边缘 70-74潜力
+            ],
+            // 普通队 - 没有核心，3名主力
+            average: [
+                { level: 'starter', count: 1 },     // 主力 85-89潜力
+                { level: 'rotation', count: 2 },    // 轮换 80-84潜力
+                { level: 'bench', count: 4 },       // 替补 75-79潜力
+                { level: 'deep', count: 8 }         // 边缘 70-74潜力
+            ],
+            // 弱队 - 没有高潜力球员
+            weak: [
+                { level: 'rotation', count: 1 },    // 轮换 80-84潜力
+                { level: 'bench', count: 3 },       // 替补 75-79潜力
+                { level: 'deep', count: 11 }        // 边缘 70-74潜力
+            ]
+        };
+        
+        return distributions[teamLevel] || distributions.average;
+    }
+    
+    /**
+     * 根据球员等级生成潜力
+     * @param {string} tier - 球员等级
+     * @returns {number} 潜力值
+     */
+    generatePotentialForTier(tier) {
+        const ranges = {
+            superstar: { min: 95, max: 99 },    // 十年一遇
+            elite: { min: 90, max: 94 },        // 顶级精英
+            starter: { min: 85, max: 89 },      // 主力
+            rotation: { min: 80, max: 84 },     // 轮换
+            bench: { min: 75, max: 79 },        // 替补
+            deep: { min: 70, max: 74 }          // 边缘
+        };
+        
+        const range = ranges[tier] || { min: 70, max: 75 };
+        return Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+    }
+    
+    /**
+     * 根据球员等级获取奖学金
+     * @param {string} tier - 球员等级
+     * @returns {Object} 奖学金信息
+     */
+    getScholarshipForTier(tier) {
+        const scholarships = {
+            superstar: { level: 'full', percentage: 1.0 },
+            elite: { level: 'full', percentage: 1.0 },
+            starter: { level: 'major', percentage: 0.6 },
+            rotation: { level: 'partial', percentage: 0.35 },
+            bench: { level: 'minimal', percentage: 0.15 },
+            deep: { level: 'none', percentage: 0 }
+        };
+        
+        return scholarships[tier] || { level: 'none', percentage: 0 };
+    }
+    
+    /**
+     * 根据阵容位置确定年级
+     * @param {number} index - 球员索引
+     * @returns {number} 年级 1-4
+     */
+    getYearByRosterPosition(index) {
+        // 标准阵容分布：4大一，4大二，4大三，3大四
+        if (index < 4) return 1;    // 0-3: 大一
+        if (index < 8) return 2;    // 4-7: 大二
+        if (index < 12) return 3;   // 8-11: 大三
+        return 4;                    // 12+: 大四
     }
     
     /**
@@ -865,8 +1025,8 @@ class GameInitializer {
         const year = forcedYear || (Math.floor(Math.random() * 4) + 1);
         const age = this.generateAgeForYear(year);
 
-        // 先生成潜力值，再根据潜力生成属性
-        const potential = this.generatePotential(year, isFreshmanClass);
+        // 先生成潜力值，再根据潜力生成属性（传入年龄参数）
+        const potential = this.generatePotential(year, isFreshmanClass, age);
         const attributes = this.generateAttributes(playerPosition, potential);
 
         const talents = this.generateTalents(potential, year);
@@ -922,8 +1082,8 @@ class GameInitializer {
         const year = forcedYear || this.getYearByDistribution();
         const age = this.generateAgeForYear(year);
 
-        // 先生成潜力值，再根据潜力生成属性
-        const potential = this.calculatePotential(year, null, 0, false, true);
+        // 先生成潜力值，再根据潜力生成属性（传入年龄参数）
+        const potential = this.calculatePotential(year, null, 0, false, true, age);
         const attributes = this.generateAttributes(playerPosition, potential);
 
         const baseRating = this.calculateBaseRating(attributes, playerPosition, year);
@@ -1209,8 +1369,8 @@ class GameInitializer {
         const year = Math.floor(Math.random() * 4) + 1;
         const age = this.generateAgeForYear(year);
 
-        // 先生成潜力值，再根据潜力生成属性
-        const potential = this.calculatePotential(year, null, 0, false, false);
+        // 先生成潜力值，再根据潜力生成属性（传入年龄参数）
+        const potential = this.calculatePotential(year, null, 0, false, false, age);
         const attributes = this.generateAttributes(playerPosition, potential);
 
         const baseRating = this.calculateBaseRating(attributes, playerPosition, year);
@@ -1252,11 +1412,49 @@ class GameInitializer {
     generateAttributes(position, potential = null) {
         // 如果没有提供潜力值，生成一个随机的
         if (potential === null) {
-            potential = 60 + Math.floor(Math.random() * 25); // 60-85
+            potential = 70 + Math.floor(Math.random() * 15); // 70-85
         }
         
-        // 使用新的评级系统生成属性
-        return this.ratingSystem.generateAttributes(position, potential);
+        // 根据潜力等级调整实际能力值生成
+        // 增强版：提高基础能力，让强队平均85，冠军90
+        let effectivePotential = potential;
+        const ratingCap = PotentialConfig.highPotentialRatingCap;
+        
+        // 普通球员（潜力<80）：基础75，范围67-83
+        if (potential < 80 && ratingCap.normal) {
+            const cap = ratingCap.normal;
+            effectivePotential = cap.baseRating - cap.variance/2 + Math.floor(Math.random() * cap.variance);
+        }
+        // 优秀球员（80-89潜力）：基础78，40%到82
+        else if (potential >= 80 && potential < 90 && ratingCap[80]) {
+            const cap = ratingCap[80];
+            if (Math.random() < cap.highRatingChance) {
+                effectivePotential = cap.maxRating - 2 + Math.floor(Math.random() * 3);
+            } else {
+                effectivePotential = cap.baseRating - 3 + Math.floor(Math.random() * 6); // 75-81
+            }
+        }
+        // 精英球员（90-94潜力）：基础80，50%到85
+        else if (potential >= 90 && potential < 95 && ratingCap[90]) {
+            const cap = ratingCap[90];
+            if (Math.random() < cap.highRatingChance) {
+                effectivePotential = cap.maxRating - 2 + Math.floor(Math.random() * 3);
+            } else {
+                effectivePotential = cap.baseRating - 3 + Math.floor(Math.random() * 6); // 77-83
+            }
+        }
+        // 超级天才（95+潜力）：基础82，60%到88
+        else if (potential >= 95 && ratingCap[95]) {
+            const cap = ratingCap[95];
+            if (Math.random() < cap.highRatingChance) {
+                effectivePotential = cap.baseRating + Math.floor(Math.random() * (cap.maxRating - cap.baseRating));
+            } else {
+                effectivePotential = cap.baseRating - 3 + Math.floor(Math.random() * 6); // 79-85
+            }
+        }
+        
+        // 使用新的评级系统生成属性（使用调整后的effectivePotential）
+        return this.ratingSystem.generateAttributes(position, effectivePotential);
     }
 
     /**

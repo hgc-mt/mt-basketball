@@ -247,6 +247,11 @@ class CompetitiveRecruitmentInterface {
 
         // 检查是否使用新的签约系统
         const canSignDirectly = window.signingSystem && window.signingInterface;
+        
+        // 检查是否已承诺该球员
+        const commitment = this.competitionSystem.getPlayerCommitment(status.playerId);
+        const isCommittedByUser = commitment && commitment.teamId === 'user';
+        const canCommit = status.playerInterestInUser >= 80 && !isCommittedByUser && !commitment;
 
         const actions = [
             { id: 'campus_visit', name: '🏫 校园参观', cost: 5000, desc: '展示校园设施和文化' },
@@ -256,23 +261,52 @@ class CompetitiveRecruitmentInterface {
             { id: 'emphasize_academics', name: '📚 强调学术', cost: 1000, desc: '突出学术优势' }
         ];
 
-        // 添加签约按钮
+        // 添加承诺签约按钮（兴趣度≥80%时显示）
+        if (canCommit) {
+            actions.unshift({
+                id: 'commit_player',
+                name: '🔒 承诺签约',
+                cost: 0,
+                desc: '锁定球员14天，期间其他球队无法签约',
+                highlight: true,
+                style: 'commit'
+            });
+        } else if (isCommittedByUser) {
+            // 已承诺，显示取消承诺按钮
+            const daysRemaining = commitment.daysRemaining || Math.ceil((commitment.expiresAt - Date.now()) / (24 * 60 * 60 * 1000));
+            actions.unshift({
+                id: 'cancel_commit',
+                name: `🔓 取消承诺 (${daysRemaining}天)`,
+                cost: 0,
+                desc: '取消对该球员的承诺锁定',
+                style: 'cancel'
+            });
+        }
+
+        // 添加签约按钮和提供奖学金按钮
         if (canSignDirectly) {
+            // 有签约系统时，显示立即签约按钮
             actions.unshift({
                 id: 'sign_player',
                 name: '📝 立即签约',
                 cost: 0,
-                desc: '提交正式报价',
-                highlight: true
+                desc: isCommittedByUser ? '你已承诺该球员，现在可以签约' : '提交正式报价',
+                highlight: !canCommit && !isCommittedByUser
             });
-        } else {
-            actions.splice(2, 0, { id: 'offer_scholarship', name: '🎓 提供奖学金', cost: 0, desc: '正式奖学金offer' });
         }
+        
+        // 始终显示提供奖学金按钮（用于提升兴趣度）
+        actions.splice(2, 0, { 
+            id: 'offer_scholarship', 
+            name: '🎓 提供奖学金', 
+            cost: 0, 
+            desc: '正式奖学金offer，大幅提升兴趣度' 
+        });
         
         return `
             <div class="recruitment-actions-grid">
                 ${actions.map(action => `
-                    <button class="recruitment-action-btn ${action.highlight ? 'highlight' : ''}" data-action="${action.id}"
+                    <button class="recruitment-action-btn ${action.highlight ? 'highlight' : ''} ${action.style || ''}" data-action="${action.id}"
                         ${status.isSigned ? 'disabled' : ''}>
                         <div class="action-name">${action.name}</div>
                         <div class="action-desc">${action.desc}</div>
@@ -298,6 +332,64 @@ class CompetitiveRecruitmentInterface {
                 // 处理签约按钮点击
                 if (actionType === 'sign_player' && window.signingInterface) {
                     window.signingInterface.showSigningModal(this.currentPlayer);
+                    return;
+                }
+                
+                // 处理承诺签约按钮点击
+                if (actionType === 'commit_player') {
+                    const result = this.competitionSystem.commitToPlayer(status.playerId);
+                    
+                    if (result.success) {
+                        resultDiv.innerHTML = `
+                            <div class="action-success">
+                                <span class="success-icon">🔒</span>
+                                <span class="success-message">${result.message}</span>
+                            </div>
+                        `;
+                        this.showNotification(result.message, 'success');
+                        
+                        // 刷新显示
+                        setTimeout(() => {
+                            this.showCompetitivePlayerDetail(this.currentPlayer);
+                        }, 1500);
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="action-failed">
+                                <span class="failed-icon">❌</span>
+                                <span class="failed-message">${result.message}</span>
+                            </div>
+                        `;
+                        this.showNotification(result.message, 'warning');
+                    }
+                    return;
+                }
+                
+                // 处理取消承诺按钮点击
+                if (actionType === 'cancel_commit') {
+                    const result = this.competitionSystem.cancelCommitment(status.playerId);
+                    
+                    if (result.success) {
+                        resultDiv.innerHTML = `
+                            <div class="action-success">
+                                <span class="success-icon">🔓</span>
+                                <span class="success-message">${result.message}</span>
+                            </div>
+                        `;
+                        this.showNotification(result.message, 'success');
+                        
+                        // 刷新显示
+                        setTimeout(() => {
+                            this.showCompetitivePlayerDetail(this.currentPlayer);
+                        }, 1500);
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="action-failed">
+                                <span class="failed-icon">❌</span>
+                                <span class="failed-message">${result.message}</span>
+                            </div>
+                        `;
+                        this.showNotification(result.message, 'warning');
+                    }
                     return;
                 }
 

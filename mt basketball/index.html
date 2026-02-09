@@ -728,6 +728,11 @@
                             <span class="stat-value" id="scholarship-remaining">0</span>
                             <span class="stat-label">剩余名额</span>
                         </div>
+                        <div class="stat-item budget-item">
+                            <span class="stat-value" id="recruitment-budget">$0</span>
+                            <span class="stat-label">招募预算</span>
+                            <button class="budget-help-btn" onclick="showBudgetHelp()" title="查看预算获取方式">?</button>
+                        </div>
                     </div>
                 </div>
                 
@@ -1349,6 +1354,160 @@
     <script src="js/modules/autoGameSimulation.js"></script>
     <script src="js/modules/uiManager.js"></script>
     <script src="js/modules/pixiRenderer.js"></script>
-    <script src="js/main.js"></script>
+    
+    <!-- 预算管理器脚本 - 必须在 main.js 之前加载 -->
+    <script src="js/modules/recruitmentBudgetManager.js?v=2"></script>
+    
+    <!-- 球队发展系统 - 必须在 main.js 之前加载 -->
+    <script src="js/modules/teamDevelopmentSystem.js?v=2"></script>
+    <script src="js/modules/teamDevelopmentInterface.js?v=2"></script>
+    
+    <script src="js/main.js?v=2"></script>
+    
+    <script>
+        // 显示预算帮助弹窗
+        function showBudgetHelp() {
+            const modal = document.getElementById('budget-help-modal');
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        }
+        
+        // 关闭预算帮助弹窗
+        function closeBudgetHelp() {
+            const modal = document.getElementById('budget-help-modal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+        
+        // 更新招募预算显示
+        function updateRecruitmentBudgetDisplay() {
+            const budgetElement = document.getElementById('recruitment-budget');
+            if (budgetElement && window.recruitmentBudgetManager) {
+                const budget = window.recruitmentBudgetManager.getCurrentBudget();
+                budgetElement.textContent = window.recruitmentBudgetManager.formatBudget(budget);
+            }
+        }
+        
+        // 点击弹窗外部关闭
+        window.onclick = function(event) {
+            const modal = document.getElementById('budget-help-modal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+    </script>
+    
+    <!-- 预算帮助弹窗 -->
+    <div id="budget-help-modal" class="modal budget-help-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💰 招募预算获取指南</h3>
+                <span class="close" onclick="closeBudgetHelp()">&times;</span>
+            </div>
+            <div class="budget-help-content">
+                <div class="budget-category">
+                    <h4><span class="icon">🏆</span> 赛季奖励</h4>
+                    <div class="budget-item-detail">
+                        <span class="item-name">每赢一场比赛</span>
+                        <span class="item-value">+$5,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">进入季后赛</span>
+                        <span class="item-value">+$50,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">获得联盟冠军</span>
+                        <span class="item-value">+$100,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">获得全国冠军</span>
+                        <span class="item-value">+$200,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">全胜赛季</span>
+                        <span class="item-value">+$300,000</span>
+                    </div>
+                </div>
+                
+                <div class="budget-category">
+                    <h4><span class="icon">📈</span> 球员发展</h4>
+                    <div class="budget-item-detail">
+                        <span class="item-name">球员能力值提升</span>
+                        <span class="item-value">+$3,000/点</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">球员毕业</span>
+                        <span class="item-value">+$10,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">球员进入NBA</span>
+                        <span class="item-value">+$50,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">入选联盟最佳阵容</span>
+                        <span class="item-value">+$20,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">入选全美最佳阵容</span>
+                        <span class="item-value">+$50,000</span>
+                    </div>
+                </div>
+                
+                <div class="budget-category">
+                    <h4><span class="icon">🎖️</span> 特殊成就</h4>
+                    <div class="budget-item-detail">
+                        <span class="item-name">3连胜</span>
+                        <span class="item-value">+$10,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">5连胜</span>
+                        <span class="item-value">+$20,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">10连胜</span>
+                        <span class="item-value">+$50,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">击败排名前10球队</span>
+                        <span class="item-value">+$15,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">以弱胜强</span>
+                        <span class="item-value">+$25,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">20分大逆转</span>
+                        <span class="item-value">+$15,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">绝杀获胜</span>
+                        <span class="item-value">+$10,000</span>
+                    </div>
+                </div>
+                
+                <div class="budget-category">
+                    <h4><span class="icon">💵</span> 基础收入</h4>
+                    <div class="budget-item-detail">
+                        <span class="item-name">每日基础收入</span>
+                        <span class="item-value">+$2,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">每周招募基金</span>
+                        <span class="item-value">+$15,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">月度招募拨款</span>
+                        <span class="item-value">+$50,000</span>
+                    </div>
+                    <div class="budget-item-detail">
+                        <span class="item-name">校友捐赠（随机）</span>
+                        <span class="item-value">+$5,000~25,000</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

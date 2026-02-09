@@ -2040,17 +2040,36 @@ class Team {
     }
 
     /**
-     * Calculate team strength
+     * Calculate team strength with rotation weights
+     * 按轮换权重计算球队战力
+     * 首发5人: 85% | 主要替补3人: 12% | 边缘替补: 3%
      * @returns {number} Team strength rating (1-100)
      */
     getTeamStrength() {
         if (this.roster.length === 0) return 0;
 
-        const totalStrength = this.roster.reduce((sum, player) => {
-            return sum + player.getOverallRating();
-        }, 0);
+        // 按能力排序
+        const sortedRoster = [...this.roster].sort((a, b) => 
+            b.getOverallRating() - a.getOverallRating()
+        );
 
-        return Math.round(totalStrength / this.roster.length);
+        // 首发5人 (85%权重)
+        const starters = sortedRoster.slice(0, 5);
+        const starterStrength = starters.reduce((sum, p) => sum + p.getOverallRating(), 0) / starters.length * 0.85;
+
+        // 主要替补3人 (12%权重)
+        const mainBench = sortedRoster.slice(5, 8);
+        const benchStrength = mainBench.length > 0 
+            ? mainBench.reduce((sum, p) => sum + p.getOverallRating(), 0) / mainBench.length * 0.12
+            : 0;
+
+        // 边缘替补 (3%权重)
+        const deepBench = sortedRoster.slice(8);
+        const deepStrength = deepBench.length > 0
+            ? deepBench.reduce((sum, p) => sum + p.getOverallRating(), 0) / deepBench.length * 0.03
+            : 0;
+
+        return Math.round(starterStrength + benchStrength + deepStrength);
     }
 
     /**

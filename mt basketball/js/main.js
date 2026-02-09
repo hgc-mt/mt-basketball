@@ -47,6 +47,15 @@ class BasketballManagerApp {
         // 初始化新的签约系统
         this.signingSystem = new PlayerSigningSystem(this.gameStateManager);
         this.signingInterface = new SigningInterface(this.gameStateManager, this.signingSystem);
+        
+        // 初始化招募预算管理器
+        this.recruitmentBudgetManager = new RecruitmentBudgetManager(this.gameStateManager);
+        window.recruitmentBudgetManager = this.recruitmentBudgetManager;
+
+        // 初始化球队发展系统
+        this.teamDevelopmentSystem = new TeamDevelopmentSystem(this.gameStateManager);
+        this.teamDevelopmentInterface = new TeamDevelopmentInterface(this.gameStateManager, this.teamDevelopmentSystem);
+        window.teamDevelopmentInterface = this.teamDevelopmentInterface;
 
         this.pixiRenderer = null;
         this.currentScheduleWeek = 1;
@@ -596,6 +605,10 @@ class BasketballManagerApp {
 
             console.log('Initializing Skip Rule Manager...');
             await this.skipRuleManager.initialize();
+            
+            // 初始化招募预算
+            console.log('Initializing Recruitment Budget...');
+            this.recruitmentBudgetManager.initializeBudget();
             
             // Set up skipRuleManager reference for enhancedNegotiationManager
             this.enhancedNegotiationManager.setSkipRuleManager(this.skipRuleManager);
@@ -1578,8 +1591,15 @@ class BasketballManagerApp {
     }
 }
 
-// Create global app instance
-const app = new BasketballManagerApp();
+// Create global app instance after DOM is ready
+let app = null;
+
+// Wait for DOM and all scripts to load
+document.addEventListener('DOMContentLoaded', () => {
+    app = new BasketballManagerApp();
+    window.app = app;
+    console.log('BasketballManagerApp initialized');
+});
 
 // Global fast forward functions
 function showNotification(message, type = 'info') {

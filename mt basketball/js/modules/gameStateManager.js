@@ -57,6 +57,9 @@ class GameStateManager {
                 total: GameConstants.MAX_SCHOLARSHIPS,
                 used: 0
             },
+            
+            // Recruitment budget
+            recruitmentBudget: 50000, // 初始招募预算
 
             // Coach hiring restrictions
             coachHiringCount: 0,
@@ -482,6 +485,11 @@ class GameStateManager {
         const newDate = new Date(this.state.currentDate);
         newDate.setDate(newDate.getDate() + days);
         this.set('currentDate', newDate);
+        
+        // 更新承诺签约的过期状态
+        if (window.recruitmentCompetitionSystem) {
+            window.recruitmentCompetitionSystem.dailyUpdate();
+        }
     }
 
     /**

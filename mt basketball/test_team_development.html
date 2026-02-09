@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>球队发展系统测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2rem;
+        }
+
+        .test-controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button.success {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+        }
+
+        button.error {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .results {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .log-entry {
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+
+        .log-entry.info {
+            background: rgba(102, 126, 234, 0.1);
+            border-left: 3px solid #667eea;
+        }
+
+        .log-entry.success {
+            background: rgba(74, 222, 128, 0.1);
+            border-left: 3px solid #4ade80;
+            color: #6ee7a0;
+        }
+
+        .log-entry.error {
+            background: rgba(239, 68, 68, 0.1);
+            border-left: 3px solid #ef4444;
+            color: #fca5a5;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .summary-card h3 {
+            font-size: 0.9rem;
+            color: #9898a8;
+            margin-bottom: 10px;
+        }
+
+        .summary-card .value {
+            font-size: 2rem;
+            font-weight: 700;
+        }
+
+        .summary-card.passed .value {
+            color: #4ade80;
+        }
+
+        .summary-card.failed .value {
+            color: #ef4444;
+        }
+
+        .summary-card.total .value {
+            color: #667eea;
+        }
+
+        .feature-demo {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+        }
+
+        .feature-demo h2 {
+            margin-bottom: 15px;
+            font-size: 1.3rem;
+        }
+
+        .demo-section {
+            margin-bottom: 20px;
+        }
+
+        .demo-section h3 {
+            font-size: 1rem;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        pre {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 0.85rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏀 球队发展系统测试</h1>
+
+        <div class="test-controls">
+            <button onclick="runTests()">运行全部测试</button>
+            <button onclick="clearResults()">清空结果</button>
+            <button onclick="demoFacilities()">设施系统演示</button>
+            <button onclick="demoGrowth()">成长计算演示</button>
+        </div>
+
+        <div class="summary" id="summary" style="display: none;">
+            <div class="summary-card passed">
+                <h3>通过</h3>
+                <div class="value" id="passed-count">0</div>
+            </div>
+            <div class="summary-card failed">
+                <h3>失败</h3>
+                <div class="value" id="failed-count">0</div>
+            </div>
+            <div class="summary-card total">
+                <h3>总计</h3>
+                <div class="value" id="total-count">0</div>
+            </div>
+        </div>
+
+        <div class="results" id="results">
+            <p style="text-align: center; color: #9898a8;">点击"运行全部测试"开始测试</p>
+        </div>
+
+        <div class="feature-demo" id="demo" style="display: none;">
+            <h2>功能演示</h2>
+            <div id="demo-content"></div>
+        </div>
+    </div>
+
+    <!-- 加载依赖 -->
+    <script src="js/modules/gameStateManager.js"></script>
+    <script src="js/modules/teamDevelopmentSystem.js"></script>
+    <script src="js/modules/tests/teamDevelopmentTest.js"></script>
+
+    <script>
+        // 重写测试类的日志方法以在页面显示
+        class UITeamDevelopmentTest extends TeamDevelopmentTest {
+            log(message, type = 'info') {
+                super.log(message, type);
+                this.addLogEntry(message, type);
+            }
+
+            addLogEntry(message, type) {
+                const results = document.getElementById('results');
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                entry.textContent = message;
+                results.appendChild(entry);
+                results.scrollTop = results.scrollHeight;
+            }
+        }
+
+        function runTests() {
+            clearResults();
+            document.getElementById('summary').style.display = 'grid';
+
+            const tester = new UITeamDevelopmentTest();
+            const results = tester.runAllTests();
+
+            document.getElementById('passed-count').textContent = results.passed;
+            document.getElementById('failed-count').textContent = results.failed;
+            document.getElementById('total-count').textContent = results.total;
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('summary').style.display = 'none';
+            document.getElementById('demo').style.display = 'none';
+        }
+
+        function demoFacilities() {
+            clearResults();
+            document.getElementById('demo').style.display = 'block';
+            const demoContent = document.getElementById('demo-content');
+
+            // 创建模拟系统
+            const mockState = {
+                teamFacilities: null,
+                coaches: { headCoach: null },
+                userTeam: { roster: [] },
+                seasonStats: {}
+            };
+
+            const mockGameStateManager = {
+                getState: () => mockState
+            };
+
+            const system = new TeamDevelopmentSystem(mockGameStateManager);
+            system.initializeFacilities();
+
+            let html = '<div class="demo-section"><h3>设施配置</h3>';
+            html += '<pre>' + JSON.stringify(system.facilities, null, 2) + '</pre></div>';
+
+            html += '<div class="demo-section"><h3>当前设施等级</h3><pre>';
+            Object.entries(mockState.teamFacilities).forEach(([type, level]) => {
+                const info = system.getFacilityLevel(type);
+                html += `${system.facilities[type].name}: ${info.current.name} (等级 ${level})\n`;
+                html += `  - 加成: +${info.current.bonus || info.current.injuryReduction || 0}%\n`;
+                html += `  - 维护费: $${info.current.maintenance.toLocaleString()}/年\n`;
+                if (info.canUpgrade) {
+                    html += `  - 可升级到: ${info.next.name} ($${info.next.cost.toLocaleString()})\n`;
+                } else {
+                    html += `  - 已达到最高等级\n`;
+                }
+                html += '\n';
+            });
+            html += '</pre></div>';
+
+            html += '<div class="demo-section"><h3>总加成和维护费</h3><pre>';
+            html += `总训练加成: +${system.calculateFacilityBonus()}%\n`;
+            html += `年度维护费用: $${system.calculateMaintenanceCost().toLocaleString()}\n`;
+            html += '</pre></div>';
+
+            demoContent.innerHTML = html;
+        }
+
+        function demoGrowth() {
+            clearResults();
+            document.getElementById('demo').style.display = 'block';
+            const demoContent = document.getElementById('demo-content');
+
+            // 创建模拟系统
+            const mockState = {
+                teamFacilities: {
+                    trainingCenter: 3,
+                    weightRoom: 2,
+                    shootingLab: 3,
+                    filmRoom: 2,
+                    medicalCenter: 2
+                },
+                coaches: {
+                    headCoach: {
+                        name: '优秀教练',
+                        tier: 'expert',
+                        developmentBonus: 10,
+                        specialty: 'playerDev'
+                    }
+                },
+                userTeam: { roster: [] },
+                seasonStats: {}
+            };
+
+            const mockGameStateManager = {
+                getState: () => mockState
+            };
+
+            const system = new TeamDevelopmentSystem(mockGameStateManager);
+
+            // 创建测试球员
+            const testPlayer = {
+                id: 'demo_001',
+                name: '张明',
+                year: 2,
+                potential: 78,
+                attributes: {
+                    shooting: 65,
+                    threePoint: 60,
+                    midRange: 62,
+                    freeThrow: 70,
+                    layup: 58,
+                    post: 45,
+                    dribbling: 55,
+                    passing: 50,
+                    strength: 52,
+                    speed: 68,
+                    stamina: 60,
+                    vertical: 55,
+                    rebounding: 48,
+                    perimeterD: 50,
+                    interiorD: 45,
+                    stealing: 52,
+                    blocking: 40,
+                    basketballIQ: 58,
+                    vision: 55,
+                    clutch: 50
+                },
+                talent: '投篮天赋'
+            };
+
+            const seasonStats = {
+                averageMinutes: 28,
+                performanceRating: 'good',
+                gamesPlayed: 28,
+                ppg: 12.5,
+                rpg: 4.2,
+                apg: 2.8
+            };
+
+            const growthData = system.calculatePlayerGrowth(testPlayer, seasonStats);
+
+            let html = '<div class="demo-section"><h3>测试球员信息</h3><pre>';
+            html += `姓名: ${testPlayer.name}\n`;
+            html += `年级: 大二\n`;
+            html += `潜力: ${testPlayer.potential}\n`;
+            html += `天赋: ${testPlayer.talent}\n`;
+            html += `场均时间: ${seasonStats.averageMinutes}分钟\n`;
+            html += `赛季表现: 良好\n`;
+            html += '</pre></div>';
+
+            html += '<div class="demo-section"><h3>成长因素</h3><pre>';
+            html += `基础成长率: ${(growthData.factors.baseGrowth * 100).toFixed(1)}%\n`;
+            html += `设施加成: +${(growthData.factors.facilityBonus * 100).toFixed(1)}%\n`;
+            html += `教练加成: +${(growthData.factors.coachBonus * 100).toFixed(1)}%\n`;
+            html += `上场时间倍率: ${growthData.factors.playingTimeMultiplier.toFixed(2)}x\n`;
+            html += `表现倍率: ${growthData.factors.performanceMultiplier.toFixed(2)}x\n`;
+            html += `潜力效率: ${(growthData.factors.potentialEfficiency * 100).toFixed(1)}%\n`;
+            html += '</pre></div>';
+
+            html += '<div class="demo-section"><h3>属性成长预测 (Top 10)</h3><pre>';
+            const sortedGrowth = Object.entries(growthData.growth)
+                .filter(([_, val]) => val > 0)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+            const attrNames = {
+                shooting: '投篮', threePoint: '三分', midRange: '中投', freeThrow: '罚球',
+                layup: '上篮', post: '背身', dribbling: '运球', passing: '传球',
+                strength: '力量', speed: '速度', stamina: '耐力', vertical: '弹跳', rebounding: '篮板',
+                perimeterD: '外防', interiorD: '内防', stealing: '抢断', blocking: '盖帽',
+                basketballIQ: '球商', vision: '视野', clutch: '关键球'
+            };
+
+            sortedGrowth.forEach(([attr, val]) => {
+                const current = testPlayer.attributes[attr];
+                const newVal = current + val;
+                html += `${attrNames[attr] || attr}: ${current.toFixed(1)} + ${val.toFixed(2)} = ${newVal.toFixed(2)}\n`;
+            });
+            html += `\n总成长值: +${growthData.totalGrowth.toFixed(2)}\n`;
+            html += '</pre></div>';
+
+            demoContent.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
