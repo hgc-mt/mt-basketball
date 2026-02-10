@@ -1804,7 +1804,7 @@ class RecruitmentInterface {
         const initials = player.name.split(' ').map(n => n[0]).join('');
 
         modal.innerHTML = `
-            <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-content" id="offer-setup-content" style="max-width: 500px; animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);">
                 <div class="modal-header">
                     <h3>📋 设置招募报价</h3>
                     <span class="close" onclick="document.getElementById('offer-setup-modal').style.display='none'">&times;</span>
@@ -1861,7 +1861,7 @@ class RecruitmentInterface {
 
                     <!-- 按钮 -->
                     <div class="form-actions" style="display: flex; gap: 12px;">
-                        <button class="btn-form-primary" onclick="window.recruitmentInterface.confirmOfferFromSetup(${player.id})" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.3s ease;">
+                        <button class="btn-form-primary" id="confirm-offer-btn-${player.id}" onclick="window.recruitmentInterface.confirmOfferFromSetup(${player.id}, this)" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden;">
                             ✓ 确认报价并发起谈判
                         </button>
                         <button class="btn-form-secondary" onclick="document.getElementById('offer-setup-modal').style.display='none'" style="flex: 1; padding: 12px 20px; background: rgba(107, 114, 128, 0.2); color: var(--text-secondary); border: 1px solid rgba(107, 114, 128, 0.3); border-radius: 10px; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.3s ease;">
@@ -1873,13 +1873,30 @@ class RecruitmentInterface {
         `;
 
         modal.style.display = 'block';
+
+        // 触发PixiJS弹窗显示动画
+        setTimeout(() => {
+            const modalContent = document.getElementById('offer-setup-content');
+            if (modalContent && window.recruitmentPixiRenderer) {
+                const rect = modalContent.getBoundingClientRect();
+                const centerX = rect.left + rect.width / 2;
+                const centerY = rect.top + rect.height / 2;
+                window.recruitmentPixiRenderer.animateOfferModalShow(centerX, centerY);
+            }
+        }, 50);
     }
 
     /**
      * 从报价设置弹窗确认报价
      * @param {number} playerId - 球员ID
+     * @param {HTMLElement} buttonElement - 按钮元素
      */
-    confirmOfferFromSetup(playerId) {
+    confirmOfferFromSetup(playerId, buttonElement) {
+        // 触发PixiJS确认按钮动画
+        if (buttonElement && window.recruitmentPixiRenderer) {
+            window.recruitmentPixiRenderer.animateConfirmOffer(buttonElement);
+        }
+
         // 获取表单数据
         const scholarshipSelect = document.getElementById(`setup-scholarship-${playerId}`);
         const playingTimeSelect = document.getElementById(`setup-playingtime-${playerId}`);
@@ -1907,9 +1924,11 @@ class RecruitmentInterface {
         }
         
         try {
-            // 关闭报价设置弹窗
-            const modal = document.getElementById('offer-setup-modal');
-            if (modal) modal.style.display = 'none';
+            // 延迟关闭弹窗，让动画播放
+            setTimeout(() => {
+                const modal = document.getElementById('offer-setup-modal');
+                if (modal) modal.style.display = 'none';
+            }, 800);
             
             // 启动谈判
             const negotiation = window.negotiationManager.startNegotiation(player.id);
