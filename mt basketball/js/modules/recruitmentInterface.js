@@ -128,6 +128,49 @@ class RecruitmentInterface {
         this.gameStateManager.saveGameState();
     }
 
+    /**
+     * 生成NBA 2K风格球员头像
+     * @param {Object} player - 球员对象
+     * @param {string} emoji - 位置emoji
+     * @param {string} color - 头像颜色
+     * @returns {string} 头像HTML
+     */
+    generatePlayerAvatar(player, emoji, color) {
+        const nameParts = player.name.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts[nameParts.length - 1] || '';
+        const initials = (firstName[0] || '') + (lastName[0] || '');
+        
+        // 根据球员能力值决定头像边框颜色
+        const rating = typeof player.getOverallRating === 'function' 
+            ? player.getOverallRating() 
+            : (player.rating || 70);
+        
+        let borderColor = color;
+        let glowColor = color;
+        
+        if (rating >= 85) {
+            borderColor = '#ffd700'; // 金色 - 超级巨星
+            glowColor = 'rgba(255, 215, 0, 0.5)';
+        } else if (rating >= 75) {
+            borderColor = '#c0c0c0'; // 银色 - 明星
+            glowColor = 'rgba(192, 192, 192, 0.4)';
+        } else if (rating >= 65) {
+            borderColor = '#cd7f32'; // 铜色 - 普通
+            glowColor = 'rgba(205, 127, 50, 0.3)';
+        }
+        
+        return `
+            <div class="player-avatar-nba2k" style="--avatar-color: ${color}; --border-color: ${borderColor}; --glow-color: ${glowColor};">
+                <div class="avatar-inner">
+                    <span class="avatar-emoji">${emoji}</span>
+                    <span class="avatar-initials">${initials}</span>
+                </div>
+                <div class="avatar-rating-badge">${Math.round(rating)}</div>
+            </div>
+        `;
+    }
+
     setupEventListeners() {
         // 位置筛选
         document.querySelectorAll('#position-filter-group .filter-btn').forEach(btn => {
@@ -533,15 +576,19 @@ class RecruitmentInterface {
 
         // 绑定事件
         this.bindCardEvents();
-        
-        // 添加 PixiJS 入场动画
+
+        // 添加 PixiJS 入场动画（只在招募界面可见时执行）
         if (window.recruitmentPixiRenderer && window.recruitmentPixiRenderer.isInitialized) {
-            const cards = container.querySelectorAll('.player-card');
-            cards.forEach((card, index) => {
-                setTimeout(() => {
-                    window.recruitmentPixiRenderer.animateCardEntry(card, index);
-                }, index * 30);
-            });
+            // 检查招募界面是否可见
+            const recruitmentSection = document.getElementById('recruitment');
+            if (recruitmentSection && recruitmentSection.offsetParent !== null) {
+                const cards = container.querySelectorAll('.player-card');
+                cards.forEach((card, index) => {
+                    setTimeout(() => {
+                        window.recruitmentPixiRenderer.animateCardEntry(card, index);
+                    }, index * 30);
+                });
+            }
         }
     }
 
@@ -566,14 +613,26 @@ class RecruitmentInterface {
         const yearLabels = { 1: '大一', 2: '大二', 3: '大三', 4: '大四' };
 
         const ratingColor = this.getRatingColor(rating);
-        const initials = player.name.split(' ').map(n => n[0]).join('');
+        
+        // NBA 2K风格头像 - 使用位置emoji和颜色
+        const positionEmojis = {
+            'PG': '🏀', 'SG': '🔥', 'SF': '⚡', 'PF': '💪', 'C': '🏆'
+        };
+        const positionColors = {
+            'PG': '#e74c3c', 'SG': '#f39c12', 'SF': '#3498db', 'PF': '#9b59b6', 'C': '#1abc9c'
+        };
+        const avatarEmoji = positionEmojis[player.position] || '🏀';
+        const avatarColor = positionColors[player.position] || '#667eea';
+        
+        // 生成球员照片风格头像
+        const avatarHtml = this.generatePlayerAvatar(player, avatarEmoji, avatarColor);
 
         // 获取球员状态
         const statusLabel = player.getStatusLabel();
         const isTransfer = player.status === 'transfer_wanted';
         const isFreshman = player.status === 'freshman_recruit';
         const statusClass = isTransfer ? 'status-transfer' : (isFreshman ? 'status-freshman' : 'status-free');
-        const statusIcon = isTransfer ? '🔄' : (isFreshman ? '🎓' : '🏀');
+        const statusIcon = isTransfer ? '↔️' : (isFreshman ? '⭐' : '●');
 
         // 获取性格信息
         const personalityHtml = this.renderPersonalityTag(player);
@@ -594,15 +653,15 @@ class RecruitmentInterface {
                     </div>
                 </div>
 
-                <!-- 球员基本信息 -->
-                <div class="card-main-info">
-                    <div class="player-avatar">${initials}</div>
-                    <div class="player-info">
-                        <h3 class="player-name">${player.name}</h3>
-                        <div class="player-tags">
-                            <span class="tag position-tag">${Positions[player.position]}</span>
-                            <span class="tag year-tag">${yearLabels[player.year]}</span>
-                            <span class="tag age-tag">${player.age}岁</span>
+                <!-- 球员基本信息 - NBA 2K风格 -->
+                <div class="card-main-info-nba2k">
+                    ${avatarHtml}
+                    <div class="player-info-nba2k">
+                        <h3 class="player-name-nba2k">${player.name}</h3>
+                        <div class="player-meta-nba2k">
+                            <span class="meta-badge position-${player.position}">${Positions[player.position]}</span>
+                            <span class="meta-badge year-badge">${yearLabels[player.year]}</span>
+                            <span class="meta-badge age-badge">${player.age}岁</span>
                         </div>
                     </div>
                 </div>
@@ -775,14 +834,26 @@ class RecruitmentInterface {
             rating = 50;
         }
         const yearLabels = { 1: '大一', 2: '大二', 3: '大三', 4: '大四' };
-        const initials = player.name.split(' ').map(n => n[0]).join('');
         const background = player.background || {};
+        
+        // NBA 2K风格头像
+        const positionEmojis = {
+            'PG': '🏀', 'SG': '🔥', 'SF': '⚡', 'PF': '💪', 'C': '🏆'
+        };
+        const positionColors = {
+            'PG': '#e74c3c', 'SG': '#f39c12', 'SF': '#3498db', 'PF': '#9b59b6', 'C': '#1abc9c'
+        };
+        const avatarEmoji = positionEmojis[player.position] || '🏀';
+        const avatarColor = positionColors[player.position] || '#667eea';
+        const avatarHtml = this.generatePlayerAvatar(player, avatarEmoji, avatarColor);
 
         content.innerHTML = `
             <div class="player-detail-new">
                 <!-- 头部信息 -->
                 <div class="detail-header-new">
-                    <div class="detail-avatar-large">${initials}</div>
+                    <div class="detail-avatar-nba2k-wrapper">
+                        ${avatarHtml}
+                    </div>
                     <div class="detail-header-info">
                         <h2>${player.name}</h2>
                         <div class="header-tags">
@@ -1331,15 +1402,35 @@ class RecruitmentInterface {
         const progressPercent = (negotiation.round / negotiation.maxRounds) * 100;
         const statusClass = this.getNegotiationStatusClass(negotiation);
         const statusText = this.getNegotiationStatusText(negotiation);
-        const initials = negotiation.playerName.split(' ').map(n => n[0]).join('');
         const elapsedDays = this.calculateElapsedDays(negotiation.startedAt);
+        
+        // NBA 2K风格头像
+        const positionEmojis = {
+            'PG': '🏀', 'SG': '🔥', 'SF': '⚡', 'PF': '💪', 'C': '🏆'
+        };
+        const positionColors = {
+            'PG': '#e74c3c', 'SG': '#f39c12', 'SF': '#3498db', 'PF': '#9b59b6', 'C': '#1abc9c'
+        };
+        const position = negotiation.playerPosition || 'PG';
+        const avatarEmoji = positionEmojis[position] || '🏀';
+        const avatarColor = positionColors[position] || '#667eea';
+        
+        // 创建临时球员对象用于生成头像
+        const tempPlayer = {
+            name: negotiation.playerName,
+            position: position,
+            rating: negotiation.playerRating || 70
+        };
+        const avatarHtml = this.generatePlayerAvatar(tempPlayer, avatarEmoji, avatarColor);
 
         return `
             <div class="negotiation-card ${statusClass}" data-negotiation-id="${negotiation.id}">
                 <div class="negotiation-player-info">
-                    <div class="player-avatar-large">${initials}</div>
+                    <div class="negotiation-avatar-wrapper">
+                        ${avatarHtml}
+                    </div>
                     <div class="player-name-large">${negotiation.playerName}</div>
-                    <div class="player-position-large">${Positions[negotiation.playerPosition] || negotiation.playerPosition}</div>
+                    <div class="player-position-large">${Positions[position] || position}</div>
                 </div>
                 <div class="negotiation-details">
                     <div class="negotiation-header">
@@ -1801,89 +1892,185 @@ class RecruitmentInterface {
         }
 
         const yearLabels = { 1: '大一', 2: '大二', 3: '大三', 4: '大四' };
-        const initials = player.name.split(' ').map(n => n[0]).join('');
+        
+        // NBA 2K风格头像
+        const positionEmojis = {
+            'PG': '🏀', 'SG': '🔥', 'SF': '⚡', 'PF': '💪', 'C': '🏆'
+        };
+        const positionColors = {
+            'PG': '#e74c3c', 'SG': '#f39c12', 'SF': '#3498db', 'PF': '#9b59b6', 'C': '#1abc9c'
+        };
+        const avatarEmoji = positionEmojis[player.position] || '🏀';
+        const avatarColor = positionColors[player.position] || '#667eea';
+        const avatarHtml = this.generatePlayerAvatar(player, avatarEmoji, avatarColor);
 
         modal.innerHTML = `
-            <div class="modal-content" id="offer-setup-content" style="max-width: 500px; animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);">
-                <div class="modal-header">
-                    <h3>📋 设置招募报价</h3>
-                    <span class="close" onclick="document.getElementById('offer-setup-modal').style.display='none'">&times;</span>
+            <div class="recruit-offer-modal" id="offer-setup-content">
+                <!-- 头部 -->
+                <div class="recruit-offer-header">
+                    <h2 class="recruit-offer-title">
+                        <span class="title-icon">🏀</span>
+                        招募报价
+                    </h2>
+                    <button class="recruit-offer-close" onclick="document.getElementById('offer-setup-modal').style.display='none'">✕</button>
                 </div>
-                <div class="modal-body" style="padding: 20px;">
-                    <!-- 球员简要信息 -->
-                    <div class="player-mini-info" style="display: flex; align-items: center; gap: 15px; margin-bottom: 20px; padding: 15px; background: rgba(102, 126, 234, 0.1); border-radius: 12px;">
-                        <div class="player-avatar" style="width: 50px; height: 50px; border-radius: 50%; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-size: 1.2rem; font-weight: 600;">${initials}</div>
-                        <div class="player-info">
-                            <div class="player-name" style="font-weight: 600; color: var(--text-primary);">${player.name}</div>
-                            <div class="player-tags" style="display: flex; gap: 8px; margin-top: 5px;">
-                                <span class="tag" style="padding: 2px 8px; background: ${level.color}20; color: ${level.color}; border-radius: 4px; font-size: 0.75rem;">${level.icon} ${player.potential}潜力</span>
-                                <span class="tag" style="padding: 2px 8px; background: rgba(102, 126, 234, 0.2); color: #667eea; border-radius: 4px; font-size: 0.75rem;">${rating}能力</span>
-                                <span class="tag" style="padding: 2px 8px; background: rgba(16, 185, 129, 0.2); color: #10b981; border-radius: 4px; font-size: 0.75rem;">${yearLabels[player.year]}</span>
-                            </div>
+                
+                <!-- 球员信息卡片 -->
+                <div class="recruit-player-banner">
+                    <div class="offer-avatar-wrapper">
+                        ${avatarHtml}
+                    </div>
+                    <div class="player-info-main">
+                        <h3 class="player-name">${player.name}</h3>
+                        <div class="player-meta">
+                            <span class="meta-tag potential" style="background: ${level.color}20; color: ${level.color}; border-color: ${level.color}40;">${level.icon} ${player.potential}潜力</span>
+                            <span class="meta-tag rating">${rating}评分</span>
+                            <span class="meta-tag year">${yearLabels[player.year]}</span>
                         </div>
                     </div>
-
-                    <!-- 报价表单 -->
-                    <div class="offer-form">
-                        <div class="form-group" style="margin-bottom: 16px;">
-                            <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500;">奖学金比例</label>
-                            <select id="setup-scholarship-${player.id}" class="form-select" style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem;">
-                                <option value="1.0">全额奖学金 (100%)</option>
-                                <option value="0.75">主要奖学金 (75%)</option>
-                                <option value="0.5" selected>部分奖学金 (50%)</option>
-                                <option value="0.25">基础奖学金 (25%)</option>
-                                <option value="0">无奖学金</option>
-                            </select>
+                </div>
+                
+                <!-- 报价设置区域 -->
+                <div class="recruit-offer-body">
+                    <!-- 奖学金 -->
+                    <div class="offer-field">
+                        <div class="field-label">
+                            <span class="field-icon">🎓</span>
+                            <span>奖学金比例</span>
+                            <span class="field-value" id="scholarship-value-${player.id}">50%</span>
                         </div>
-                        <div class="form-group" style="margin-bottom: 16px;">
-                            <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500;">承诺出场时间</label>
-                            <select id="setup-playingtime-${player.id}" class="form-select" style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem;">
-                                <option value="35">首发主力 (35+分钟)</option>
-                                <option value="25" selected>重要轮换 (25-30分钟)</option>
-                                <option value="15">普通轮换 (15-20分钟)</option>
-                                <option value="5">替补 (5-10分钟)</option>
-                            </select>
+                        <div class="field-control">
+                            <button class="field-btn" onclick="window.recruitmentInterface.setOfferValue('scholarship', ${player.id}, 0)">0%</button>
+                            <button class="field-btn" onclick="window.recruitmentInterface.setOfferValue('scholarship', ${player.id}, 25)">25%</button>
+                            <button class="field-btn active" onclick="window.recruitmentInterface.setOfferValue('scholarship', ${player.id}, 50)">50%</button>
+                            <button class="field-btn" onclick="window.recruitmentInterface.setOfferValue('scholarship', ${player.id}, 75)">75%</button>
+                            <button class="field-btn" onclick="window.recruitmentInterface.setOfferValue('scholarship', ${player.id}, 100)">100%</button>
                         </div>
-                        <div class="form-group" style="margin-bottom: 16px;">
-                            <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500;">角色定位</label>
-                            <select id="setup-role-${player.id}" class="form-select" style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem;">
-                                <option value="核心">球队核心</option>
-                                <option value="主力" selected>首发主力</option>
-                                <option value="轮换">重要轮换</option>
-                                <option value="替补">替补球员</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="margin-bottom: 20px;">
-                            <label style="display: block; font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 500;">招募话术（可选）</label>
-                            <textarea id="setup-message-${player.id}" class="form-textarea" placeholder="输入你想对球员说的话..." rows="3" style="width: 100%; padding: 10px 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-primary); font-size: 0.9rem; resize: vertical; min-height: 80px;"></textarea>
-                        </div>
+                        <input type="hidden" id="setup-scholarship-${player.id}" value="50">
                     </div>
-
-                    <!-- 按钮 -->
-                    <div class="form-actions" style="display: flex; gap: 12px;">
-                        <button class="btn-form-primary" id="confirm-offer-btn-${player.id}" onclick="window.recruitmentInterface.confirmOfferFromSetup(${player.id}, this)" style="flex: 1; padding: 12px 20px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 10px; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.3s ease; position: relative; overflow: hidden;">
-                            ✓ 确认报价并发起谈判
-                        </button>
-                        <button class="btn-form-secondary" onclick="document.getElementById('offer-setup-modal').style.display='none'" style="flex: 1; padding: 12px 20px; background: rgba(107, 114, 128, 0.2); color: var(--text-secondary); border: 1px solid rgba(107, 114, 128, 0.3); border-radius: 10px; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: all 0.3s ease;">
-                            ✕ 取消
-                        </button>
+                    
+                    <!-- 出场时间 -->
+                    <div class="offer-field">
+                        <div class="field-label">
+                            <span class="field-icon">⏱️</span>
+                            <span>承诺出场时间</span>
+                            <span class="field-value" id="playingtime-value-${player.id}">25分钟</span>
+                        </div>
+                        <div class="field-control">
+                            <button class="field-btn" onclick="window.recruitmentInterface.setOfferValue('playingtime', ${player.id}, 5)">5分钟</button>
+                            <button class="field-btn" onclick="window.recruitmentInterface.setOfferValue('playingtime', ${player.id}, 15)">15分钟</button>
+                            <button class="field-btn active" onclick="window.recruitmentInterface.setOfferValue('playingtime', ${player.id}, 25)">25分钟</button>
+                            <button class="field-btn" onclick="window.recruitmentInterface.setOfferValue('playingtime', ${player.id}, 35)">35分钟</button>
+                        </div>
+                        <input type="hidden" id="setup-playingtime-${player.id}" value="25">
                     </div>
+                    
+                    <!-- 角色定位 -->
+                    <div class="offer-field">
+                        <div class="field-label">
+                            <span class="field-icon">⭐</span>
+                            <span>角色定位</span>
+                            <span class="field-value" id="role-value-${player.id}">主力</span>
+                        </div>
+                        <div class="field-control role-control">
+                            <button class="role-card" data-role="替补" onclick="window.recruitmentInterface.setRole(${player.id}, '替补', this)">
+                                <span class="role-emoji">🪑</span>
+                                <span class="role-text">替补</span>
+                            </button>
+                            <button class="role-card" data-role="轮换" onclick="window.recruitmentInterface.setRole(${player.id}, '轮换', this)">
+                                <span class="role-emoji">🔄</span>
+                                <span class="role-text">轮换</span>
+                            </button>
+                            <button class="role-card active" data-role="主力" onclick="window.recruitmentInterface.setRole(${player.id}, '主力', this)">
+                                <span class="role-emoji">🏀</span>
+                                <span class="role-text">主力</span>
+                            </button>
+                            <button class="role-card" data-role="核心" onclick="window.recruitmentInterface.setRole(${player.id}, '核心', this)">
+                                <span class="role-emoji">👑</span>
+                                <span class="role-text">核心</span>
+                            </button>
+                        </div>
+                        <input type="hidden" id="setup-role-${player.id}" value="主力">
+                    </div>
+                    
+                    <!-- 招募行动 -->
+                    <div class="offer-field actions-field">
+                        <div class="field-label">
+                            <span class="field-icon">🎯</span>
+                            <span>招募行动</span>
+                            <span class="field-hint">提升球员兴趣度</span>
+                        </div>
+                        <div class="actions-grid" id="offer-actions-${player.id}">
+                            <button type="button" class="action-card" data-action="campus_visit" data-cost="5000" onclick="window.recruitmentInterface.executeOfferAction(${player.id}, 'campus_visit', 5000, this)">
+                                <span class="action-icon">🏫</span>
+                                <span class="action-name">校园参观</span>
+                                <span class="action-effect">兴趣度 +8-15%</span>
+                                <span class="action-cost">💰 $5,000</span>
+                            </button>
+                            <button type="button" class="action-card" data-action="home_visit" data-cost="8000" onclick="window.recruitmentInterface.executeOfferAction(${player.id}, 'home_visit', 8000, this)">
+                                <span class="action-icon">🏠</span>
+                                <span class="action-name">家访</span>
+                                <span class="action-effect">兴趣度 +10-20%</span>
+                                <span class="action-cost">💰 $8,000</span>
+                            </button>
+                            <button type="button" class="action-card" data-action="highlight_facilities" data-cost="2000" onclick="window.recruitmentInterface.executeOfferAction(${player.id}, 'highlight_facilities', 2000, this)">
+                                <span class="action-icon">🏋️</span>
+                                <span class="action-name">展示设施</span>
+                                <span class="action-effect">兴趣度 +6-12%</span>
+                                <span class="action-cost">💰 $2,000</span>
+                            </button>
+                            <button type="button" class="action-card" data-action="emphasize_academics" data-cost="1000" onclick="window.recruitmentInterface.executeOfferAction(${player.id}, 'emphasize_academics', 1000, this)">
+                                <span class="action-icon">📚</span>
+                                <span class="action-name">强调学术</span>
+                                <span class="action-effect">兴趣度 +4-10%</span>
+                                <span class="action-cost">💰 $1,000</span>
+                            </button>
+                            <button type="button" class="action-card free" data-action="promise_playing_time" data-cost="0" onclick="window.recruitmentInterface.executeOfferAction(${player.id}, 'promise_playing_time', 0, this)">
+                                <span class="action-icon">⏱️</span>
+                                <span class="action-name">承诺上场时间</span>
+                                <span class="action-effect">兴趣度 +5-15%</span>
+                                <span class="action-cost free">免费</span>
+                            </button>
+                            <button type="button" class="action-card free" data-action="introduce_team_culture" data-cost="0" onclick="window.recruitmentInterface.executeOfferAction(${player.id}, 'introduce_team_culture', 0, this)">
+                                <span class="action-icon">🌟</span>
+                                <span class="action-name">介绍球队文化</span>
+                                <span class="action-effect">兴趣度 +10-18%</span>
+                                <span class="action-cost free">免费</span>
+                            </button>
+                        </div>
+                        <div class="action-result" id="offer-action-result-${player.id}"></div>
+                    </div>
+                    
+                    <!-- 招募话术 -->
+                    <div class="offer-field message-field">
+                        <div class="field-label">
+                            <span class="field-icon">💬</span>
+                            <span>招募话术</span>
+                            <span class="field-hint">选填</span>
+                        </div>
+                        <div class="message-templates-grid">
+                            <button type="button" class="template-chip" onclick="window.recruitmentInterface.selectMessageTemplate(${player.id}, '很高兴能与您沟通，我们球队非常期待您的加入！')">🎯 表达诚意</button>
+                            <button type="button" class="template-chip" onclick="window.recruitmentInterface.selectMessageTemplate(${player.id}, '我们可以慢慢谈，确保找到双方都满意的方案。')">🤝 表示耐心</button>
+                            <button type="button" class="template-chip" onclick="window.recruitmentInterface.selectMessageTemplate(${player.id}, '请您尽快考虑我们的报价，我们期待您的回复。')">⏰ 催促回复</button>
+                            <button type="button" class="template-chip" onclick="window.recruitmentInterface.selectMessageTemplate(${player.id}, '如果您有其他要求，我们可以进一步协商。')">🔄 表示灵活</button>
+                            <button type="button" class="template-chip" onclick="window.recruitmentInterface.selectMessageTemplate(${player.id}, '我们的球队正在建设期，您的加入将非常重要。')">🏆 强调球队</button>
+                            <button type="button" class="template-chip" onclick="window.recruitmentInterface.selectMessageTemplate(${player.id}, '我们拥有优秀的训练设施和学术资源。')">📚 强调资源</button>
+                        </div>
+                        <textarea class="message-input" id="setup-message-${player.id}" placeholder="点击上方模板快速填充，或在此输入自定义话术..."></textarea>
+                    </div>
+                </div>
+                
+                <!-- 底部按钮 -->
+                <div class="recruit-offer-footer">
+                    <button class="btn-secondary" onclick="document.getElementById('offer-setup-modal').style.display='none'">取消</button>
+                    <button class="btn-primary" id="confirm-offer-btn-${player.id}" onclick="window.recruitmentInterface.confirmOfferFromSetup(${player.id}, this)">
+                        <span>提交报价</span>
+                    </button>
                 </div>
             </div>
         `;
 
         modal.style.display = 'block';
-
-        // 触发PixiJS弹窗显示动画
-        setTimeout(() => {
-            const modalContent = document.getElementById('offer-setup-content');
-            if (modalContent && window.recruitmentPixiRenderer) {
-                const rect = modalContent.getBoundingClientRect();
-                const centerX = rect.left + rect.width / 2;
-                const centerY = rect.top + rect.height / 2;
-                window.recruitmentPixiRenderer.animateOfferModalShow(centerX, centerY);
-            }
-        }, 50);
     }
 
     /**
@@ -1893,20 +2080,30 @@ class RecruitmentInterface {
      */
     confirmOfferFromSetup(playerId, buttonElement) {
         // 触发PixiJS确认按钮动画
+        console.log('[Recruitment] confirmOfferFromSetup called:', {
+            playerId,
+            hasButtonElement: !!buttonElement,
+            hasPixiRenderer: !!window.recruitmentPixiRenderer,
+            pixiInitialized: window.recruitmentPixiRenderer?.isInitialized
+        });
         if (buttonElement && window.recruitmentPixiRenderer) {
             window.recruitmentPixiRenderer.animateConfirmOffer(buttonElement);
+        } else {
+            console.warn('[Recruitment] Cannot trigger animation:', {
+                reason: !buttonElement ? 'no button element' : 'no pixi renderer'
+            });
         }
 
         // 获取表单数据
-        const scholarshipSelect = document.getElementById(`setup-scholarship-${playerId}`);
-        const playingTimeSelect = document.getElementById(`setup-playingtime-${playerId}`);
-        const roleSelect = document.getElementById(`setup-role-${playerId}`);
+        const scholarshipInput = document.getElementById(`setup-scholarship-${playerId}`);
+        const playingTimeInput = document.getElementById(`setup-playingtime-${playerId}`);
+        const roleInput = document.getElementById(`setup-role-${playerId}`);
         const messageTextarea = document.getElementById(`setup-message-${playerId}`);
         
         const offer = {
-            scholarship: parseFloat(scholarshipSelect?.value || 0.5),
-            playingTime: parseInt(playingTimeSelect?.value || 25),
-            role: roleSelect?.value || '主力',
+            scholarship: parseFloat(scholarshipInput?.value || 50) / 100,
+            playingTime: parseInt(playingTimeInput?.value || 25),
+            role: roleInput?.value || '主力',
             message: messageTextarea?.value || ''
         };
         
@@ -1967,6 +2164,274 @@ class RecruitmentInterface {
             console.error('Negotiation error:', error);
             this.showNotification('谈判系统错误: ' + error.message, 'error');
         }
+    }
+
+    /**
+     * 更新滑块值
+     * @param {string} type - 滑块类型
+     * @param {number} playerId - 球员ID
+     * @param {number} value - 滑块值
+     */
+    updateSliderValue(type, playerId, value) {
+        const valueEl = document.getElementById(`${type}-value-${playerId}`);
+        const fillEl = document.getElementById(`${type}-fill-${playerId}`);
+        const thumbEl = document.getElementById(`${type}-thumb-${playerId}`);
+        
+        // 更新显示值
+        if (valueEl) {
+            if (type === 'scholarship') {
+                valueEl.textContent = value + '%';
+            } else if (type === 'playingtime') {
+                valueEl.textContent = value + '分钟';
+            }
+        }
+        
+        // 计算百分比
+        const inputEl = document.getElementById(`setup-${type}-${playerId}`);
+        let percentage = 50;
+        if (inputEl) {
+            const min = parseInt(inputEl.min);
+            const max = parseInt(inputEl.max);
+            percentage = ((value - min) / (max - min)) * 100;
+        }
+        
+        // 更新填充条宽度
+        if (fillEl) {
+            fillEl.style.width = percentage + '%';
+        }
+        
+        // 更新滑块按钮位置
+        if (thumbEl) {
+            thumbEl.style.left = percentage + '%';
+        }
+    }
+
+    /**
+     * 执行招募行动（报价弹窗中）
+     * @param {number} playerId - 球员ID
+     * @param {string} actionType - 行动类型
+     * @param {number} cost - 金币消耗
+     * @param {HTMLElement} btnElement - 按钮元素
+     */
+    executeOfferAction(playerId, actionType, cost, btnElement) {
+        const resultDiv = document.getElementById(`offer-action-result-${playerId}`);
+        
+        // 检查金币是否足够
+        if (cost > 0) {
+            const state = window.gameState?.getState?.() || window.gameState || {};
+            const currentBudget = state.recruitmentBudget || 0;
+            if (currentBudget < cost) {
+                if (resultDiv) {
+                    resultDiv.innerHTML = `
+                        <div class="result-error">
+                            <span>❌</span>
+                            <div>
+                                <div class="result-title">招募预算不足</div>
+                                <div class="result-desc">当前预算: $${currentBudget.toLocaleString()}, 需要: $${cost.toLocaleString()}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                this.showNotification('招募预算不足，请减少开支或等待下赛季', 'warning');
+                return;
+            }
+        }
+        
+        // 获取按钮位置用于动画
+        let btnRect = null;
+        if (btnElement) {
+            btnRect = btnElement.getBoundingClientRect();
+        }
+        
+        // 执行行动
+        let result = null;
+        if (window.recruitmentCompetitionSystem) {
+            result = window.recruitmentCompetitionSystem.playerTakeAction(playerId, actionType);
+        } else {
+            // 模拟结果
+            result = this.getMockActionResult(actionType);
+            result.success = true;
+            result.newInterest = Math.min(100, (result.newInterest || 50) + result.interestIncrease);
+        }
+        
+        if (result.success) {
+            // PixiJS 动画效果
+            if (window.recruitmentPixiRenderer && window.recruitmentPixiRenderer.isInitialized && btnRect) {
+                const centerX = btnRect.left + btnRect.width / 2;
+                const centerY = btnRect.top + btnRect.height / 2;
+                window.recruitmentPixiRenderer.animateRecruitmentAction(actionType, centerX, centerY);
+                window.recruitmentPixiRenderer.animateInterestIncrease(centerX, centerY - 80, result.interestIncrease);
+            }
+            
+            // 显示成功结果
+            const costText = cost > 0 ? `💰 -$${cost.toLocaleString()}` : '🆓 免费';
+            if (resultDiv) {
+                resultDiv.innerHTML = `
+                    <div class="result-success">
+                        <span>✅</span>
+                        <div>
+                            <div class="result-title">${result.message}</div>
+                            <div class="result-desc">兴趣度 +${result.interestIncrease}% | ${costText}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            this.showNotification(`${result.message} (兴趣度 +${result.interestIncrease}%)`, 'success');
+            
+            // 标记按钮为已使用
+            if (btnElement) {
+                btnElement.classList.add('used');
+                btnElement.disabled = true;
+            }
+        } else {
+            // 显示失败结果
+            if (resultDiv) {
+                resultDiv.innerHTML = `
+                    <div class="result-error">
+                        <span>❌</span>
+                        <div>
+                            <div class="result-title">${result.message}</div>
+                        </div>
+                    </div>
+                `;
+            }
+            this.showNotification(result.message, 'warning');
+        }
+    }
+
+    /**
+     * 选择消息模板
+     * @param {number} playerId - 球员ID
+     * @param {string} text - 模板文本
+     */
+    selectMessageTemplate(playerId, text) {
+        const textarea = document.getElementById(`setup-message-${playerId}`);
+        if (textarea) {
+            // 如果已有内容，追加换行
+            if (textarea.value && !textarea.value.endsWith('\n')) {
+                textarea.value += '\n';
+            }
+            textarea.value += text;
+            // 触发input事件更新状态
+            textarea.dispatchEvent(new Event('input'));
+        }
+    }
+
+    /**
+     * 设置报价值（新界面）
+     * @param {string} type - 类型
+     * @param {number} playerId - 球员ID
+     * @param {number} value - 值
+     */
+    setOfferValue(type, playerId, value) {
+        const valueEl = document.getElementById(`${type}-value-${playerId}`);
+        const inputEl = document.getElementById(`setup-${type}-${playerId}`);
+        
+        // 更新显示值
+        if (valueEl) {
+            if (type === 'scholarship') {
+                valueEl.textContent = value + '%';
+            } else if (type === 'playingtime') {
+                valueEl.textContent = value + '分钟';
+            }
+        }
+        
+        // 更新隐藏input
+        if (inputEl) {
+            inputEl.value = value;
+        }
+        
+        // 更新按钮状态
+        const field = inputEl?.closest('.offer-field');
+        if (field) {
+            field.querySelectorAll('.field-btn').forEach(btn => {
+                btn.classList.remove('active');
+                const btnText = btn.textContent.trim();
+                const matchValue = type === 'scholarship' ? value + '%' : value + '分钟';
+                if (btnText === matchValue) {
+                    btn.classList.add('active');
+                }
+            });
+        }
+    }
+
+    /**
+     * 设置角色（新界面）
+     * @param {number} playerId - 球员ID
+     * @param {string} role - 角色
+     * @param {HTMLElement} btnElement - 按钮元素
+     */
+    setRole(playerId, role, btnElement) {
+        const valueEl = document.getElementById(`role-value-${playerId}`);
+        const inputEl = document.getElementById(`setup-role-${playerId}`);
+        
+        // 更新显示值
+        if (valueEl) {
+            valueEl.textContent = role;
+        }
+        
+        // 更新隐藏input
+        if (inputEl) {
+            inputEl.value = role;
+        }
+        
+        // 更新按钮状态
+        const field = btnElement?.closest('.offer-field');
+        if (field) {
+            field.querySelectorAll('.role-card').forEach(btn => {
+                btn.classList.remove('active');
+            });
+        }
+        
+        if (btnElement) {
+            btnElement.classList.add('active');
+        }
+    }
+
+    /**
+     * 选择节点
+     * @param {string} type - 节点类型
+     * @param {number} playerId - 球员ID
+     * @param {number} value - 节点值
+     * @param {string} displayText - 显示文本
+     */
+    selectNode(type, playerId, value, displayText) {
+        const trackEl = document.getElementById(`${type}-track-${playerId}`);
+        const valueEl = document.getElementById(`${type}-value-${playerId}`);
+        const inputEl = document.getElementById(`setup-${type}-${playerId}`);
+        
+        if (!trackEl) return;
+        
+        // 更新显示值
+        if (valueEl) valueEl.textContent = displayText;
+        if (inputEl) inputEl.value = value;
+        
+        // 更新节点状态
+        trackEl.querySelectorAll('.offer-node').forEach(node => {
+            node.classList.remove('active');
+            if (parseInt(node.dataset.value) === value) {
+                node.classList.add('active');
+            }
+        });
+    }
+
+    /**
+     * 选择角色定位
+     * @param {number} playerId - 球员ID
+     * @param {string} role - 角色值
+     * @param {HTMLElement} btnElement - 按钮元素
+     */
+    selectRole(playerId, role, btnElement) {
+        const roleContainer = document.getElementById(`setup-role-${playerId}`);
+        if (!roleContainer) return;
+        
+        // 移除所有active状态
+        roleContainer.querySelectorAll('.offer-role-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // 添加active状态到当前按钮
+        btnElement.classList.add('active');
     }
 
     /**
@@ -2170,7 +2635,7 @@ class RecruitmentInterface {
             'promise_playing_time': { message: '上场时间承诺增加了吸引力', interestIncrease: 10 },
             'highlight_facilities': { message: '先进的训练设施令人印象深刻', interestIncrease: 9 },
             'emphasize_academics': { message: '学术优势得到了认可', interestIncrease: 7 },
-            'offer_scholarship': { message: '奖学金offer让球员非常心动', interestIncrease: 20 }
+            'introduce_team_culture': { message: '球队文化深深吸引了球员', interestIncrease: 14 }
         };
         return actionResults[actionType] || { message: '行动执行成功', interestIncrease: 5 };
     }

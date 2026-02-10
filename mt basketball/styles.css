@@ -9681,6 +9681,8 @@ tr:hover {
     margin-top: 8px;
 }
 
+/* ==================== NBA 2K风格球员卡片 ==================== */
+
 /* 球员卡片容器 */
 .player-cards-container {
     display: grid;
@@ -9688,6 +9690,134 @@ tr:hover {
     gap: 20px;
     padding: 5px;
 }
+
+/* NBA 2K风格头像 */
+.player-avatar-nba2k {
+    position: relative;
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+    border: 3px solid var(--border-color);
+    box-shadow: 
+        0 0 0 2px rgba(0,0,0,0.5),
+        0 4px 15px var(--glow-color),
+        inset 0 2px 10px rgba(255,255,255,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: visible;
+    transition: all 0.3s ease;
+}
+
+.player-avatar-nba2k::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.2), transparent 50%);
+    border-radius: 50%;
+}
+
+.player-card:hover .player-avatar-nba2k {
+    transform: scale(1.05);
+    box-shadow: 
+        0 0 0 3px var(--border-color),
+        0 8px 25px var(--glow-color),
+        inset 0 2px 10px rgba(255,255,255,0.15);
+}
+
+.avatar-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.avatar-emoji {
+    font-size: 1.8rem;
+    line-height: 1;
+    margin-bottom: 2px;
+}
+
+.avatar-initials {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+    letter-spacing: 1px;
+}
+
+.avatar-rating-badge {
+    position: absolute;
+    bottom: -5px;
+    right: -5px;
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(145deg, #1a1a2e, #0f3460);
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+
+/* NBA 2K风格卡片信息布局 */
+.card-main-info-nba2k {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 20px 20px 15px;
+    background: linear-gradient(180deg, rgba(255,255,255,0.03), transparent);
+}
+
+.player-info-nba2k {
+    flex: 1;
+    min-width: 0;
+}
+
+.player-name-nba2k {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 8px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+.player-meta-nba2k {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.meta-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.meta-badge.position-PG { background: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.3); }
+.meta-badge.position-SG { background: rgba(243, 156, 18, 0.2); color: #f39c12; border: 1px solid rgba(243, 156, 18, 0.3); }
+.meta-badge.position-SF { background: rgba(52, 152, 219, 0.2); color: #3498db; border: 1px solid rgba(52, 152, 219, 0.3); }
+.meta-badge.position-PF { background: rgba(155, 89, 182, 0.2); color: #9b59b6; border: 1px solid rgba(155, 89, 182, 0.3); }
+.meta-badge.position-C { background: rgba(26, 188, 156, 0.2); color: #1abc9c; border: 1px solid rgba(26, 188, 156, 0.3); }
+
+.meta-badge.year-badge { background: rgba(102, 126, 234, 0.2); color: #667eea; border: 1px solid rgba(102, 126, 234, 0.3); }
+.meta-badge.age-badge { background: rgba(255, 255, 255, 0.1); color: var(--text-secondary); border: 1px solid rgba(255, 255, 255, 0.2); }
 
 /* 球员卡片样式 */
 .player-card {
@@ -10398,6 +10528,33 @@ tr:hover {
     font-weight: 700;
     color: white;
     flex-shrink: 0;
+}
+
+/* NBA 2K风格详情页头像 */
+.detail-avatar-nba2k-wrapper {
+    flex-shrink: 0;
+}
+
+.detail-avatar-nba2k-wrapper .player-avatar-nba2k {
+    width: 110px;
+    height: 110px;
+    border-width: 4px;
+}
+
+.detail-avatar-nba2k-wrapper .avatar-emoji {
+    font-size: 2.2rem;
+}
+
+.detail-avatar-nba2k-wrapper .avatar-initials {
+    font-size: 0.85rem;
+}
+
+.detail-avatar-nba2k-wrapper .avatar-rating-badge {
+    width: 38px;
+    height: 38px;
+    font-size: 0.85rem;
+    bottom: -3px;
+    right: -3px;
 }
 
 .detail-header-info {
@@ -11329,6 +11486,30 @@ tr:hover {
     flex-direction: column;
     align-items: center;
     text-align: center;
+}
+
+/* 谈判卡片NBA 2K风格头像 */
+.negotiation-avatar-wrapper .player-avatar-nba2k {
+    width: 75px;
+    height: 75px;
+    border-width: 3px;
+    margin-bottom: 10px;
+}
+
+.negotiation-avatar-wrapper .avatar-emoji {
+    font-size: 1.6rem;
+}
+
+.negotiation-avatar-wrapper .avatar-initials {
+    font-size: 0.65rem;
+}
+
+.negotiation-avatar-wrapper .avatar-rating-badge {
+    width: 28px;
+    height: 28px;
+    font-size: 0.7rem;
+    bottom: -3px;
+    right: -3px;
 }
 
 .player-avatar-large {
@@ -16497,4 +16678,742 @@ tr:hover {
 
 #offer-setup-content {
     animation: modalSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), modalGlow 2s ease-in-out infinite;
+}
+
+/* ================================
+   报价设置弹窗 - 现代风格
+   ================================ */
+
+.offer-setup-modal {
+    max-width: 520px !important;
+    width: 90% !important;
+    margin: 5% auto !important;
+    background: linear-gradient(180deg, 
+        #fff5f5 0%, 
+        #fff0f0 50%,
+        #ffe0e0 100%) !important;
+    border: 3px solid #ffb3b3;
+    border-radius: 24px !important;
+    box-shadow: 
+        0 20px 60px rgba(255, 154, 158, 0.3),
+        0 0 0 4px rgba(255, 255, 255, 0.8),
+        inset 0 2px 0 rgba(255, 255, 255, 1),
+        0 8px 20px rgba(0, 0, 0, 0.1) !important;
+    overflow: hidden;
+    position: relative;
+}
+
+.offer-setup-modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, 
+        #667eea 0%, 
+        #764ba2 50%, 
+        #667eea 100%);
+    background-size: 200% 100%;
+    animation: gradientMove 3s linear infinite;
+}
+
+.offer-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 24px 28px 20px;
+    border-bottom: 2px dashed #ffcdd2;
+    background: linear-gradient(180deg, 
+        #ffebee 0%, 
+        #fff5f5 100%);
+}
+
+.offer-modal-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.offer-modal-icon {
+    font-size: 2rem;
+    filter: drop-shadow(0 2px 4px rgba(255, 154, 158, 0.4));
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+.offer-modal-title h3 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #e57373;
+    margin: 0;
+    text-shadow: 2px 2px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
+}
+
+.offer-modal-close {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ffcdd2 0%, #ef9a9a 100%);
+    border: 3px solid #fff;
+    color: #fff;
+    font-size: 1.5rem;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+}
+
+.offer-modal-close:hover {
+    background: linear-gradient(135deg, #ef9a9a 0%, #e57373 100%);
+    transform: rotate(90deg) scale(1.1);
+    box-shadow: 0 6px 15px rgba(239, 68, 68, 0.4);
+}
+
+.offer-modal-body {
+    padding: 24px 28px 28px;
+}
+
+/* 球员卡片 */
+.offer-player-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px 20px;
+    background: linear-gradient(135deg, 
+        rgba(102, 126, 234, 0.15) 0%, 
+        rgba(118, 75, 162, 0.1) 100%);
+    border: 1px solid rgba(102, 126, 234, 0.2);
+    border-radius: 16px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+}
+
+.offer-player-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 30% 50%, 
+        rgba(102, 126, 234, 0.1) 0%, 
+        transparent 50%);
+    pointer-events: none;
+}
+
+.offer-player-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.4rem;
+    font-weight: 700;
+    box-shadow: 
+        0 4px 15px rgba(102, 126, 234, 0.4),
+        inset 0 2px 0 rgba(255, 255, 255, 0.2);
+    position: relative;
+    z-index: 1;
+}
+
+.offer-player-info {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+}
+
+.offer-player-name {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.offer-player-tags {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.offer-tag {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.offer-tag.potential {
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+}
+
+.offer-tag.rating {
+    background: rgba(102, 126, 234, 0.2);
+    color: #a5b4fc;
+}
+
+.offer-tag.year {
+    background: rgba(16, 185, 129, 0.2);
+    color: #6ee7b7;
+}
+
+/* 表单区域 */
+.offer-form-modern {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    margin-bottom: 28px;
+}
+
+/* 滑块组 - 卡通风格 */
+.offer-slider-group {
+    background: linear-gradient(180deg, #fff 0%, #f8f9fa 100%);
+    border: 2px solid #e0e0e0;
+    border-radius: 20px;
+    padding: 20px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.offer-slider-group:hover {
+    background: linear-gradient(180deg, #fff 0%, #fff5f5 100%);
+    border-color: #ffcdd2;
+    box-shadow: 0 6px 20px rgba(255, 154, 158, 0.15);
+    transform: translateY(-2px);
+}
+
+.offer-slider-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.offer-slider-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #555;
+}
+
+.offer-slider-icon {
+    font-size: 1.3rem;
+}
+
+.offer-slider-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: #ff6b6b;
+    min-width: 70px;
+    text-align: right;
+    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.1);
+}
+
+/* 滑块轨道 */
+.offer-slider-track {
+    position: relative;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    margin-bottom: 12px;
+}
+
+.offer-slider-fill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    border-radius: 4px;
+    width: 50%;
+    transition: width 0.1s ease;
+    box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+}
+
+.offer-slider {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    width: 100%;
+    height: 20px;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+}
+
+/* 自定义滑块按钮 - 卡通风格 */
+.offer-slider-thumb {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 28px;
+    height: 28px;
+    background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 50%, #fecfef 100%);
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 
+        0 4px 12px rgba(255, 154, 158, 0.6),
+        0 2px 4px rgba(0, 0, 0, 0.2),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.1),
+        inset 0 2px 4px rgba(255, 255, 255, 0.8);
+    transition: all 0.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    pointer-events: none;
+    z-index: 3;
+}
+
+.offer-slider-thumb::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 10px;
+    height: 10px;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+    border-radius: 50%;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.offer-slider-group:hover .offer-slider-thumb {
+    transform: translate(-50%, -50%) scale(1.15);
+    box-shadow: 
+        0 6px 20px rgba(255, 154, 158, 0.8),
+        0 3px 6px rgba(0, 0, 0, 0.3),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.1),
+        inset 0 2px 4px rgba(255, 255, 255, 0.9);
+}
+
+/* 卡通风格进度条 */
+.offer-slider-track {
+    position: relative;
+    height: 16px;
+    background: linear-gradient(180deg, #e8e8e8 0%, #d0d0d0 100%);
+    border-radius: 12px;
+    margin-bottom: 12px;
+    border: 2px solid #b0b0b0;
+    box-shadow: 
+        inset 0 2px 4px rgba(0, 0, 0, 0.15),
+        0 1px 0 rgba(255, 255, 255, 0.5);
+    overflow: visible;
+}
+
+.offer-slider-fill {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    height: calc(100% - 4px);
+    background: linear-gradient(180deg, 
+        #a8e6cf 0%, 
+        #88d8a3 30%,
+        #6bc98a 70%,
+        #5ab87a 100%);
+    border-radius: 10px;
+    width: 50%;
+    transition: width 0.15s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 
+        inset 0 1px 2px rgba(255, 255, 255, 0.5),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.offer-slider-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 8px,
+        rgba(255, 255, 255, 0.15) 8px,
+        rgba(255, 255, 255, 0.15) 12px
+    );
+    border-radius: 10px;
+}
+
+.offer-slider {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    width: 100%;
+    height: 30px;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 5;
+    margin: 0;
+}
+
+/* 刻度标签 - 卡通风格 */
+.offer-slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #666;
+    padding: 0 8px;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.offer-slider-labels span {
+    background: linear-gradient(180deg, #fff 0%, #f0f0f0 100%);
+    padding: 4px 10px;
+    border-radius: 12px;
+    border: 1px solid #d0d0d0;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+}
+
+.offer-slider-labels span:hover {
+    background: linear-gradient(180deg, #fff 0%, #e8e8e8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.offer-slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    padding: 0 4px;
+}
+
+/* 角色选择 - 卡片式大按钮 */
+.offer-role-group {
+    padding: 0;
+    background: transparent;
+    border: none;
+}
+
+.offer-role-options {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+}
+
+.offer-role-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 28px 12px;
+    background: linear-gradient(180deg, #fff 0%, #f5f5f5 100%);
+    border: 3px solid #e0e0e0;
+    border-radius: 20px;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    position: relative;
+    overflow: hidden;
+}
+
+.offer-role-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 6px;
+    background: linear-gradient(90deg, #ff9a9e 0%, #fecfef 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.offer-role-btn:hover {
+    background: linear-gradient(180deg, #fff 0%, #fff5f5 100%);
+    border-color: #ffb3b3;
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 12px 30px rgba(255, 154, 158, 0.25);
+}
+
+.offer-role-btn:hover::before {
+    opacity: 1;
+}
+
+.offer-role-btn.active {
+    background: linear-gradient(180deg, #fff0f0 0%, #ffe0e0 100%);
+    border-color: #ff9a9e;
+    box-shadow: 
+        0 8px 25px rgba(255, 154, 158, 0.35),
+        inset 0 2px 0 rgba(255, 255, 255, 0.8);
+    transform: translateY(-2px);
+}
+
+.offer-role-btn.active::before {
+    opacity: 1;
+    background: linear-gradient(90deg, #ff6b6b 0%, #ff9a9e 100%);
+}
+
+.role-icon {
+    font-size: 2.4rem;
+    transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+}
+
+.offer-role-btn:hover .role-icon {
+    transform: scale(1.2) rotate(-5deg);
+}
+
+.offer-role-btn.active .role-icon {
+    transform: scale(1.15);
+    filter: drop-shadow(0 4px 8px rgba(255, 107, 107, 0.4));
+    animation: roleBounce 0.6s ease;
+}
+
+@keyframes roleBounce {
+    0%, 100% { transform: scale(1.15) translateY(0); }
+    50% { transform: scale(1.25) translateY(-8px); }
+}
+
+.role-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #666;
+    transition: color 0.3s ease;
+}
+
+.offer-role-btn:hover .role-name {
+    color: #ff9a9e;
+}
+
+.offer-role-btn.active .role-name {
+    color: #ff6b6b;
+    font-weight: 800;
+}
+
+/* 招募话术 */
+.offer-message-group {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 16px;
+    padding: 20px;
+}
+
+.offer-message-group .optional {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 400;
+    margin-left: 4px;
+}
+
+.offer-message-input {
+    width: 100%;
+    min-height: 100px;
+    margin-top: 12px;
+    padding: 14px 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 0.95rem;
+    resize: vertical;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.offer-message-input:focus {
+    outline: none;
+    border-color: rgba(102, 126, 234, 0.5);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 0 20px rgba(102, 126, 234, 0.15);
+}
+
+.offer-message-input::placeholder {
+    color: var(--text-muted);
+}
+
+/* 按钮 */
+.offer-modal-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.offer-btn-cancel,
+.offer-btn-confirm {
+    flex: 1;
+    padding: 16px 24px;
+    border: none;
+    border-radius: 14px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.offer-btn-cancel {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.offer-btn-cancel:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+}
+
+.offer-btn-confirm {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.offer-btn-confirm::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    transition: left 0.5s ease;
+}
+
+.offer-btn-confirm:hover::before {
+    left: 100%;
+}
+
+.offer-btn-confirm:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+}
+
+/* 响应式 */
+@media (max-width: 480px) {
+    .offer-setup-modal {
+        max-width: 95% !important;
+        margin: 10px;
+    }
+    
+    .offer-modal-body {
+        padding: 20px;
+    }
+    
+    .offer-role-options {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .offer-modal-actions {
+        flex-direction: column;
+    }
+}
+
+/* ================================
+   节点选择器样式
+   ================================ */
+
+.offer-node-track {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: relative;
+    padding: 20px 10px 10px;
+}
+
+.offer-node-track::before {
+    content: '';
+    position: absolute;
+    top: 28px;
+    left: 30px;
+    right: 30px;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 2px;
+    z-index: 0;
+}
+
+.offer-node {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    position: relative;
+    z-index: 1;
+    transition: all 0.3s ease;
+}
+
+.node-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 3px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.node-dot::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.node-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    transition: all 0.3s ease;
+    white-space: nowrap;
+}
+
+/* 悬停状态 */
+.offer-node:hover .node-dot {
+    border-color: rgba(102, 126, 234, 0.5);
+    background: rgba(102, 126, 234, 0.2);
+    transform: scale(1.1);
+}
+
+.offer-node:hover .node-label {
+    color: var(--text-secondary);
+}
+
+/* 选中状态 */
+.offer-node.active .node-dot {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+    box-shadow: 0 0 15px rgba(102, 126, 234, 0.6);
+    transform: scale(1.2);
+}
+
+.offer-node.active .node-dot::after {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+.offer-node.active .node-label {
+    color: #a5b4fc;
+    font-weight: 700;
+    text-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
 }

@@ -792,11 +792,11 @@ class RecruitmentCompetitionSystem {
                 message = '家访增进了彼此了解';
                 break;
                 
-            case 'offer_scholarship':
-                // 提供奖学金
-                interestIncrease = 15 + Math.floor(Math.random() * 10);
-                cost = 0; // 奖学金不计入招募预算
-                message = '奖学金offer让球员非常心动';
+            case 'introduce_team_culture':
+                // 介绍球队文化
+                interestIncrease = 10 + Math.floor(Math.random() * 8);
+                cost = 0;
+                message = '球队文化深深吸引了球员';
                 break;
                 
             case 'promise_playing_time':

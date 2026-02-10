@@ -42,14 +42,18 @@ class RecruitmentPixiRenderer {
      * 初始化 PixiJS 应用
      */
     init(containerId) {
+        console.log('[PixiRenderer] init called, isInitialized:', this.isInitialized);
+        
         if (this.isInitialized) return Promise.resolve(true);
         
         containerId = containerId || 'recruitment-pixi-container';
         
         if (typeof PIXI === 'undefined') {
-            console.warn('Pixi.js not loaded, skipping Pixi renderer');
+            console.warn('[PixiRenderer] Pixi.js not loaded, skipping Pixi renderer');
             return Promise.resolve(false);
         }
+        
+        console.log('[PixiRenderer] PIXI is available, version:', PIXI.VERSION || 'unknown');
 
         // 创建或获取容器
         let container = document.getElementById(containerId);
@@ -213,6 +217,10 @@ class RecruitmentPixiRenderer {
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
 
+        // 检查位置是否有效（避免在左上角显示特效）
+        if (centerX === 0 && centerY === 0) return;
+        if (rect.width === 0 || rect.height === 0) return;
+
         // 延迟执行，创造依次进入效果
         setTimeout(() => {
             // 创建冲击波
@@ -360,6 +368,9 @@ class RecruitmentPixiRenderer {
      */
     animateRecruitmentAction(actionType, x, y) {
         if (!this.isInitialized) return;
+
+        // 检查位置是否有效
+        if (x === 0 && y === 0) return;
 
         const actionEffects = {
             'campus_visit': { color: 0x667eea, icon: '🏫', text: '校园参观', glowColor: 0x4facfe },
@@ -572,6 +583,9 @@ class RecruitmentPixiRenderer {
     animateInterestIncrease(x, y, amount) {
         if (!this.isInitialized) return;
 
+        // 检查位置是否有效
+        if (x === 0 && y === 0) return;
+
         // 创建上升的数字
         const style = new PIXI.TextStyle({
             fontFamily: 'Arial',
@@ -727,6 +741,9 @@ class RecruitmentPixiRenderer {
      */
     animateNegotiationStart(x, y) {
         if (!this.isInitialized) return;
+
+        // 检查位置是否有效
+        if (x === 0 && y === 0) return;
 
         // 创建扩散圆环
         for (let i = 0; i < 4; i++) {
@@ -990,6 +1007,9 @@ class RecruitmentPixiRenderer {
     animateOfferModalShow(x, y) {
         if (!this.isInitialized) return;
 
+        // 检查位置是否有效
+        if (x === 0 && y === 0) return;
+
         // 创建背景光晕扩散
         this.createModalBackdropGlow(x, y);
 
@@ -1217,11 +1237,34 @@ class RecruitmentPixiRenderer {
      * 确认报价按钮点击动画 - 超级炫酷版
      */
     animateConfirmOffer(buttonElement) {
-        if (!this.isInitialized || !buttonElement) return;
+        console.log('[PixiRenderer] animateConfirmOffer called:', {
+            isInitialized: this.isInitialized,
+            hasButtonElement: !!buttonElement,
+            buttonElement: buttonElement?.className || buttonElement?.id || 'unknown'
+        });
+        
+        if (!this.isInitialized || !buttonElement) {
+            console.warn('[PixiRenderer] Animation skipped:', {
+                reason: !this.isInitialized ? 'not initialized' : 'no button element'
+            });
+            return;
+        }
 
         const rect = buttonElement.getBoundingClientRect();
         const centerX = rect.left + rect.width / 2;
         const centerY = rect.top + rect.height / 2;
+
+        console.log('[PixiRenderer] Button rect:', { centerX, centerY, width: rect.width, height: rect.height });
+
+        // 检查位置是否有效
+        if (centerX === 0 && centerY === 0) {
+            console.warn('[PixiRenderer] Animation skipped: invalid position (0,0)');
+            return;
+        }
+        if (rect.width === 0 || rect.height === 0) {
+            console.warn('[PixiRenderer] Animation skipped: invalid dimensions');
+            return;
+        }
 
         // 创建按钮光晕爆发
         this.createButtonGlowBurst(centerX, centerY);

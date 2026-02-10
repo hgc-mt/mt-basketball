@@ -1,0 +1,600 @@
+/* 招募报价弹窗 - 全新设计 */
+
+/* 弹窗容器 */
+#offer-setup-modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+}
+
+#offer-setup-modal[style*="block"] {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 弹窗主体 */
+.recruit-offer-modal {
+    width: 90%;
+    max-width: 560px;
+    max-height: 90vh;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    animation: modalSlideIn 0.3s ease;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* 头部 */
+.recruit-offer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+}
+
+.recruit-offer-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 700;
+}
+
+.title-icon {
+    font-size: 1.6rem;
+}
+
+.recruit-offer-close {
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    font-size: 1.2rem;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.recruit-offer-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+/* 球员信息横幅 */
+.recruit-player-banner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px 24px;
+    background: linear-gradient(180deg, #f8f9fa 0%, #fff 100%);
+    border-bottom: 1px solid #e9ecef;
+}
+
+.player-avatar-large {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+/* NBA 2K风格报价弹窗头像 */
+.offer-avatar-wrapper .player-avatar-nba2k {
+    width: 70px;
+    height: 70px;
+    border-width: 3px;
+}
+
+.offer-avatar-wrapper .avatar-emoji {
+    font-size: 1.6rem;
+}
+
+.offer-avatar-wrapper .avatar-initials {
+    font-size: 0.7rem;
+}
+
+.offer-avatar-wrapper .avatar-rating-badge {
+    width: 28px;
+    height: 28px;
+    font-size: 0.7rem;
+    bottom: -3px;
+    right: -3px;
+}
+
+.player-info-main {
+    flex: 1;
+}
+
+.player-name {
+    margin: 0 0 8px 0;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #212529;
+}
+
+.player-meta {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.meta-tag {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border: 1px solid;
+}
+
+.meta-tag.potential {
+    background: rgba(102, 126, 234, 0.1);
+    color: #667eea;
+    border-color: rgba(102, 126, 234, 0.3);
+}
+
+.meta-tag.rating {
+    background: rgba(40, 167, 69, 0.1);
+    color: #28a745;
+    border-color: rgba(40, 167, 69, 0.3);
+}
+
+.meta-tag.year {
+    background: rgba(255, 193, 7, 0.1);
+    color: #ffc107;
+    border-color: rgba(255, 193, 7, 0.3);
+}
+
+/* 报价设置区域 */
+.recruit-offer-body {
+    padding: 24px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.offer-field {
+    margin-bottom: 24px;
+}
+
+.offer-field:last-child {
+    margin-bottom: 0;
+}
+
+.field-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #495057;
+}
+
+.field-icon {
+    font-size: 1.1rem;
+}
+
+.field-value {
+    margin-left: auto;
+    padding: 4px 12px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 700;
+}
+
+.field-hint {
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: #adb5bd;
+    font-weight: 400;
+}
+
+/* 按钮组 */
+.field-control {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.field-btn {
+    flex: 1;
+    min-width: 60px;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.field-btn:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    transform: translateY(-2px);
+}
+
+.field-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* 角色卡片 */
+.role-control {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.role-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 8px;
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.role-card:hover {
+    background: #fff;
+    border-color: #adb5bd;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+}
+
+.role-card.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-color: #667eea;
+    color: #fff;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+}
+
+.role-emoji {
+    font-size: 2rem;
+    transition: transform 0.2s ease;
+}
+
+.role-card:hover .role-emoji {
+    transform: scale(1.2);
+}
+
+.role-card.active .role-emoji {
+    transform: scale(1.1);
+}
+
+.role-text {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+/* 招募行动卡片 */
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.action-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 16px 8px;
+    background: linear-gradient(180deg, #fff 0%, #f8f9fa 100%);
+    border: 2px solid #e9ecef;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.action-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.action-card:hover {
+    border-color: #667eea;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 20px rgba(102, 126, 234, 0.15);
+}
+
+.action-card:hover::before {
+    opacity: 1;
+}
+
+.action-card.free {
+    border-color: #d4edda;
+    background: linear-gradient(180deg, #f0fff4 0%, #e6f7ed 100%);
+}
+
+.action-card.free:hover {
+    border-color: #28a745;
+    box-shadow: 0 8px 20px rgba(40, 167, 69, 0.15);
+}
+
+.action-card.free::before {
+    background: linear-gradient(90deg, #28a745 0%, #20c997 100%);
+}
+
+.action-card.used {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+    border-color: #dee2e6;
+}
+
+.action-card.used::before {
+    display: none;
+}
+
+.action-icon {
+    font-size: 1.8rem;
+    margin-bottom: 4px;
+}
+
+.action-name {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #212529;
+    text-align: center;
+}
+
+.action-effect {
+    font-size: 0.75rem;
+    color: #28a745;
+    font-weight: 500;
+}
+
+.action-cost {
+    font-size: 0.75rem;
+    color: #f59e0b;
+    font-weight: 600;
+    margin-top: 4px;
+}
+
+.action-cost.free {
+    color: #28a745;
+}
+
+/* 行动结果 */
+.action-result {
+    margin-top: 12px;
+}
+
+.result-success,
+.result-error {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    animation: resultSlideIn 0.3s ease;
+}
+
+@keyframes resultSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.result-success {
+    background: rgba(40, 167, 69, 0.1);
+    border: 1px solid rgba(40, 167, 69, 0.3);
+}
+
+.result-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.result-success span,
+.result-error span {
+    font-size: 1.4rem;
+}
+
+.result-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #212529;
+}
+
+.result-success .result-title {
+    color: #28a745;
+}
+
+.result-error .result-title {
+    color: #ef4444;
+}
+
+.result-desc {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-top: 2px;
+}
+
+/* 响应式 */
+@media (max-width: 480px) {
+    .actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* 消息模板芯片 */
+.message-templates-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.template-chip {
+    padding: 8px 14px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #495057;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+}
+
+.template-chip:hover {
+    background: #e9ecef;
+    border-color: #adb5bd;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.template-chip:active {
+    transform: translateY(0);
+}
+
+/* 消息输入框 */
+.message-field .field-label {
+    margin-bottom: 8px;
+}
+
+.message-input {
+    width: 100%;
+    min-height: 80px;
+    padding: 12px 16px;
+    background: #f8f9fa;
+    border: 2px solid #dee2e6;
+    border-radius: 12px;
+    font-size: 0.95rem;
+    color: #495057;
+    resize: vertical;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.message-input:focus {
+    outline: none;
+    background: #fff;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.message-input::placeholder {
+    color: #adb5bd;
+}
+
+/* 底部按钮 */
+.recruit-offer-footer {
+    display: flex;
+    gap: 12px;
+    padding: 20px 24px;
+    background: #f8f9fa;
+    border-top: 1px solid #e9ecef;
+}
+
+.btn-secondary,
+.btn-primary {
+    flex: 1;
+    padding: 14px 24px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-secondary {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.btn-secondary:hover {
+    background: #dee2e6;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn-primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+
+/* 响应式 */
+@media (max-width: 480px) {
+    .recruit-offer-modal {
+        width: 95%;
+        max-height: 95vh;
+    }
+    
+    .role-control {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .field-control {
+        flex-wrap: wrap;
+    }
+    
+    .field-btn {
+        flex: 1 1 calc(50% - 4px);
+    }
+}

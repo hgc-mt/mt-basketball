@@ -352,7 +352,13 @@ class NegotiationManager {
         this.saveNegotiations();
         this.addToHistory(negotiation);
         
-        return negotiation;
+        // 返回结果对象
+        return {
+            success: success,
+            negotiation: negotiation,
+            message: success ? '签约成功' : (negotiation.status === 'failed' ? '谈判失败' : '球员提出还价'),
+            status: negotiation.status
+        };
     }
 
     getAcceptanceMessage() {
