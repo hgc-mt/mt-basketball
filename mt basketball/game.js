@@ -8,7 +8,7 @@ const GameState = {
     availablePlayers: [],
     gameSchedule: [],
     nextGameIndex: 0,
-    maxScholarships: 13, // NCAA D1级别篮球项目有13个全额奖学金名额
+    maxScholarships: 5,
     playerIdCounter: 1000,
     teamIdCounter: 20,
     coachIdCounter: 1, // 教练ID计数器
@@ -550,9 +550,8 @@ class Player {
         
         const averageAttribute = totalAttribute / attributeCount;
         
-        // NCAA篮球奖学金规则：
-        // NCAA D1级别篮球项目有13个全额奖学金名额，可以分配给最多15名球员
-        // 奖学金可以是全额、部分或无奖学金
+        // 奖学金规则：
+        // 5个全额奖学金名额
         // 1.0 = 全额奖学金 (Full Ride)
         // 0.75 = 75%奖学金
         // 0.5 = 50%奖学金
@@ -1651,7 +1650,6 @@ class Team {
     calculateScholarshipsUsed() {
         let total = 0;
         this.roster.forEach(player => {
-            // NCAA D1级别篮球项目有13个全额奖学金名额
             // 使用新的奖学金值系统：1.0=全额, 0.75=75%, 0.5=50%, 0.25=25%, 0.0=无
             total += player.scholarship;
         });
@@ -2120,7 +2118,39 @@ function simulateAIPlayerSignings(progress) {
         
         if (Math.random() < pickupProb) {
             console.log(`[市场动态] ${player.name} 被其他球队签走了 (评分: ${player.overallRating})`);
+            
+            // ===== 关键修复：通知skipRuleManager该球员被签走 =====
+            // 使用RecruitmentUtils工具函数避免代码重复
+            if (typeof RecruitmentUtils !== 'undefined') {
+                RecruitmentUtils.notifySkipRuleManagerOfSignedPlayer(player.id, player.name, {
+                    source: 'game.js'
+                });
+            } else {
+                // 降级处理：如果工具函数不可用，使用内联逻辑
+                console.warn('[game.js] RecruitmentUtils不可用，使用降级处理');
+                _fallbackNotifySkipRuleManager(player.id, player.name);
+            }
+            
             GameState.availablePlayers.splice(i, 1);
+        }
+    }
+}
+
+/**
+ * 降级处理：直接更新谈判状态
+ * 当RecruitmentUtils不可用时使用
+ */
+function _fallbackNotifySkipRuleManager(playerId, playerName) {
+    // 更新GameState中的谈判状态
+    if (GameState.negotiations?.playerNegotiations) {
+        const playerNegotiations = GameState.negotiations.playerNegotiations;
+        const negotiationIndex = playerNegotiations.findIndex(n => n.targetId === playerId);
+        
+        if (negotiationIndex !== -1 && playerNegotiations[negotiationIndex]) {
+            playerNegotiations[negotiationIndex].status = 'expired';
+            playerNegotiations[negotiationIndex].expiredReason = '被其他球队签走';
+            playerNegotiations[negotiationIndex].expiredAt = new Date().toISOString();
+            console.log(`[game.js] 已更新谈判状态: ${playerName} 被标记为过期`);
         }
     }
 }

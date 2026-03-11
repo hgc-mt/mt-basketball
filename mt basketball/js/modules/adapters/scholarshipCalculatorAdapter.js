@@ -69,14 +69,14 @@ class ScholarshipCalculatorAdapter {
         }
 
         try {
-            let totalScholarships = 13; // 默认值
+            let totalScholarships = 5; // 默认值
             let usedShare = 0;
 
             // 获取总奖学金份额
             if (typeof team.scholarships === 'number') {
                 totalScholarships = team.scholarships;
             } else if (team.scholarships && typeof team.scholarships === 'object') {
-                totalScholarships = team.scholarships.total || 13;
+                totalScholarships = team.scholarships.total || 5;
             }
 
             // 获取已使用份额

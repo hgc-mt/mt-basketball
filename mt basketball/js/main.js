@@ -57,6 +57,10 @@ class BasketballManagerApp {
         this.teamDevelopmentInterface = new TeamDevelopmentInterface(this.gameStateManager, this.teamDevelopmentSystem);
         window.teamDevelopmentInterface = this.teamDevelopmentInterface;
 
+        // 初始化GM工具（开发测试用）
+        this.gmTools = new GMTools(this.gameStateManager);
+        window.gmTools = this.gmTools;
+
         this.pixiRenderer = null;
         this.currentScheduleWeek = 1;
 
@@ -201,10 +205,17 @@ class BasketballManagerApp {
         const state = this.gameStateManager.getState();
         const teamName = state.userTeam?.name || state.teamName || '未命名球队';
         
-        // Update header
+        // Update header (old element for compatibility)
         const headerTeamName = document.getElementById('team-name');
         if (headerTeamName) {
             headerTeamName.textContent = teamName;
+        }
+        
+        // Update new header element
+        const newHeaderTeamName = document.getElementById('header-team-name');
+        if (newHeaderTeamName) {
+            newHeaderTeamName.textContent = teamName;
+            newHeaderTeamName.setAttribute('data-text', teamName);
         }
         
         // Update team management screen
@@ -212,6 +223,57 @@ class BasketballManagerApp {
         if (screenTeamName) {
             screenTeamName.textContent = teamName;
         }
+        
+        // Update team rating badge
+        const ratingBadge = document.getElementById('header-team-rating');
+        if (ratingBadge && state.userTeam) {
+            const power = state.userTeam.getTeamStrength ? state.userTeam.getTeamStrength() : 0;
+            let ratingText = 'C';
+            let ratingColor = '#95a5a6';
+            
+            if (power >= 90) {
+                ratingText = 'S';
+                ratingColor = '#e74c3c';
+            } else if (power >= 80) {
+                ratingText = 'A';
+                ratingColor = '#f39c12';
+            } else if (power >= 70) {
+                ratingText = 'B';
+                ratingColor = '#3498db';
+            } else if (power >= 60) {
+                ratingText = 'C';
+                ratingColor = '#27ae60';
+            } else {
+                ratingText = 'D';
+                ratingColor = '#95a5a6';
+            }
+            
+            ratingBadge.textContent = ratingText;
+            ratingBadge.setAttribute('data-rating', ratingText);
+            ratingBadge.style.background = `linear-gradient(135deg, ${ratingColor} 0%, ${this.darkenColor(ratingColor, 20)} 100%)`;
+        }
+        
+        // Update team power
+        const powerEl = document.getElementById('header-team-power');
+        if (powerEl && state.userTeam) {
+            const power = state.userTeam.getTeamStrength ? state.userTeam.getTeamStrength() : 0;
+            powerEl.textContent = power;
+        }
+    }
+    
+    /**
+     * Darken a color by a percentage
+     * @param {string} color - Hex color
+     * @param {number} percent - Percentage to darken
+     * @returns {string} Darkened hex color
+     */
+    darkenColor(color, percent) {
+        const num = parseInt(color.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = Math.max((num >> 16) - amt, 0);
+        const G = Math.max((num >> 8 & 0x00FF) - amt, 0);
+        const B = Math.max((num & 0x0000FF) - amt, 0);
+        return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
     }
     
     /**
@@ -221,7 +283,8 @@ class BasketballManagerApp {
         const state = this.gameStateManager.getState();
         const currentName = state.userTeam?.name || state.teamName || '';
 
-        this.showTeamNameInputDialog(currentName, (newName) => {
+        // 编辑模式：不传originalName（第二个参数为空字符串）
+        this.showTeamNameInputDialog(currentName, '', (newName) => {
             if (newName && newName.trim() !== '') {
                 const trimmedName = newName.trim();
 
@@ -243,9 +306,387 @@ class BasketballManagerApp {
     }
 
     /**
-     * 显示球队名称输入对话框
+     * 显示赛区选择对话框
+     * @param {Function} callback - 回调函数，参数为 { conferenceId, conferenceName, replacedTeam }
      */
-    showTeamNameInputDialog(defaultName, callback) {
+    showConferenceSelectDialog(callback) {
+        // 移除已存在的对话框
+        const existingModal = document.getElementById('conference-select-modal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'conference-select-modal';
+        modal.className = 'modal conference-select-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            animation: fadeIn 0.3s ease;
+        `;
+
+        // 赛区数据
+        const conferences = [
+            {
+                id: 'Asia-Pacific',
+                name: '🌏 中亚赛区',
+                description: '中国、日本、韩国、新加坡等亚洲名校',
+                teams: ['清华大学', '北京大学', '东京大学', '首尔大学', '新加坡国立', '香港大学', '台湾大学', '早稻田大学'],
+                color: '#ff6b6b'
+            },
+            {
+                id: 'Europe',
+                name: '🏰 欧洲赛区',
+                description: '英国、法国、德国、瑞士等欧洲名校',
+                teams: ['牛津大学', '剑桥大学', '帝国理工', '伦敦政经', '巴黎高师', '慕尼黑工大', '苏黎世联邦', '代尔夫特理工'],
+                color: '#4ecdc4'
+            },
+            {
+                id: 'Americas',
+                name: '🗽 美洲赛区',
+                description: '美国、加拿大等北美名校',
+                teams: ['哈佛大学', '麻省理工', '斯坦福大学', '耶鲁大学', '普林斯顿', '加州理工', '芝加哥大学', '多伦多大学'],
+                color: '#45b7d1'
+            },
+            {
+                id: 'Wild-Card',
+                name: '🌍 外卡赛区',
+                description: '澳洲、非洲、南美等其他地区名校',
+                teams: ['悉尼大学', '墨尔本大学', '开普敦大学', '开罗大学', '耶路撒冷希伯来', '伊斯坦布尔大学', '奥克兰大学', '圣保罗大学'],
+                color: '#f9ca24'
+            }
+        ];
+
+        const conferenceCards = conferences.map(conf => `
+            <div class="conference-card" data-conference="${conf.id}" style="
+                background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+                border: 2px solid ${conf.color};
+                border-radius: 16px;
+                padding: 25px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-align: left;
+            " onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 10px 30px rgba(0,0,0,0.3)'" 
+               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                <h3 style="color: ${conf.color}; font-size: 1.3rem; margin-bottom: 8px; font-weight: 700;">${conf.name}</h3>
+                <p style="color: #9898a8; font-size: 0.9rem; margin-bottom: 12px;">${conf.description}</p>
+                <div style="color: #6b7280; font-size: 0.8rem;">
+                    <strong style="color: #d4d4dc;">8支球队：</strong>${conf.teams.join('、')}
+                </div>
+            </div>
+        `).join('');
+
+        modal.innerHTML = `
+            <div class="conference-select-dialog" style="
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                border-radius: 24px;
+                padding: 50px;
+                max-width: 900px;
+                width: 90%;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+                border: 2px solid rgba(255, 255, 255, 0.1);
+                text-align: center;
+            ">
+                <div class="dialog-icon" style="
+                    font-size: 4rem;
+                    margin-bottom: 20px;
+                ">🏆</div>
+                <h2 style="
+                    color: #ffffff;
+                    font-size: 2rem;
+                    margin-bottom: 10px;
+                    font-weight: 700;
+                ">选择你的赛区</h2>
+                <p style="
+                    color: #9898a8;
+                    font-size: 1rem;
+                    margin-bottom: 35px;
+                ">选择一个赛区加入，你将替换该赛区的一支球队</p>
+
+                <div class="conference-grid" style="
+                    display: grid;
+                    grid-template-columns: repeat(2, 1fr);
+                    gap: 20px;
+                    margin-bottom: 30px;
+                ">
+                    ${conferenceCards}
+                </div>
+
+                <div class="dialog-hint" style="
+                    color: #6b7280;
+                    font-size: 0.85rem;
+                    padding: 15px;
+                    background: rgba(255,255,255,0.05);
+                    border-radius: 10px;
+                ">
+                    💡 <strong>提示：</strong>选择赛区后，你将从该赛区挑选一支球队进行替换，建立自己的篮球王朝！
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // 添加点击事件
+        const cards = modal.querySelectorAll('.conference-card');
+        cards.forEach(card => {
+            card.addEventListener('click', () => {
+                const conferenceId = card.dataset.conference;
+                const conference = conferences.find(c => c.id === conferenceId);
+                
+                // 关闭赛区选择对话框
+                modal.remove();
+                
+                // 显示球队选择对话框
+                this.showTeamSelectDialog(conference, callback);
+            });
+        });
+    }
+
+    /**
+     * 显示球队选择对话框（选择要替换的球队）
+     * @param {Object} conference - 赛区信息
+     * @param {Function} callback - 回调函数
+     */
+    showTeamSelectDialog(conference, callback) {
+        // 移除已存在的对话框
+        const existingModal = document.getElementById('team-select-modal');
+        if (existingModal) existingModal.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'team-select-modal';
+        modal.className = 'modal team-select-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10001;
+            animation: fadeIn 0.3s ease;
+        `;
+
+        const teamCards = conference.teams.map((team, index) => `
+            <div class="team-card" data-team="${team}" style="
+                background: linear-gradient(135deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%);
+                border: 2px solid rgba(255,255,255,0.1);
+                border-radius: 12px;
+                padding: 20px;
+                cursor: pointer;
+                transition: all 0.3s ease;
+                text-align: center;
+                position: relative;
+            " onmouseover="this.style.borderColor='${conference.color}'; this.style.transform='scale(1.05)'" 
+               onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'; this.style.transform='scale(1)'">
+                <div style="font-size: 2rem; margin-bottom: 8px;">🏀</div>
+                <h4 style="color: #ffffff; font-size: 1.1rem; margin-bottom: 5px; font-weight: 600;">${team}</h4>
+                <p style="color: #6b7280; font-size: 0.75rem;">点击选择</p>
+            </div>
+        `).join('');
+
+        modal.innerHTML = `
+            <div class="team-select-dialog" style="
+                background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                border-radius: 24px;
+                padding: 40px;
+                max-width: 800px;
+                width: 90%;
+                max-height: 90vh;
+                overflow-y: auto;
+                box-shadow: 0 25px 80px rgba(0, 0, 0, 0.6);
+                border: 2px solid ${conference.color};
+                text-align: center;
+            ">
+                <div style="
+                    display: inline-block;
+                    padding: 8px 20px;
+                    background: ${conference.color}20;
+                    border: 1px solid ${conference.color};
+                    border-radius: 20px;
+                    color: ${conference.color};
+                    font-size: 0.9rem;
+                    margin-bottom: 15px;
+                ">${conference.name}</div>
+                
+                <h2 style="
+                    color: #ffffff;
+                    font-size: 1.8rem;
+                    margin-bottom: 10px;
+                    font-weight: 700;
+                ">选择要替换的球队</h2>
+                
+                <!-- 提示信息 -->
+                <div style="
+                    background: linear-gradient(135deg, rgba(249, 202, 36, 0.15) 0%, rgba(249, 202, 36, 0.05) 100%);
+                    border: 1px solid rgba(249, 202, 36, 0.3);
+                    border-radius: 12px;
+                    padding: 15px 20px;
+                    margin-bottom: 25px;
+                    text-align: left;
+                ">
+                    <div style="color: #f9ca24; font-size: 1rem; font-weight: 600; margin-bottom: 8px;">
+                        ⚠️ 你将取代以下球队之一
+                    </div>
+                    <div style="color: #d4d4dc; font-size: 0.9rem; line-height: 1.6;">
+                        选择一支球队后，<strong style="color: #f9ca24;">你的新球队将取代它的位置</strong>，继承它的赛程和赛区资格。<br>
+                        被取代的球队将退出联赛，你将与剩下的31支球队竞争！
+                    </div>
+                </div>
+
+                <div class="team-grid" style="
+                    display: grid;
+                    grid-template-columns: repeat(4, 1fr);
+                    gap: 15px;
+                    margin-bottom: 25px;
+                ">
+                    ${teamCards}
+                </div>
+
+                <button id="back-to-conference" style="
+                    padding: 12px 30px;
+                    background: rgba(255,255,255,0.1);
+                    border: 1px solid rgba(255,255,255,0.2);
+                    border-radius: 10px;
+                    color: #d4d4dc;
+                    font-size: 0.9rem;
+                    cursor: pointer;
+                    transition: all 0.3s ease;
+                ">← 返回重新选择赛区</button>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+
+        // 添加球队点击事件
+        const teamCardsEl = modal.querySelectorAll('.team-card');
+        teamCardsEl.forEach(card => {
+            card.addEventListener('click', () => {
+                const replacedTeam = card.dataset.team;
+                
+                // 显示确认对话框
+                const confirmModal = document.createElement('div');
+                confirmModal.style.cssText = `
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100%;
+                    height: 100%;
+                    background: rgba(0, 0, 0, 0.9);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    z-index: 10002;
+                    animation: fadeIn 0.3s ease;
+                `;
+                
+                confirmModal.innerHTML = `
+                    <div style="
+                        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                        border-radius: 20px;
+                        padding: 35px;
+                        max-width: 450px;
+                        width: 90%;
+                        text-align: center;
+                        border: 2px solid ${conference.color};
+                        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+                    ">
+                        <div style="font-size: 3rem; margin-bottom: 15px;">🔄</div>
+                        <h3 style="color: #ffffff; font-size: 1.4rem; margin-bottom: 15px; font-weight: 700;">
+                            确认替换球队
+                        </h3>
+                        <div style="
+                            background: rgba(255,255,255,0.05);
+                            border-radius: 12px;
+                            padding: 20px;
+                            margin-bottom: 20px;
+                            text-align: left;
+                        ">
+                            <div style="color: #9898a8; font-size: 0.9rem; margin-bottom: 10px;">
+                                你选择了替换：
+                            </div>
+                            <div style="color: ${conference.color}; font-size: 1.3rem; font-weight: 700; margin-bottom: 15px;">
+                                ${replacedTeam}
+                            </div>
+                            <div style="color: #6b7280; font-size: 0.85rem; line-height: 1.5;">
+                                • 你的新球队将加入 <strong style="color: #d4d4dc;">${conference.name}</strong><br>
+                                • 继承 ${replacedTeam} 的赛程和赛区资格<br>
+                                • ${replacedTeam} 将退出联赛
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 12px;">
+                            <button id="cancel-replace" style="
+                                flex: 1;
+                                padding: 12px 20px;
+                                background: rgba(255,255,255,0.1);
+                                border: 1px solid rgba(255,255,255,0.2);
+                                border-radius: 10px;
+                                color: #d4d4dc;
+                                font-size: 0.9rem;
+                                cursor: pointer;
+                                transition: all 0.3s ease;
+                            ">重新选择</button>
+                            <button id="confirm-replace" style="
+                                flex: 1;
+                                padding: 12px 20px;
+                                background: linear-gradient(135deg, ${conference.color} 0%, ${conference.color}dd 100%);
+                                border: none;
+                                border-radius: 10px;
+                                color: white;
+                                font-size: 0.9rem;
+                                font-weight: 600;
+                                cursor: pointer;
+                                transition: all 0.3s ease;
+                            ">确认替换</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(confirmModal);
+                
+                // 取消按钮
+                confirmModal.querySelector('#cancel-replace').addEventListener('click', () => {
+                    confirmModal.remove();
+                });
+                
+                // 确认按钮
+                confirmModal.querySelector('#confirm-replace').addEventListener('click', () => {
+                    confirmModal.remove();
+                    modal.remove();
+                    callback({
+                        conferenceId: conference.id,
+                        conferenceName: conference.name,
+                        replacedTeam: replacedTeam
+                    });
+                });
+            });
+        });
+
+        // 返回按钮
+        const backBtn = modal.querySelector('#back-to-conference');
+        backBtn.addEventListener('click', () => {
+            modal.remove();
+            this.showConferenceSelectDialog(callback);
+        });
+    }
+
+    /**
+     * 显示球队名称输入对话框
+     * @param {string} defaultName - 输入框默认值（空字符串）
+     * @param {string} originalName - 原球队名称（用于显示提示）
+     * @param {Function} callback - 回调函数
+     */
+    showTeamNameInputDialog(defaultName, originalName, callback) {
         // 移除已存在的对话框
         const existingModal = document.getElementById('team-name-modal');
         if (existingModal) existingModal.remove();
@@ -266,6 +707,21 @@ class BasketballManagerApp {
             z-index: 10000;
             animation: fadeIn 0.3s ease;
         `;
+
+        // 如果有原球队名称，显示提示
+        const originalNameHint = originalName ? `
+            <div style="
+                margin-bottom: 15px;
+                padding: 10px 15px;
+                background: rgba(102, 126, 234, 0.15);
+                border-radius: 8px;
+                border-left: 3px solid #667eea;
+            ">
+                <span style="color: #9898a8; font-size: 0.85rem;">你接管了</span>
+                <span style="color: #667eea; font-weight: 600;">${originalName}</span>
+                <span style="color: #9898a8; font-size: 0.85rem;">，为它取个新名字吧！</span>
+            </div>
+        ` : '';
 
         modal.innerHTML = `
             <div class="team-name-dialog" style="
@@ -293,7 +749,7 @@ class BasketballManagerApp {
                     font-size: 0.95rem;
                     margin-bottom: 25px;
                 ">为你的大学篮球队取一个响亮的名字</p>
-
+                ${originalNameHint}
                 <div class="input-wrapper" style="
                     margin-bottom: 25px;
                 ">
@@ -627,6 +1083,9 @@ class BasketballManagerApp {
             // Update team name display
             this.updateTeamNameDisplay();
 
+            // Update game info header (date, funds, scholarships, power)
+            this.uiManager.updateGameInfoHeader();
+
             // Set up module dependencies
             console.log('Setting up module dependencies...');
             this.setupModuleDependencies();
@@ -634,7 +1093,10 @@ class BasketballManagerApp {
             // Initialize Data Sync Manager after all modules are ready
             console.log('Initializing Data Sync Manager...');
             await this.dataSyncManager.initialize();
-            
+
+            // Update header info again after data sync
+            this.uiManager.updateGameInfoHeader();
+
             // Set global reference for negotiation manager
             window.negotiationManager = this.negotiationManager;
 
@@ -1218,6 +1680,23 @@ class BasketballManagerApp {
                     ">
                         🎮 完整模拟
                     </button>
+                    
+                    <button id="watch-game-btn" style="
+                        padding: 20px;
+                        background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+                        border: none;
+                        border-radius: 12px;
+                        color: white;
+                        font-weight: 700;
+                        font-size: 1.1rem;
+                        cursor: pointer;
+                        transition: all 0.3s ease;
+                        text-transform: uppercase;
+                        letter-spacing: 1px;
+                        box-shadow: 0 4px 15px rgba(74, 222, 128, 0.4);
+                    ">
+                        📺 观看比赛
+                    </button>
                 </div>
                 
                 <button id="cancel-btn" style="
@@ -1242,6 +1721,7 @@ class BasketballManagerApp {
 
         const quickSimBtn = modal.querySelector('#quick-sim-btn');
         const fullSimBtn = modal.querySelector('#full-sim-btn');
+        const watchGameBtn = modal.querySelector('#watch-game-btn');
         const cancelBtn = modal.querySelector('#cancel-btn');
 
         quickSimBtn.addEventListener('click', () => {
@@ -1259,6 +1739,16 @@ class BasketballManagerApp {
         fullSimBtn.addEventListener('click', () => {
             modal.remove();
             this.gameEngine.startGame(game);
+        });
+
+        watchGameBtn.addEventListener('click', () => {
+            modal.remove();
+            // 显示篮球场并观看比赛
+            if (this.pixiRenderer) {
+                this.pixiRenderer.showBasketballCourt();
+            }
+            this.gameEngine.startGame(game);
+            this.showNotification('正在加载比赛画面...', 'info');
         });
 
         cancelBtn.addEventListener('click', () => {
@@ -1284,6 +1774,16 @@ class BasketballManagerApp {
             fullSimBtn.style.transform = 'translateY(0)';
             fullSimBtn.style.boxShadow = '0 4px 15px rgba(102, 126, 234, 0.4)';
         });
+
+        watchGameBtn.addEventListener('mouseenter', () => {
+            watchGameBtn.style.transform = 'translateY(-3px)';
+            watchGameBtn.style.boxShadow = '0 8px 25px rgba(74, 222, 128, 0.6)';
+        });
+
+        watchGameBtn.addEventListener('mouseleave', () => {
+            watchGameBtn.style.transform = 'translateY(0)';
+            watchGameBtn.style.boxShadow = '0 4px 15px rgba(74, 222, 128, 0.4)';
+        });
     }
 
     /**
@@ -1293,6 +1793,15 @@ class BasketballManagerApp {
         const game = this.scheduleManager.schedule.find(g => g.id === gameId);
         if (game) {
             this.startGame(game);
+        }
+    }
+
+    /**
+     * Filter players by potential range (called from distribution bars)
+     */
+    filterByPotential(min, max) {
+        if (this.recruitmentInterface) {
+            this.recruitmentInterface.filterByPotential(min, max);
         }
     }
 
@@ -1689,17 +2198,107 @@ function fastForwardDays(days) {
     `;
 
     if (result.pickedUpDetails && result.pickedUpDetails.length > 0) {
+        // 按位置分组统计
+        const positionGroups = {};
+        result.pickedUpDetails.forEach(p => {
+            const pos = p.position || '未知';
+            if (!positionGroups[pos]) {
+                positionGroups[pos] = [];
+            }
+            positionGroups[pos].push(p);
+        });
+
+        // 计算各位置流失人数
+        const positionSummary = Object.entries(positionGroups)
+            .map(([pos, players]) => `${pos}: ${players.length}人`)
+            .join('，');
+
         summaryHTML += `
-            <h4 style="margin: 15px 0 10px; font-size: 0.95rem; color: var(--text-secondary);">被签走的球员：</h4>
-            <div class="picked-up-list">
-                ${result.pickedUpDetails.map(p => `
-                    <div class="picked-up-item">
-                        <span class="player-name">${p.name}</span>
-                        <span class="player-rating">评分 ${p.rating} | ${p.position}</span>
-                    </div>
-                `).join('')}
+            <div class="summary-row" style="margin-top: 15px; background: rgba(239, 68, 68, 0.1); padding: 10px; border-radius: 6px;">
+                <span class="label">⚠️ 位置流失</span>
+                <span class="value" style="color: #ef4444;">${positionSummary}</span>
             </div>
         `;
+
+        // 按位置分组显示详细列表
+        summaryHTML += `<h4 style="margin: 20px 0 10px; font-size: 0.95rem; color: var(--text-secondary);">被签走的球员详情：</h4>`;
+        
+        Object.entries(positionGroups).forEach(([position, players]) => {
+            summaryHTML += `
+                <div class="position-group" style="margin-bottom: 15px;">
+                    <div style="font-weight: 600; color: var(--accent-color); margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid var(--border-color);">
+                        ${position} (${players.length}人)
+                    </div>
+                    <div class="picked-up-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px;">
+                        ${players.map(p => {
+                            const yearText = ['大一', '大二', '大三', '大四'][p.year - 1] || '未知';
+                            const typeText = p.status === 'freshman_recruit' ? '新生' : 
+                                           p.status === 'transfer_wanted' ? '转学生' : '自由球员';
+                            const potentialColor = p.potential >= 85 ? '#10b981' : 
+                                                  p.potential >= 75 ? '#f59e0b' : '#6b7280';
+                            return `
+                                <div class="picked-up-item" style="display: flex; flex-direction: column; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; border-left: 3px solid ${potentialColor};">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                        <span class="player-name" style="font-weight: 600; color: var(--text-primary);">${p.name}</span>
+                                        <span style="font-size: 0.8rem; color: var(--text-secondary);">${typeText}</span>
+                                    </div>
+                                    <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem;">
+                                        <span style="color: var(--text-secondary);">
+                                            评分: <strong style="color: var(--accent-color);">${p.rating}</strong> | 
+                                            潜力: <strong style="color: ${potentialColor};">${p.potential}</strong>
+                                        </span>
+                                        <span style="color: var(--text-secondary);">${yearText}</span>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        });
+
+        // 添加阵容缺口分析
+        const state = window.app.gameStateManager.getState();
+        const userTeam = state.userTeam;
+        if (userTeam && userTeam.roster) {
+            const roster = userTeam.roster;
+            const positionNeeds = {};
+            const positions = ['PG', 'SG', 'SF', 'PF', 'C'];
+            
+            positions.forEach(pos => {
+                const currentCount = roster.filter(p => p.position === pos).length;
+                const lostCount = positionGroups[pos]?.length || 0;
+                const totalNeeded = 2; // 每个位置建议至少2人
+                const remaining = currentCount - lostCount;
+                
+                if (remaining < totalNeeded) {
+                    positionNeeds[pos] = {
+                        current: currentCount,
+                        lost: lostCount,
+                        remaining: remaining,
+                        need: totalNeeded - remaining
+                    };
+                }
+            });
+
+            if (Object.keys(positionNeeds).length > 0) {
+                summaryHTML += `
+                    <div style="margin-top: 20px; padding: 15px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                        <h4 style="margin: 0 0 12px; font-size: 1rem; color: #f59e0b;">⚠️ 阵容缺口分析（需要补充）</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;">
+                            ${Object.entries(positionNeeds).map(([pos, data]) => `
+                                <div style="padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; text-align: center;">
+                                    <div style="font-size: 1.1rem; font-weight: 700; color: #f59e0b; margin-bottom: 5px;">${pos}</div>
+                                    <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                                        剩余 ${data.remaining} 人 | 需补 <strong style="color: #ef4444;">${data.need}</strong> 人
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        }
     }
 
     showModal('快速前进摘要', summaryHTML);
@@ -1711,6 +2310,11 @@ function fastForwardDays(days) {
 
     if (window.app && window.app.scheduleManager) {
         window.app.scheduleManager.renderSchedule();
+    }
+
+    // Update header info (date, funds, etc.)
+    if (window.app && window.app.uiManager) {
+        window.app.uiManager.updateGameInfoHeader();
     }
 
     // Auto-save after fast forward
@@ -1738,24 +2342,22 @@ function validateFastForwardConditions() {
     }
 
     // 检查招募结果：验证球队是否成功招募到足够球员
-    // 根据奖学金系统，检查奖学金使用情况
-    const scholarships = state.scholarships;
-    let usedScholarships = 0;
+    // 要求：阵容中的球员 + 活跃谈判中的球员 >= 13 人
+    const rosterCount = userTeam.roster?.length || 0;
     
-    if (scholarships && typeof scholarships === 'object') {
-        usedScholarships = scholarships.used || 0;
-    } else {
-        // 后备方案：使用阵容长度
-        usedScholarships = userTeam.roster?.length || 0;
-    }
+    // 获取活跃谈判中的球员数量
+    const activeNegotiations = state.activeNegotiations || [];
+    const negotiationCount = activeNegotiations.filter(n => 
+        n.status === 'active' || n.status === 'pending' || n.status === 'countered'
+    ).length;
     
-    // 检查是否使用了全部5个奖学金名额
-    const totalScholarships = 5; // 根据我们的设置
+    const totalPlayers = rosterCount + negotiationCount;
+    const requiredPlayers = 13; // 需要的球员数量
     
-    if (usedScholarships < totalScholarships) {
+    if (totalPlayers < requiredPlayers) {
         return { 
             canProceed: false, 
-            message: `球队奖学金未满！当前使用：${usedScholarships}/${totalScholarships} 个奖学金名额，需要填满所有奖学金名额才能跳过当前周期` 
+            message: `球员数量不足！当前阵容：${rosterCount} 人，谈判中：${negotiationCount} 人，总计：${totalPlayers} 人。需要至少 ${requiredPlayers} 人才能开始新赛季。` 
         };
     }
 
@@ -1870,7 +2472,7 @@ function fastForwardToSeason() {
     const playerNegotiations = state.playerNegotiations || state.negotiations?.playerNegotiations || [];
     const negotiationCount = playerNegotiations.filter(n => n.status === 'active').length;
     const totalPlayers = rosterCount + negotiationCount;
-    
+
     if (totalPlayers < 13) {
         showNotification(`无法开始新赛季！\n\n当前状态：\n- 已招募球员：${rosterCount} 人\n- 谈判中球员：${negotiationCount} 人\n- 总计：${totalPlayers} 人\n\n要求：招募的球员 + 谈判中的球员 ≥ 13 人\n\n请继续招募或完成谈判。`, 'warning');
         return;
@@ -2444,6 +3046,11 @@ async function continueGame() {
     updateOffseasonPanel();
     
     showNotification('存档已加载', 'success');
+    
+    // 添加GM工具按钮（开发测试用）
+    if (window.gmTools) {
+        window.gmTools.addGMButtonToUI();
+    }
 }
 
 async function startNewGame() {
@@ -2489,27 +3096,58 @@ async function startNewGame() {
     // Start the app
     app.start();
 
-    // 显示球队命名对话框
+    // 显示赛区选择对话框
     setTimeout(() => {
-        app.showTeamNameInputDialog('', (teamName) => {
-            if (teamName && teamName.trim()) {
-                const state = app.gameStateManager.getState();
-                if (state.userTeam) {
-                    state.userTeam.name = teamName.trim();
-                }
-                app.gameStateManager.set('teamName', teamName.trim());
-                app.gameStateManager.saveGameState();
-                app.updateTeamNameDisplay();
-                showNotification(`欢迎来到 ${teamName.trim()}！`, 'success');
-            } else {
-                // 使用默认名称
-                const state = app.gameStateManager.getState();
-                const defaultName = state.userTeam?.name || '我的大学';
-                showNotification(`使用默认名称: ${defaultName}`, 'info');
-                app.updateTeamNameDisplay();
+        app.showConferenceSelectDialog((selection) => {
+            // 保存赛区选择信息
+            const state = app.gameStateManager.getState();
+            if (state.userTeam) {
+                state.userTeam.conference = selection.conferenceId;
+                state.userTeam.replacedTeam = selection.replacedTeam;
             }
-            updateOffseasonPanel();
-            renderScholarshipPanel();
+            
+            // 从allTeams中移除被替换的球队
+            if (state.allTeams) {
+                const teamIndex = state.allTeams.findIndex(t => t.name === selection.replacedTeam);
+                if (teamIndex !== -1) {
+                    state.allTeams.splice(teamIndex, 1);
+                    console.log(`[新游戏] 已移除被替换的球队: ${selection.replacedTeam}`);
+                }
+            }
+            
+            // 显示球队命名对话框
+            app.showTeamNameInputDialog('', '', (teamName) => {
+                if (teamName && teamName.trim()) {
+                    const state = app.gameStateManager.getState();
+                    if (state.userTeam) {
+                        state.userTeam.name = teamName.trim();
+                    }
+                    app.gameStateManager.set('teamName', teamName.trim());
+                    app.gameStateManager.saveGameState();
+                    app.updateTeamNameDisplay();
+                    showNotification(`欢迎来到 ${teamName.trim()}！`, 'success');
+                    showNotification(`你加入了${selection.conferenceName}，替换了 ${selection.replacedTeam}`, 'info');
+                } else {
+                    // 使用默认名称
+                    const defaultName = '我的大学';
+                    const state = app.gameStateManager.getState();
+                    if (state.userTeam) {
+                        state.userTeam.name = defaultName;
+                    }
+                    app.gameStateManager.set('teamName', defaultName);
+                    app.gameStateManager.saveGameState();
+                    showNotification(`使用默认名称: ${defaultName}`, 'info');
+                    showNotification(`你加入了${selection.conferenceName}，替换了 ${selection.replacedTeam}`, 'info');
+                    app.updateTeamNameDisplay();
+                }
+                updateOffseasonPanel();
+                renderScholarshipPanel();
+                
+                // 添加GM工具按钮（开发测试用）
+                if (window.gmTools) {
+                    window.gmTools.addGMButtonToUI();
+                }
+            });
         });
     }, 500);
 }

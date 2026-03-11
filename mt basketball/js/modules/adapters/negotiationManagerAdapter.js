@@ -66,6 +66,35 @@ class NegotiationManagerAdapter {
                 };
             }
 
+            // 验证奖学金可用性（仅对球员谈判）
+            if (targetType === 'player' && state.userTeam && initialOffer.scholarship > 0) {
+                // 计算阵容中已使用的奖学金
+                const usedInRoster = state.userTeam.calculateUsedScholarshipShare 
+                    ? state.userTeam.calculateUsedScholarshipShare() 
+                    : 0;
+                
+                // 计算其他谈判中占用的奖学金
+                const activeNegotiations = state.activeNegotiations || [];
+                const usedInNegotiations = activeNegotiations.reduce((sum, neg) => {
+                    if (neg.status === 'completed' || neg.status === 'accepted' || 
+                        neg.status === 'rejected' || neg.status === 'withdrawn') return sum;
+                    return sum + (neg.offer?.scholarship || 0);
+                }, 0);
+                
+                // 总可用奖学金
+                const totalScholarships = state.userTeam.scholarships || 5;
+                const availableShare = totalScholarships - usedInRoster - usedInNegotiations;
+                const requiredShare = initialOffer.scholarship || 0;
+                
+                if (requiredShare > availableShare) {
+                    return {
+                        success: false,
+                        error: 'INSUFFICIENT_SCHOLARSHIP',
+                        message: `奖学金份额不足 (需要 ${requiredShare.toFixed(2)}，可用 ${availableShare.toFixed(2)})`
+                    };
+                }
+            }
+
             // 创建谈判
             const negotiationId = Date.now();
             const negotiation = {
@@ -136,11 +165,29 @@ class NegotiationManagerAdapter {
             if (negotiation.targetType === 'player') {
                 const state = this.gameStateManager.getState();
                 if (state.userTeam) {
-                    const availableShare = state.userTeam.getAvailableScholarshipShare 
-                        ? state.userTeam.getAvailableScholarshipShare() 
+                    // 计算阵容中已使用的奖学金
+                    const usedInRoster = state.userTeam.calculateUsedScholarshipShare 
+                        ? state.userTeam.calculateUsedScholarshipShare() 
                         : 0;
                     
-                    const currentShare = negotiation.offer.scholarship || 0;
+                    // 计算其他谈判中占用的奖学金（不包括当前谈判）
+                    const activeNegotiations = state.activeNegotiations || [];
+                    let usedInOtherNegotiations = 0;
+                    
+                    for (const neg of activeNegotiations) {
+                        // 跳过当前谈判和已结束/已接受的谈判
+                        if (neg.id === negotiationId) continue;
+                        if (neg.status === 'completed' || neg.status === 'accepted' || 
+                            neg.status === 'rejected' || neg.status === 'withdrawn') continue;
+                        
+                        usedInOtherNegotiations += (neg.offer?.scholarship || 0);
+                    }
+                    
+                    // 总可用奖学金 = 总额 - 阵容已用 - 其他谈判占用
+                    const totalScholarships = state.userTeam.scholarships || 5;
+                    const availableShare = totalScholarships - usedInRoster - usedInOtherNegotiations;
+                    
+                    const currentShare = negotiation.offer?.scholarship || 0;
                     const newShare = newOffer.scholarship || 0;
                     const increase = newShare - currentShare;
                     
@@ -148,7 +195,7 @@ class NegotiationManagerAdapter {
                         return {
                             success: false,
                             error: 'INSUFFICIENT_SCHOLARSHIP',
-                            message: `奖学金份额不足 (需要 ${increase.toFixed(2)}，可用 ${availableShare.toFixed(2)})`
+                            message: `奖学金份额不足 (需要增加 ${increase.toFixed(2)}，可用 ${availableShare.toFixed(2)})`
                         };
                     }
                 }
@@ -243,13 +290,28 @@ class NegotiationManagerAdapter {
                 }
 
                 const player = state.availablePlayers[playerIndex];
-                player.scholarship = negotiation.offer.scholarship;
+                
+                // 将奖学金比例转换为奖学金等级
+                const scholarshipPercent = negotiation.offer.scholarship || 0;
+                let scholarshipLevel = 'none';
+                if (scholarshipPercent >= 1.0) {
+                    scholarshipLevel = 'full';
+                } else if (scholarshipPercent >= 0.75) {
+                    scholarshipLevel = 'major';
+                } else if (scholarshipPercent >= 0.5) {
+                    scholarshipLevel = 'partial';
+                } else if (scholarshipPercent >= 0.25) {
+                    scholarshipLevel = 'minimal';
+                }
+                
+                player.scholarship = scholarshipPercent;
+                player.scholarshipLevel = scholarshipLevel;
                 player.playingTimeGuarantee = negotiation.offer.playingTime;
 
                 state.availablePlayers.splice(playerIndex, 1);
 
                 if (state.userTeam) {
-                    const added = state.userTeam.addPlayer(player);
+                    const added = state.userTeam.addPlayer(player, scholarshipLevel);
                     if (!added) {
                         return {
                             success: false,

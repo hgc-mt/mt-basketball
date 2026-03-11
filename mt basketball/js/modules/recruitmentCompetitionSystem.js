@@ -215,6 +215,9 @@ class RecruitmentCompetitionSystem {
         // 确保系统已初始化
         this.ensureInitialized();
         
+        // 计算球员的报价期望
+        const playerExpectations = this.calculatePlayerExpectations(player);
+        
         const status = {
             playerId: player.id,
             playerName: player.name,
@@ -229,7 +232,7 @@ class RecruitmentCompetitionSystem {
             competingTeams: [],
             
             // 招募阶段
-            stage: 'initial',  // initial, interested, negotiating, committed, signed
+            stage: 'initial',  // initial, inquiry, interested, negotiating, committed, signed, rejected, insulted
             
             // 招募开始时间
             startTime: Date.now(),
@@ -250,7 +253,23 @@ class RecruitmentCompetitionSystem {
             isSigned: false,
             
             // 签约球队
-            signedWith: null
+            signedWith: null,
+            
+            // ===== 球员报价期望系统 =====
+            // 球员期望配置
+            expectations: playerExpectations,
+            
+            // 是否已经询问过初始报价
+            hasInquired: false,
+            
+            // 是否被羞辱（报价低于最低要求）
+            isInsulted: false,
+            
+            // 羞辱后消失时间
+            disappearUntil: null,
+            
+            // 是否已经直接签约（达到最高预期）
+            isAutoSigned: false
         };
         
         // 确定竞争球队
@@ -268,6 +287,133 @@ class RecruitmentCompetitionSystem {
         this.notifyAITeamsOfNewPlayer(player, status.competingTeams);
         
         return status;
+    }
+    
+    /**
+     * 计算球员报价期望
+     * @param {Object} player - 球员对象
+     * @returns {Object} 球员期望配置
+     */
+    calculatePlayerExpectations(player) {
+        const rating = player.rating || player.getOverallRating?.() || 70;
+        const potential = player.potential || 70;
+        const status = player.status || 'freshman_recruit';
+        
+        // 基础期望根据评分和潜力计算
+        const baseExpectation = (rating + potential) / 2;
+        
+        // 根据球员类型调整
+        let typeMultiplier = 1.0;
+        let playerType = 'unknown';
+        if (status === 'freshman_recruit') {
+            typeMultiplier = 0.9; // 新生期望较低
+            playerType = 'freshman';
+        } else if (status === 'transfer_wanted') {
+            typeMultiplier = 1.1; // 转学生期望较高
+            playerType = 'transfer';
+        } else if (status === 'free_agent') {
+            typeMultiplier = 1.0; // 自由球员正常
+            playerType = 'free_agent';
+        }
+        
+        // 随机因素（每个球员有不同的性格）
+        const personalityFactor = 0.9 + Math.random() * 0.2; // 0.9 - 1.1
+        
+        // 计算各项期望值
+        const adjustedExpectation = baseExpectation * typeMultiplier * personalityFactor;
+        
+        // 最低接受报价（低于此值会被羞辱）
+        const minAcceptable = Math.max(20, Math.min(50, adjustedExpectation * 0.4));
+        
+        // 理想报价（达到此值会直接签约）
+        const idealOffer = Math.min(95, adjustedExpectation * 1.1);
+        
+        // 初始询问报价（球员会先询问这个）
+        const initialInquiry = Math.min(85, adjustedExpectation * 0.95);
+        
+        // 根据球员类型配置时间衰减规则
+        let decayConfig;
+        
+        if (playerType === 'freshman') {
+            // 大一新生：不会衰减，保持坚定
+            decayConfig = {
+                canDecay: false, // 大一新生不会衰减
+                dailyDecay: 0,
+                floorValue: initialInquiry,
+                startDecayAfterDays: 999, // 实际上不会触发
+                accelerationFactor: 1.0
+            };
+        } else if (playerType === 'transfer') {
+            // 转学生：前2个月（约60天）不衰减，最后1个月衰减
+            decayConfig = {
+                canDecay: true,
+                dailyDecay: 0.8 + Math.random() * 0.4, // 0.8% - 1.2% 每天
+                floorValue: minAcceptable * 0.85,
+                startDecayAfterDays: 60, // 60天后开始衰减（前2个月不降价）
+                accelerationFactor: 1.2 + Math.random() * 0.3, // 1.2 - 1.5，最后一个月加速
+                transferPhase: 'early' // 当前阶段：early(前2月), late(最后1月)
+            };
+        } else {
+            // 自由球员：7-14天后开始衰减（标准规则）
+            decayConfig = {
+                canDecay: true,
+                dailyDecay: 0.5 + Math.random() * 0.5, // 0.5% - 1.0% 每天
+                floorValue: minAcceptable * 0.8,
+                startDecayAfterDays: 7 + Math.floor(Math.random() * 7), // 7-14天后开始衰减
+                accelerationFactor: 1.0 + Math.random() * 0.5 // 1.0 - 1.5
+            };
+        }
+        
+        return {
+            // 球员类型
+            playerType: playerType,
+            // 最低可接受报价（百分比）
+            minAcceptable: Math.round(minAcceptable),
+            // 理想报价（达到直接签约）
+            idealOffer: Math.round(idealOffer),
+            // 初始询问报价
+            initialInquiry: Math.round(initialInquiry),
+            // 时间衰减配置
+            decay: decayConfig,
+            // 当前期望（会随时间变化）
+            currentExpectation: Math.round(initialInquiry),
+            // 球员性格描述
+            personality: this.getPersonalityDescription(personalityFactor, minAcceptable, idealOffer, playerType)
+        };
+    }
+    
+    /**
+     * 获取球员性格描述
+     * @param {number} factor - 性格因子
+     * @param {number} minAcceptable - 最低可接受报价
+     * @param {number} idealOffer - 理想报价
+     * @param {string} playerType - 球员类型
+     */
+    getPersonalityDescription(factor, minAcceptable, idealOffer, playerType) {
+        // 根据球员类型添加前缀描述
+        let typePrefix = '';
+        if (playerType === 'freshman') {
+            typePrefix = '【大一新生】坚定自信，价格不会随时间降低。';
+        } else if (playerType === 'transfer') {
+            typePrefix = '【转学生】前2个月价格稳定，最后1个月可能降价。';
+        }
+        
+        let personalityDesc = '';
+        if (factor > 1.05 && idealOffer > 85) {
+            personalityDesc = '雄心勃勃，要求高报价';
+        } else if (factor > 1.05) {
+            personalityDesc = '自信，但务实';
+        } else if (factor < 0.95 && minAcceptable < 30) {
+            personalityDesc = '谦逊，容易满足';
+        } else if (factor < 0.95) {
+            personalityDesc = '谨慎，但有自己的底线';
+        } else if (idealOffer - minAcceptable > 50) {
+            personalityDesc = '灵活，谈判空间大';
+        } else {
+            personalityDesc = '标准心态';
+        }
+        
+        return typePrefix + personalityDesc;
     }
     
     /**
@@ -629,6 +775,7 @@ class RecruitmentCompetitionSystem {
     
     /**
      * 处理AI球队行动
+     * 降低AI行动频率，让玩家有更多时间反应
      */
     processAITeamActions(status) {
         status.competingTeams.forEach(teamId => {
@@ -643,20 +790,23 @@ class RecruitmentCompetitionSystem {
                 potential: 75 // 简化处理
             });
             
-            if (priority === 'high' && Math.random() < 0.4) {
-                // 高优先级：大幅增加兴趣度
-                const increase = 5 + Math.floor(Math.random() * 10);
+            // ===== 降低AI行动频率 =====
+            // 高优先级：40% -> 15%，增加更多随机性
+            if (priority === 'high' && Math.random() < 0.15) {
+                // 高优先级：大幅增加兴趣度，但幅度降低
+                const increase = 3 + Math.floor(Math.random() * 5); // 5-10 -> 3-7
                 status.teamInterest.set(teamId, Math.min(100, currentInterest + increase));
                 
                 // 消耗预算
                 team.recruitment.recruitmentBudget -= 10000;
                 
                 console.log(`[AI行动] ${team.name} 加大招募投入，兴趣度提升至 ${status.teamInterest.get(teamId)}`);
-            } else if (priority === 'medium' && Math.random() < 0.2) {
-                // 中优先级：适度增加
-                const increase = 3 + Math.floor(Math.random() * 5);
+            } else if (priority === 'medium' && Math.random() < 0.08) {
+                // 中优先级：20% -> 8%
+                const increase = 2 + Math.floor(Math.random() * 3); // 3-5 -> 2-4
                 status.teamInterest.set(teamId, Math.min(100, currentInterest + increase));
             }
+            // 低优先级：不采取行动
         });
     }
     
@@ -714,11 +864,17 @@ class RecruitmentCompetitionSystem {
             }
         });
         
+        // ===== 提高AI签约门槛，降低签约频率 =====
         // 如果兴趣度达到阈值且领先明显，可以签约
-        if (maxInterest >= 80) {
+        // 提高阈值：80 -> 90，领先差距：15 -> 25
+        if (maxInterest >= 90) {
             const secondMax = this.getSecondHighestInterest(status);
-            if (maxInterest - secondMax >= 15) {
-                this.resolveRecruitment(status.playerId, 'commitment', leadingTeam);
+            // 需要明显领先优势（25点以上）
+            if (maxInterest - secondMax >= 25) {
+                // 额外随机检查，避免AI过快签约（30%概率）
+                if (Math.random() < 0.3) {
+                    this.resolveRecruitment(status.playerId, 'commitment', leadingTeam);
+                }
             }
         }
     }
@@ -750,6 +906,12 @@ class RecruitmentCompetitionSystem {
                 const team = this.aiTeams.get(winningTeam);
                 console.log(`[招募结果] ${status.playerName} 被 ${team?.name || winningTeam} 签下`);
                 this.showNotification(`${status.playerName} 已被 ${team?.name || '其他球队'} 签下`, 'warning');
+                
+                // ===== 关键修复：当AI球队签下玩家正在谈判的球员时，通知skipRuleManager =====
+                this.notifySkipRuleManagerOfSignedPlayer(playerId, status.playerName);
+                
+                // ===== 关键修复：更新AI球队的阵容和奖学金数量 =====
+                this.updateAITeamRosterAfterSigning(winningTeam, status);
             }
         } else if (reason === 'timeout') {
             console.log(`[招募结果] ${status.playerName} 招募期结束，未签约`);
@@ -762,6 +924,79 @@ class RecruitmentCompetitionSystem {
                 team.recruitment.activeTargets.delete(playerId);
             }
         });
+    }
+    
+    /**
+     * AI球队签下球员后更新阵容信息
+     * @param {string} teamId - AI球队ID
+     * @param {Object} status - 球员招募状态
+     */
+    updateAITeamRosterAfterSigning(teamId, status) {
+        const team = this.aiTeams.get(teamId);
+        if (!team) return;
+        
+        // 获取球员信息
+        const state = this.gameStateManager.getState();
+        const player = state.availablePlayers?.find(p => p.id === status.playerId);
+        
+        if (player) {
+            // 添加到AI球队阵容
+            const playerInfo = player.getInfo ? player.getInfo() : player;
+            team.roster.push({
+                id: playerInfo.id,
+                name: playerInfo.name,
+                position: playerInfo.position,
+                rating: playerInfo.overallRating,
+                potential: playerInfo.potential || playerInfo.overallRating,
+                year: playerInfo.year || 1
+            });
+            
+            // 减少奖学金数量
+            team.recruitment.scholarshipsAvailable = Math.max(0, team.recruitment.scholarshipsAvailable - 1);
+            
+            // 重新计算阵容需求
+            team.recruitment.priorityNeeds = this.identifyTeamNeeds(team.roster);
+            
+            // 更新球队声望
+            team.recruitment.reputation = this.calculateTeamReputation(team.roster);
+            
+            console.log(`[AI阵容更新] ${team.name} 签下 ${playerInfo.name}，剩余奖学金: ${team.recruitment.scholarshipsAvailable}，阵容需求已更新`);
+        }
+    }
+    
+    /**
+     * 通知SkipRuleManager球员被其他球队签走
+     * 使用RecruitmentUtils工具函数避免代码重复
+     */
+    notifySkipRuleManagerOfSignedPlayer(playerId, playerName) {
+        // 使用公共工具函数
+        if (typeof RecruitmentUtils !== 'undefined') {
+            RecruitmentUtils.notifySkipRuleManagerOfSignedPlayer(playerId, playerName, {
+                source: '招募竞争系统',
+                gameStateManager: this.gameStateManager
+            });
+        } else {
+            // 降级处理：如果工具函数不可用，使用内联逻辑
+            console.warn('[招募竞争系统] RecruitmentUtils不可用，使用降级处理');
+            this._fallbackNotifySkipRuleManager(playerId, playerName);
+        }
+    }
+    
+    /**
+     * 降级处理：直接更新谈判状态
+     * 当RecruitmentUtils不可用时使用
+     */
+    _fallbackNotifySkipRuleManager(playerId, playerName) {
+        const state = this.gameStateManager.getState();
+        const playerNegotiations = state.negotiations?.playerNegotiations || [];
+        const negotiationIndex = playerNegotiations.findIndex(n => n.targetId === playerId);
+        
+        if (negotiationIndex !== -1 && playerNegotiations[negotiationIndex]) {
+            playerNegotiations[negotiationIndex].status = 'expired';
+            playerNegotiations[negotiationIndex].expiredReason = '被其他球队签走';
+            playerNegotiations[negotiationIndex].expiredAt = new Date().toISOString();
+            console.log(`[招募竞争系统] 已更新谈判状态: ${playerName} 被标记为过期`);
+        }
     }
     
     /**
@@ -824,24 +1059,43 @@ class RecruitmentCompetitionSystem {
                 return { success: false, message: '未知的行动类型' };
         }
         
-        // 应用增加
+        // 扣除预算（先检查预算是否足够）
+        if (cost > 0) {
+            let budgetSufficient = false;
+            
+            if (window.recruitmentBudgetManager) {
+                // 使用预算管理器检查并扣减预算
+                budgetSufficient = window.recruitmentBudgetManager.spendBudget(cost, actionType);
+            } else {
+                // 兼容旧代码：检查预算是否足够
+                const state = this.gameStateManager.getState();
+                if (state.recruitmentBudget !== undefined) {
+                    if (state.recruitmentBudget >= cost) {
+                        state.recruitmentBudget -= cost;
+                        this.gameStateManager.set('recruitmentBudget', state.recruitmentBudget);
+                        budgetSufficient = true;
+                    } else {
+                        console.log(`[招募行动] 预算不足: 需要$${cost.toLocaleString()}，只有$${state.recruitmentBudget.toLocaleString()}`);
+                    }
+                }
+            }
+            
+            // 如果预算不足，返回失败
+            if (!budgetSufficient) {
+                return {
+                    success: false,
+                    message: '招募预算不足，无法执行此行动',
+                    interestIncrease: 0,
+                    newInterest: status.playerInterestInUser,
+                    cost: 0
+                };
+            }
+        }
+        
+        // 应用增加（预算检查通过后）
         const oldInterest = status.playerInterestInUser;
         status.playerInterestInUser = Math.min(100, status.playerInterestInUser + interestIncrease);
         const actualIncrease = status.playerInterestInUser - oldInterest;
-        
-        // 扣除预算
-        if (cost > 0) {
-            if (window.recruitmentBudgetManager) {
-                window.recruitmentBudgetManager.spendBudget(cost, actionType);
-            } else {
-                // 兼容旧代码
-                const state = this.gameStateManager.getState();
-                if (state.recruitmentBudget !== undefined) {
-                    state.recruitmentBudget -= cost;
-                    this.gameStateManager.set('recruitmentBudget', state.recruitmentBudget);
-                }
-            }
-        }
         
         return {
             success: true,
@@ -925,6 +1179,17 @@ class RecruitmentCompetitionSystem {
             }
         });
         return active;
+    }
+    
+    /**
+     * 获取所有招募状态（包括已签约的）
+     * @returns {Map} 所有球员的招募状态
+     */
+    getAllRecruitmentStatus() {
+        // 确保系统已初始化
+        this.ensureInitialized();
+        
+        return this.playerRecruitmentStatus;
     }
     
     /**
@@ -1196,7 +1461,7 @@ class RecruitmentCompetitionSystem {
     }
     
     /**
-     * 每日更新 - 清理过期承诺
+     * 每日更新 - 清理过期承诺，更新球员期望报价，处理AI招募
      */
     dailyUpdate() {
         const now = Date.now();
@@ -1220,11 +1485,218 @@ class RecruitmentCompetitionSystem {
             }
         }
         
+        // 更新所有球员的期望报价（时间衰减）
+        this.updatePlayerExpectations();
+        
+        // 处理AI招募行动和签约检查
+        this.updateRecruitmentStatus();
+        
         if (expiredCount > 0) {
             console.log(`[承诺签约] 清理了 ${expiredCount} 个过期承诺`);
         }
         
         return expiredCount;
+    }
+    
+    /**
+     * 更新所有球员的期望报价（时间衰减）
+     * 规则：
+     * - 大一新生(freshman)：不会衰减，保持坚定
+     * - 转学生(transfer)：前60天不衰减，60-90天开始衰减
+     * - 自由球员(free_agent)：7-14天后开始衰减
+     */
+    updatePlayerExpectations() {
+        const now = Date.now();
+        
+        this.playerRecruitmentStatus.forEach((status, playerId) => {
+            if (status.isSigned || status.isInsulted) return;
+            
+            const decay = status.expectations.decay;
+            
+            // 如果不能衰减（如大一新生），直接跳过
+            if (decay.canDecay === false) {
+                return;
+            }
+            
+            const daysSinceStart = Math.floor((now - status.startTime) / (24 * 60 * 60 * 1000));
+            
+            // 过了开始衰减的天数后才开始降低期望
+            if (daysSinceStart >= decay.startDecayAfterDays) {
+                const daysOfDecay = daysSinceStart - decay.startDecayAfterDays;
+                
+                // 计算衰减量（随时间加速）
+                const acceleration = Math.pow(decay.accelerationFactor, daysOfDecay / 7);
+                const totalDecay = decay.dailyDecay * daysOfDecay * acceleration;
+                
+                // 更新当前期望
+                let newExpectation = status.expectations.initialInquiry - totalDecay;
+                newExpectation = Math.max(decay.floorValue, newExpectation);
+                
+                const oldExpectation = status.expectations.currentExpectation;
+                status.expectations.currentExpectation = Math.round(newExpectation);
+                
+                // 转学生进入最后阶段时更新阶段标记
+                if (status.expectations.playerType === 'transfer' && daysSinceStart >= 60) {
+                    status.expectations.decay.transferPhase = 'late';
+                }
+                
+                // 如果期望降低了，记录日志
+                if (status.expectations.currentExpectation < oldExpectation) {
+                    console.log(`[期望衰减] ${status.playerName}: ${oldExpectation}% -> ${status.expectations.currentExpectation}% (已招募${daysSinceStart}天)`);
+                }
+            }
+        });
+    }
+    
+    /**
+     * 球员询问初始报价
+     * @param {string|number} playerId - 球员ID
+     * @returns {Object} 询问结果
+     */
+    inquireInitialOffer(playerId) {
+        const status = this.playerRecruitmentStatus.get(playerId);
+        if (!status) {
+            return { success: false, message: '球员招募状态未找到' };
+        }
+        
+        if (status.isInsulted) {
+            return { success: false, message: '该球员已被羞辱，不再考虑您的球队' };
+        }
+        
+        if (status.hasInquired) {
+            return { 
+                success: true, 
+                message: '已经询问过初始报价',
+                expectations: status.expectations
+            };
+        }
+        
+        // 标记已询问
+        status.hasInquired = true;
+        status.stage = 'inquiry';
+        
+        return {
+            success: true,
+            message: `${status.playerName} 愿意听取您的报价`,
+            expectations: status.expectations,
+            hint: `球员期望：${status.expectations.personality}`
+        };
+    }
+    
+    /**
+     * 处理玩家报价
+     * @param {string|number} playerId - 球员ID
+     * @param {Object} offer - 报价对象 { scholarship, playingTime, role }
+     * @returns {Object} 报价结果
+     */
+    processPlayerOffer(playerId, offer) {
+        const status = this.playerRecruitmentStatus.get(playerId);
+        if (!status) {
+            return { success: false, message: '球员招募状态未找到' };
+        }
+        
+        if (status.isInsulted) {
+            return { success: false, message: '该球员已被羞辱，不再考虑您的球队' };
+        }
+        
+        if (status.isSigned) {
+            return { success: false, message: '该球员已经签约' };
+        }
+        
+        const scholarshipPercent = (offer.scholarship || 0) * 100;
+        const expectations = status.expectations;
+        
+        // 检查是否低于最低可接受报价（被羞辱）
+        if (scholarshipPercent < expectations.minAcceptable) {
+            status.isInsulted = true;
+            status.stage = 'insulted';
+            
+            // 设置消失时间（30天后可以重新出现，但兴趣度降低）
+            status.disappearUntil = Date.now() + 30 * 24 * 60 * 60 * 1000;
+            
+            // 大幅降低对玩家球队的兴趣度
+            status.playerInterestInUser = Math.max(0, status.playerInterestInUser - 30);
+            
+            return {
+                success: false,
+                type: 'INSULTED',
+                message: `${status.playerName} 感到被羞辱！您的报价 ${scholarshipPercent}% 远低于他的最低要求 ${expectations.minAcceptable}%`,
+                consequence: '该球员将从您的招募列表中消失30天，之后可以重新尝试，但难度增加',
+                playerReaction: '球员愤怒地拒绝了您的报价，并表示不再考虑您的球队'
+            };
+        }
+        
+        // 检查是否达到理想报价（直接签约）
+        if (scholarshipPercent >= expectations.idealOffer) {
+            status.isAutoSigned = true;
+            status.stage = 'committed';
+            status.bestOffer = offer;
+            
+            // 大幅提升兴趣度
+            status.playerInterestInUser = 100;
+            
+            return {
+                success: true,
+                type: 'AUTO_SIGN',
+                message: `${status.playerName} 对您的报价非常满意！`,
+                playerReaction: '球员毫不犹豫地接受了您的报价，表示这是他的理想选择',
+                canSignImmediately: true
+            };
+        }
+        
+        // 正常谈判流程
+        status.stage = 'negotiating';
+        status.bestOffer = offer;
+        
+        // 根据报价与期望的差距计算兴趣度变化
+        const gap = expectations.currentExpectation - scholarshipPercent;
+        let interestChange = 0;
+        
+        if (gap <= 0) {
+            // 报价达到或超过当前期望
+            interestChange = 10 + Math.floor(Math.random() * 10);
+        } else if (gap <= 10) {
+            // 差距在10%以内
+            interestChange = 5 + Math.floor(Math.random() * 5);
+        } else if (gap <= 20) {
+            // 差距在10-20%
+            interestChange = 0 + Math.floor(Math.random() * 5);
+        } else {
+            // 差距超过20%
+            interestChange = -5 - Math.floor(Math.random() * 5);
+        }
+        
+        status.playerInterestInUser = Math.min(100, Math.max(0, status.playerInterestInUser + interestChange));
+        
+        return {
+            success: true,
+            type: 'NEGOTIATION',
+            message: `${status.playerName} 正在考虑您的报价`,
+            playerReaction: gap <= 10 ? '球员对报价表示兴趣，但希望进一步讨论' : '球员认为报价还有提升空间',
+            interestChange: interestChange,
+            currentInterest: status.playerInterestInUser,
+            gapToExpectation: gap
+        };
+    }
+    
+    /**
+     * 检查球员是否因被羞辱而消失
+     * @param {string|number} playerId - 球员ID
+     * @returns {boolean} 是否可见
+     */
+    isPlayerVisible(playerId) {
+        const status = this.playerRecruitmentStatus.get(playerId);
+        if (!status) return true;
+        
+        if (!status.isInsulted) return true;
+        
+        // 检查消失时间是否已过
+        if (status.disappearUntil && Date.now() >= status.disappearUntil) {
+            // 重新显示，但保持羞辱状态（需要特殊行动来修复关系）
+            return true;
+        }
+        
+        return false;
     }
 }
 

@@ -54,28 +54,124 @@ class TeamManager {
         const coachNameEl = document.getElementById('coach-name');
         const coachTitleEl = document.getElementById('coach-title');
         const coachRatingEl = document.getElementById('coach-rating');
+        const coachLevelEl = document.getElementById('coach-level');
         const coachSpecialtiesEl = document.getElementById('coach-specialties');
+        const coachBonusSection = document.getElementById('coach-bonus-section');
 
         if (team.coach) {
-            if (coachNameEl) coachNameEl.textContent = team.coach.name || '待定';
-            if (coachTitleEl) coachTitleEl.textContent = team.coach.title || '暂无';
-            if (coachRatingEl) coachRatingEl.textContent = team.coach.rating || '-';
+            // Debug log
+            console.log('Updating coach info:', team.coach);
+            console.log('Coach has getOverallRating:', typeof team.coach.getOverallRating === 'function');
+            
+            // Get coach info using getInfo() method if available
+            let coachInfo;
+            if (typeof team.coach.getInfo === 'function') {
+                coachInfo = team.coach.getInfo();
+            } else {
+                // Fallback for plain objects
+                coachInfo = team.coach;
+            }
 
-            if (coachSpecialtiesEl && team.coach.specialties) {
+            if (coachNameEl) coachNameEl.textContent = coachInfo.name || '待定';
+            
+            // Get first title or archetype as title
+            let title = '暂无';
+            if (coachInfo.titles && coachInfo.titles.length > 0) {
+                title = coachInfo.titles[0];
+            } else if (coachInfo.archetype) {
+                const archetypeNames = {
+                    'offensive': '进攻型教练',
+                    'defensive': '防守型教练',
+                    'balanced': '均衡型教练',
+                    'developmental': '培养型教练',
+                    'veteran': '老练型教练'
+                };
+                title = archetypeNames[coachInfo.archetype] || coachInfo.archetype;
+            }
+            if (coachTitleEl) coachTitleEl.textContent = title;
+            
+            // Get overall rating and level
+            let rating = '-';
+            let level = '';
+            let bonuses = null;
+            
+            if (typeof team.coach.getOverallRating === 'function') {
+                rating = team.coach.getOverallRating();
+                if (typeof team.coach.getRatingLevel === 'function') {
+                    level = team.coach.getRatingLevel();
+                }
+                if (typeof team.coach.getDetailedBonuses === 'function') {
+                    bonuses = team.coach.getDetailedBonuses();
+                }
+            } else if (coachInfo.overallRating) {
+                rating = coachInfo.overallRating;
+            }
+            
+            if (coachRatingEl) coachRatingEl.textContent = rating;
+            if (coachLevelEl) {
+                coachLevelEl.textContent = level;
+                coachLevelEl.className = 'coach-level';
+                if (level) {
+                    const levelClass = level === '传奇' ? 'legendary' :
+                                      level === '精英' ? 'elite' :
+                                      level === '优秀' ? 'excellent' :
+                                      level === '良好' ? 'good' :
+                                      level === '普通' ? 'average' : 'rookie';
+                    coachLevelEl.classList.add(levelClass);
+                }
+            }
+            
+            // 显示教练加成（百分比形式）
+            if (coachBonusSection && bonuses) {
+                coachBonusSection.style.display = 'block';
+                
+                const bonusTeamStrengthEl = document.getElementById('bonus-team-strength');
+                const bonusOffenseEl = document.getElementById('bonus-offense');
+                const bonusDefenseEl = document.getElementById('bonus-defense');
+                const bonusDevelopmentEl = document.getElementById('bonus-development');
+                
+                if (bonusTeamStrengthEl) {
+                    bonusTeamStrengthEl.textContent = `+${bonuses.teamStrength}%`;
+                    bonusTeamStrengthEl.className = 'bonus-value positive';
+                }
+                if (bonusOffenseEl) {
+                    bonusOffenseEl.textContent = bonuses.offense >= 0 ? `+${bonuses.offense}%` : `${bonuses.offense}%`;
+                    bonusOffenseEl.className = bonuses.offense > 0 ? 'bonus-value positive' : 'bonus-value';
+                }
+                if (bonusDefenseEl) {
+                    bonusDefenseEl.textContent = bonuses.defense >= 0 ? `+${bonuses.defense}%` : `${bonuses.defense}%`;
+                    bonusDefenseEl.className = bonuses.defense > 0 ? 'bonus-value positive' : 'bonus-value';
+                }
+                if (bonusDevelopmentEl) {
+                    bonusDevelopmentEl.textContent = bonuses.playerDevelopment >= 0 ? `+${bonuses.playerDevelopment}%` : `${bonuses.playerDevelopment}%`;
+                    bonusDevelopmentEl.className = bonuses.playerDevelopment > 0 ? 'bonus-value positive' : 'bonus-value';
+                }
+            } else if (coachBonusSection) {
+                coachBonusSection.style.display = 'none';
+            }
+
+            if (coachSpecialtiesEl && coachInfo.specialties) {
                 const specialtyLabels = {
-                    'interior': '内线进攻',
+                    'inside': '内线进攻',
                     'perimeter': '外线进攻',
                     'defense': '防守专家',
-                    'rebounding': '篮板训练',
+                    'transition': '快攻战术',
+                    'halfcourt': '半场攻防',
+                    'playerDev': '新人培养',
+                    'clutch': '关键球',
+                    'rebounding': '篮板球',
+                    'pickroll': '挡拆配合',
+                    'threePoint': '三分战术',
+                    'interior': '内线进攻',
                     'player_dev': '新人培养',
                     'xs_and_os': '战术大师',
                     'motivation': '激励大师',
                     'conditioning': '体能训练',
-                    'three_point': '三分战术',
-                    'transition': '快攻战术'
+                    'three_point': '三分战术'
                 };
 
-                coachSpecialtiesEl.innerHTML = team.coach.specialties.map(specialty => `
+                const specialties = Array.isArray(coachInfo.specialties) ? coachInfo.specialties : [];
+                coachSpecialtiesEl.innerHTML = specialties.slice(0, 4).map(specialty => `
                     <span class="specialty-tag">${specialtyLabels[specialty] || specialty}</span>
                 `).join('');
             }
@@ -83,7 +179,9 @@ class TeamManager {
             if (coachNameEl) coachNameEl.textContent = '待定';
             if (coachTitleEl) coachTitleEl.textContent = '暂无';
             if (coachRatingEl) coachRatingEl.textContent = '-';
+            if (coachLevelEl) coachLevelEl.textContent = '';
             if (coachSpecialtiesEl) coachSpecialtiesEl.innerHTML = '';
+            if (coachBonusSection) coachBonusSection.style.display = 'none';
         }
     }
 
@@ -115,8 +213,7 @@ class TeamManager {
         const availableEl = document.getElementById('scholarship-available');
         const progressPathEl = document.getElementById('scholarship-progress-path');
 
-        // NCAA D1规则是13份奖学金
-        const MAX_SCHOLARSHIPS = 13;
+        const MAX_SCHOLARSHIPS = 5;
         
         // 使用新的奖学金计算逻辑
         let total, used;
@@ -131,7 +228,7 @@ class TeamManager {
             total = team.scholarships.total || MAX_SCHOLARSHIPS;
             used = team.scholarships.used || 0;
         } else {
-            // 默认使用13份（NCAA D1标准）
+            // 默认使用5份
             total = MAX_SCHOLARSHIPS;
             used = team.roster ? team.roster.length : 0;
         }

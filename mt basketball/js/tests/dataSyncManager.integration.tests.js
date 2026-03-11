@@ -32,7 +32,7 @@ class DataSyncManagerIntegrationTests {
                     id: 1,
                     name: 'Test University',
                     roster: [],
-                    scholarships: 13,
+                    scholarships: 5,
                     scholarshipsUsed: 0
                 },
                 availablePlayers: [
@@ -56,7 +56,7 @@ class DataSyncManagerIntegrationTests {
                     }
                 ],
                 funds: 500000,
-                scholarships: 13
+                scholarships: 5
             },
             subscribers: [],
             subscribe(callback) {
@@ -205,7 +205,7 @@ class DataSyncManagerIntegrationTests {
                 id: 1,
                 name: 'Test University',
                 roster: [{ id: 1, name: 'New Player' }],
-                scholarships: 13,
+                scholarships: 5,
                 scholarshipsUsed: 1
             });
             
@@ -315,7 +315,7 @@ class DataSyncManagerIntegrationTests {
                 id: 1,
                 name: 'Test Team',
                 roster: [{ id: 1 }, { id: 2 }, { id: 3 }],
-                scholarships: 13,
+                scholarships: 5,
                 scholarshipsUsed: 2
             };
             

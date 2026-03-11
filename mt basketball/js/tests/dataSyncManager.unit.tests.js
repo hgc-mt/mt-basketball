@@ -198,7 +198,7 @@ class DataSyncManagerTests {
                     userTeam: { id: 1, name: 'Test Team', roster: [] },
                     availablePlayers: [],
                     funds: 1000,
-                    scholarships: 13
+                    scholarships: 5
                 }),
                 set: () => {}
             };
@@ -275,16 +275,16 @@ class DataSyncManagerTests {
                         getOverallRating: () => 75
                     }
                 ],
-                scholarships: 13,
+                scholarships: 5,
                 scholarshipsUsed: 5,
                 stats: { wins: 10, losses: 5 }
             };
-            
+
             const sanitized = syncManager.sanitizeTeamData(teamData);
-            
+
             this.assertEqual(sanitized.id, 1, 'ID should be preserved');
             this.assertEqual(sanitized.name, 'Test Team', 'Name should be preserved');
-            this.assertEqual(sanitized.scholarships, 13, 'Scholarships should be preserved');
+            this.assertEqual(sanitized.scholarships, 5, 'Scholarships should be preserved');
             this.assertEqual(sanitized.scholarshipsUsed, 5, 'Scholarships used should be preserved');
             this.assertArrayLength(sanitized.roster, 1, 'Roster should have 1 player');
             this.assertEqual(sanitized.roster[0].id, 1, 'Player ID should be preserved');
@@ -337,7 +337,7 @@ class DataSyncManagerTests {
             const userTeam = {
                 roster: [{ id: 1 }, { id: 2 }, { id: 3 }],
                 scholarshipsUsed: 2,
-                scholarships: 13
+                scholarships: 5
             };
             
             this.mockUserTeam = userTeam;

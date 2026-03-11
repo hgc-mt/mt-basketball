@@ -335,7 +335,7 @@ class DataSyncManager {
             const state = this.gameStateManager.getState();
             const userTeam = state.userTeam;
             const used = userTeam?.roster?.length || 0;
-            const max = 13;
+            const max = 5;
             scholarshipRemaining.textContent = `${max - used}/${max}`;
         }
     }
@@ -445,7 +445,7 @@ class DataSyncManager {
         
         // 处理新旧奖学金数据结构
         let scholarshipsUsed = 0;
-        let scholarshipsTotal = 13; // 默认值
+        let scholarshipsTotal = 5; // 默认值
         
         if (userTeam.scholarships && typeof userTeam.scholarships === 'object') {
             scholarshipsUsed = userTeam.scholarships.used || 0;

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>大学篮球经理</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="css/nba2k-theme.css">
     <link rel="stylesheet" href="css/competitive-recruitment.css">
     <link rel="stylesheet" href="css/signing-interface.css">
     <link rel="stylesheet" href="styles-recruit-offer.css">
@@ -146,12 +147,30 @@
 
     <div id="app" style="display: none;">
         <header>
-            <h1>大学篮球经理</h1>
+            <div class="header-left">
+                <h1>大学篮球经理</h1>
+                <div class="header-team-info">
+                    <span id="header-team-name" class="editable-team-name" onclick="editTeamName()" title="点击修改球队名称">未命名球队</span>
+                    <span id="header-team-rating" class="team-rating-badge">--</span>
+                </div>
+            </div>
             <div id="game-info">
-                <span id="current-date"></span>
-                <span id="team-name" class="editable-team-name" onclick="editTeamName()" title="点击修改球队名称"></span>
-                <span id="funds"></span>
-                <span id="scholarships"></span>
+                <div class="info-item">
+                    <span class="info-label">📅 日期</span>
+                    <span id="current-date" class="info-value">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">💰 资金</span>
+                    <span id="funds" class="info-value">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">🎓 奖学金</span>
+                    <span id="scholarships" class="info-value">--</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">⚡ 战力</span>
+                    <span id="header-team-power" class="info-value power-value">--</span>
+                </div>
             </div>
         </header>
 
@@ -197,9 +216,36 @@
                             <div class="coach-details">
                                 <div class="coach-name" id="coach-name">待定</div>
                                 <div class="coach-title" id="coach-title">暂无</div>
-                                <div class="coach-rating">
-                                    <span class="rating-label">执教能力</span>
-                                    <span class="rating-value" id="coach-rating">-</span>
+                                <div class="coach-rating-row">
+                                    <div class="coach-rating">
+                                        <span class="rating-label">执教能力</span>
+                                        <span class="rating-value" id="coach-rating">-</span>
+                                    </div>
+                                    <div class="coach-level" id="coach-level"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="coach-bonus-section" id="coach-bonus-section" style="display: none;">
+                            <div class="bonus-header">
+                                <span class="bonus-icon">⚡</span>
+                                <span class="bonus-title">教练加成</span>
+                            </div>
+                            <div class="bonus-grid">
+                                <div class="bonus-item">
+                                    <span class="bonus-label">球队战力</span>
+                                    <span class="bonus-value positive" id="bonus-team-strength">+0</span>
+                                </div>
+                                <div class="bonus-item">
+                                    <span class="bonus-label">进攻</span>
+                                    <span class="bonus-value" id="bonus-offense">+0</span>
+                                </div>
+                                <div class="bonus-item">
+                                    <span class="bonus-label">防守</span>
+                                    <span class="bonus-value" id="bonus-defense">+0</span>
+                                </div>
+                                <div class="bonus-item">
+                                    <span class="bonus-label">新人培养</span>
+                                    <span class="bonus-value" id="bonus-development">+0</span>
                                 </div>
                             </div>
                         </div>
@@ -770,116 +816,97 @@
                 
                 <!-- 多维度筛选系统 -->
                 <div class="recruitment-filters">
-                    <div class="filter-section">
-                        <h4>位置筛选</h4>
-                        <div class="filter-buttons" id="position-filter-group">
-                            <button class="filter-btn active" data-value="all">全部</button>
-                            <button class="filter-btn" data-value="PG">PG</button>
-                            <button class="filter-btn" data-value="SG">SG</button>
-                            <button class="filter-btn" data-value="SF">SF</button>
-                            <button class="filter-btn" data-value="PF">PF</button>
-                            <button class="filter-btn" data-value="C">C</button>
+                    <!-- 第一行：位置、类型、年级 -->
+                    <div class="filter-row">
+                        <div class="filter-section">
+                            <h4>位置筛选</h4>
+                            <div class="filter-buttons" id="position-filter-group">
+                                <button class="filter-btn active" data-value="all">全部</button>
+                                <button class="filter-btn" data-value="PG">PG</button>
+                                <button class="filter-btn" data-value="SG">SG</button>
+                                <button class="filter-btn" data-value="SF">SF</button>
+                                <button class="filter-btn" data-value="PF">PF</button>
+                                <button class="filter-btn" data-value="C">C</button>
+                            </div>
+                        </div>
+                        
+                        <div class="filter-section">
+                            <h4>球员类型</h4>
+                            <div class="filter-buttons" id="status-filter-group">
+                                <button class="filter-btn active" data-value="all">全部</button>
+                                <button class="filter-btn" data-value="freshman_recruit">新生招募</button>
+                                <button class="filter-btn" data-value="free_agent">自由球员</button>
+                                <button class="filter-btn" data-value="transfer_wanted">转学生</button>
+                            </div>
+                        </div>
+                        
+                        <div class="filter-section">
+                            <h4>年级筛选</h4>
+                            <div class="filter-buttons" id="year-filter-group">
+                                <button class="filter-btn active" data-value="all">全部</button>
+                                <button class="filter-btn" data-value="1">大一</button>
+                                <button class="filter-btn" data-value="2">大二</button>
+                                <button class="filter-btn" data-value="3">大三</button>
+                                <button class="filter-btn" data-value="4">大四</button>
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="filter-section">
-                        <h4>球员类型</h4>
-                        <div class="filter-buttons" id="status-filter-group">
-                            <button class="filter-btn active" data-value="all">全部</button>
-                            <button class="filter-btn" data-value="freshman_recruit">新生招募</button>
-                            <button class="filter-btn" data-value="free_agent">自由球员</button>
-                            <button class="filter-btn" data-value="transfer_wanted">转学生</button>
+                    <!-- 第二行：能力值、搜索、操作按钮 -->
+                    <div class="filter-row">
+                        <div class="filter-section">
+                            <h4>能力值筛选</h4>
+                            <div class="filter-buttons" id="rating-filter-group">
+                                <button class="filter-btn active" data-value="all">全部</button>
+                                <button class="filter-btn" data-value="star">球星 (80+)</button>
+                                <button class="filter-btn" data-value="starter">主力 (70+)</button>
+                                <button class="filter-btn" data-value="rotation">轮换 (60+)</button>
+                                <button class="filter-btn" data-value="bench">替补 (50+)</button>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="filter-section">
-                        <h4>年级筛选</h4>
-                        <div class="filter-buttons" id="year-filter-group">
-                            <button class="filter-btn active" data-value="all">全部</button>
-                            <button class="filter-btn" data-value="1">大一</button>
-                            <button class="filter-btn" data-value="2">大二</button>
-                            <button class="filter-btn" data-value="3">大三</button>
-                            <button class="filter-btn" data-value="4">大四</button>
+                        
+                        <div class="filter-section search-section">
+                            <h4>搜索球员</h4>
+                            <div class="search-box">
+                                <input type="text" id="player-search" placeholder="输入球员姓名...">
+                                <button class="search-btn">🔍</button>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="filter-section potential-filter">
-                        <h4>潜力值筛选 <span id="potential-range-display">50-99</span></h4>
-                        <div class="slider-container">
-                            <input type="range" id="potential-min" min="50" max="99" value="50" step="1">
-                            <input type="range" id="potential-max" min="50" max="99" value="99" step="1">
+                        
+                        <div class="filter-section filter-actions">
+                            <button class="filter-confirm-btn" id="apply-filters">
+                                <span>✓</span> 应用筛选
+                            </button>
+                            <button class="filter-reset-btn" id="reset-filters">
+                                <span>↺</span> 重置
+                            </button>
                         </div>
-                        <div class="range-labels">
-                            <span>50</span>
-                            <span>75</span>
-                            <span>99</span>
-                        </div>
-                    </div>
-                    
-                    <div class="filter-section">
-                        <h4>能力值筛选</h4>
-                        <div class="filter-buttons" id="rating-filter-group">
-                            <button class="filter-btn active" data-value="all">全部</button>
-                            <button class="filter-btn" data-value="star">球星 (80+)</button>
-                            <button class="filter-btn" data-value="starter">主力 (70+)</button>
-                            <button class="filter-btn" data-value="rotation">轮换 (60+)</button>
-                            <button class="filter-btn" data-value="bench">替补 (50+)</button>
-                        </div>
-                    </div>
-                    
-                    <div class="filter-section">
-                        <h4>搜索球员</h4>
-                        <div class="search-box">
-                            <input type="text" id="player-search" placeholder="输入球员姓名...">
-                            <button class="search-btn">🔍</button>
-                        </div>
-                    </div>
-                    
-                    <div class="filter-section view-options">
-                        <h4>显示选项</h4>
-                        <label class="toggle-option">
-                            <input type="checkbox" id="show-favorites">
-                            <span>仅显示收藏</span>
-                        </label>
-                        <label class="toggle-option">
-                            <input type="checkbox" id="show-background">
-                            <span>显示背景资料</span>
-                        </label>
-                    </div>
-                    
-                    <div class="filter-section filter-actions">
-                        <button class="filter-confirm-btn" id="apply-filters">
-                            <span>✓</span> 应用筛选
-                        </button>
-                        <button class="filter-reset-btn" id="reset-filters">
-                            <span>↺</span> 重置
-                        </button>
                     </div>
                 </div>
                 
-                <!-- 潜力值分布统计 -->
+                <!-- 潜力值分布统计 - 可点击筛选 -->
                 <div class="distribution-stats" id="distribution-stats">
-                    <h4>潜力值分布</h4>
+                    <h4>潜力值分布 <span class="stats-hint">点击筛选</span></h4>
                     <div class="distribution-bars">
-                        <div class="dist-bar elite" data-level="elite">
+                        <div class="dist-bar elite" data-level="elite" data-min="90" data-max="99" onclick="app.filterByPotential(90, 99)">
                             <span class="dist-icon">👑</span>
                             <span class="dist-label">90+ 天之骄子</span>
                             <div class="dist-fill" style="width: 0%"></div>
                             <span class="dist-count">0</span>
                         </div>
-                        <div class="dist-bar excellent" data-level="excellent">
+                        <div class="dist-bar excellent" data-level="excellent" data-min="80" data-max="89" onclick="app.filterByPotential(80, 89)">
                             <span class="dist-icon">⭐</span>
                             <span class="dist-label">80-89 精英</span>
                             <div class="dist-fill" style="width: 0%"></div>
                             <span class="dist-count">0</span>
                         </div>
-                        <div class="dist-bar good" data-level="good">
+                        <div class="dist-bar good" data-level="good" data-min="70" data-max="79" onclick="app.filterByPotential(70, 79)">
                             <span class="dist-icon">💎</span>
                             <span class="dist-label">70-79 优秀</span>
                             <div class="dist-fill" style="width: 0%"></div>
                             <span class="dist-count">0</span>
                         </div>
-                        <div class="dist-bar normal" data-level="normal">
+                        <div class="dist-bar normal" data-level="normal" data-min="50" data-max="69" onclick="app.filterByPotential(50, 69)">
                             <span class="dist-icon">📋</span>
                             <span class="dist-label">50-69 普通</span>
                             <div class="dist-fill" style="width: 0%"></div>
@@ -1363,6 +1390,9 @@
     <!-- 球队发展系统 - 必须在 main.js 之前加载 -->
     <script src="js/modules/teamDevelopmentSystem.js?v=2"></script>
     <script src="js/modules/teamDevelopmentInterface.js?v=2"></script>
+    
+    <!-- GM工具 - 仅用于开发测试 -->
+    <script src="js/modules/gmTools.js"></script>
     
     <script src="js/main.js?v=2"></script>
     

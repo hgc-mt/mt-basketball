@@ -231,8 +231,8 @@ class GameInitializer {
         const transfers = availablePlayers.filter(p => p.status === 'transfer_wanted').length;
         console.log(`Pool breakdown: ${freshmen} 新生招募, ${freeAgents} 自由球员, ${transfers} 转学生`);
 
-        // Create user team
-        const userTeam = this.createUserTeam(allTeams);
+        // Create user team - 玩家创建全新球队
+        const userTeam = this.createUserTeam();
 
         // Create available coaches
         const availableCoaches = this.createAvailableCoaches();
@@ -1961,23 +1961,32 @@ class GameInitializer {
     }
 
     /**
-     * Create user team
-     * @param {Array} allTeams - All teams
+     * Create user team - 玩家创建全新球队
      * @returns {Team} User team object
      */
-    createUserTeam(allTeams) {
-        // Select a random team for the user
-        const teamIndex = Math.floor(Math.random() * allTeams.length);
-        const userTeam = allTeams[teamIndex];
+    createUserTeam() {
+        // 创建一支全新的球队，不是从现有球队中选择
+        const userTeam = new Team({
+            id: 'user_team',
+            name: '', // 空名称，等待玩家输入
+            conference: '', // 稍后根据玩家选择分配
+            funds: GameConstants.INITIAL_FUNDS,
+            scholarships: 5,
+            roster: [], // 空阵容，玩家从头开始
+            coach: null, // 无教练，玩家需要雇佣
+            stats: {
+                wins: 0,
+                losses: 0,
+                conferenceWins: 0,
+                conferenceLosses: 0,
+                pointsFor: 0,
+                pointsAgainst: 0
+            }
+        });
 
-        // Clear all players - player starts from scratch to build roster
-        userTeam.roster = [];
-
-        // Clear coach - user must hire from coach market
-        userTeam.coach = null;
-
-        // Set initial funds
-        userTeam.funds = GameConstants.INITIAL_FUNDS;
+        // 标记为新创建的球队
+        userTeam.isNewTeam = true;
+        userTeam.prestige = 50; // 新球队初始声望较低
 
         return userTeam;
     }

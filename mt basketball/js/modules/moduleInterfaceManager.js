@@ -57,7 +57,7 @@ class ModuleInterfaceManager {
      * @returns {Object} Default scholarship calculation
      */
     getDefaultScholarshipCalculation(team) {
-        const totalScholarships = typeof team.scholarships === 'number' ? team.scholarships : 13;
+        const totalScholarships = typeof team.scholarships === 'number' ? team.scholarships : 5;
         const usedShare = team.calculateUsedScholarshipShare ? team.calculateUsedScholarshipShare() : (team.roster ? team.roster.length : 0);
         const availableShare = totalScholarships - usedShare;
 

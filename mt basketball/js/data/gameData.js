@@ -463,7 +463,7 @@ const GameConstants = {
     CONFERENCE_GAMES_PER_SEASON: 18,
     
     // Team constants - 参考NCAA D1规则
-    MAX_SCHOLARSHIPS: 13,        // 每队最多13份全额奖学金等效名额
+    MAX_SCHOLARSHIPS: 5,         // 每队最多5份全额奖学金等效名额
     MIN_ROSTER_SIZE: 11,         // 最少11人
     MAX_ROSTER_SIZE: 15,         // 最多15人
     OPTIMAL_ROSTER_SIZE: 13,     // 最佳阵容规模
@@ -501,73 +501,71 @@ const GameConstants = {
     MODAL_FAIN_DURATION: 200 // milliseconds
 };
 
-// Conference data - 替换为CBA联赛分区
-// Conference data - 替换为CBA联赛分区
+// Conference data - 世界名校篮球联赛分区
 const Conferences = {
-    'CBA-North': {
-        id: 'CBA-North',
-        name: 'CBA北区',
-        teams: ['辽宁本钢', '北京首钢', '山东高速', '吉林九台农商银行', '山西汾酒股份', '天津先行者', '青岛国信海天', '新疆广汇']
+    'Asia-Pacific': {
+        id: 'Asia-Pacific',
+        name: '中亚赛区',
+        teams: ['北京大学', '清华大学', '东京大学', '首尔大学', '新加坡国立', '香港大学', '台湾大学', '早稻田大学']
     },
-    'CBA-South': {
-        id: 'CBA-South',
-        name: 'CBA南区',
-        teams: ['广东宏远', '浙江稠州银行', '上海久事', '深圳马可波罗', '广州龙狮', '福建浔兴股份', '江苏肯帝亚', '四川金强']
+    'Europe': {
+        id: 'Europe',
+        name: '欧洲赛区',
+        teams: ['牛津大学', '剑桥大学', '帝国理工', '伦敦政经', '巴黎高师', '慕尼黑工大', '苏黎世联邦', '代尔夫特理工']
     },
-    'CBA-East': {
-        id: 'CBA-East',
-        name: 'CBA东区',
-        teams: ['浙江广厦', '南京同曦宙光', '宁波富邦', '苏州肯帝亚', '上海大鲨鱼', '福建豹发力', '青岛每日优鲜', '山东王者']
+    'Americas': {
+        id: 'Americas',
+        name: '美洲赛区',
+        teams: ['哈佛大学', '麻省理工', '斯坦福大学', '耶鲁大学', '普林斯顿', '加州理工', '芝加哥大学', '多伦多大学']
     },
-    'CBA-West': {
-        id: 'CBA-West',
-        name: 'CBA西区',
-        teams: ['新疆伊力特', '四川五粮金樽', '重庆华熙国际', '陕西信达', '甘肃农垦', '宁夏哈纳斯', '青海三江源', '西藏净土']
+    'Wild-Card': {
+        id: 'Wild-Card',
+        name: '外卡赛区',
+        teams: ['悉尼大学', '墨尔本大学', '开普敦大学', '开罗大学', '耶路撒冷希伯来', '伊斯坦布尔大学', '奥克兰大学', '圣保罗大学']
     }
 };
 
-// Team names - 替换为CBA球队数据
-// Team names - 替换为CBA球队数据
+// Team names - 世界名校篮球队数据
 const TeamNames = {
-    'CBA-North': {
-        '辽宁本钢': { id: 1, prestige: 95, funds: 25000000, city: '沈阳', arena: '辽宁体育馆' },
-        '北京首钢': { id: 2, prestige: 94, funds: 24000000, city: '北京', arena: '首钢体育馆' },
-        '山东高速': { id: 3, prestige: 90, funds: 22000000, city: '济南', arena: '山东省体育中心' },
-        '吉林九台农商银行': { id: 4, prestige: 85, funds: 20000000, city: '长春', arena: '长春市体育馆' },
-        '山西汾酒股份': { id: 5, prestige: 80, funds: 18000000, city: '太原', arena: '山西省体育中心' },
-        '天津先行者': { id: 6, prestige: 78, funds: 17000000, city: '天津', arena: '天津体育馆' },
-        '青岛国信海天': { id: 7, prestige: 82, funds: 19000000, city: '青岛', arena: '青岛国信体育中心' },
-        '新疆广汇': { id: 8, prestige: 75, funds: 16000000, city: '乌鲁木齐', arena: '红山体育中心' }
+    'Asia-Pacific': {
+        '北京大学': { id: 1, prestige: 92, funds: 22000000, city: '北京', arena: '北大体育馆' },
+        '清华大学': { id: 2, prestige: 94, funds: 24000000, city: '北京', arena: '清华紫荆体育馆' },
+        '东京大学': { id: 3, prestige: 88, funds: 20000000, city: '东京', arena: '东大安田体育馆' },
+        '首尔大学': { id: 4, prestige: 85, funds: 19000000, city: '首尔', arena: '首尔大体育馆' },
+        '新加坡国立': { id: 5, prestige: 87, funds: 21000000, city: '新加坡', arena: '国大体育中心' },
+        '香港大学': { id: 6, prestige: 84, funds: 18000000, city: '香港', arena: '港大体育馆' },
+        '台湾大学': { id: 7, prestige: 82, funds: 17000000, city: '台北', arena: '台大小巨蛋' },
+        '早稻田大学': { id: 8, prestige: 86, funds: 19500000, city: '东京', arena: '早稻田体育馆' }
     },
-    'CBA-South': {
-        '广东宏远': { id: 9, prestige: 96, funds: 26000000, city: '东莞', arena: '东莞篮球中心' },
-        '浙江稠州银行': { id: 10, prestige: 91, funds: 22500000, city: '义乌', arena: '义乌梅湖体育中心' },
-        '上海久事': { id: 11, prestige: 88, funds: 21000000, city: '上海', arena: '源深体育中心' },
-        '深圳马可波罗': { id: 12, prestige: 82, funds: 19000000, city: '深圳', arena: '深圳大运中心' },
-        '广州龙狮': { id: 13, prestige: 80, funds: 18000000, city: '广州', arena: '天河体育中心' },
-        '福建浔兴股份': { id: 14, prestige: 79, funds: 17500000, city: '晋江', arena: '祖昌体育馆' },
-        '江苏肯帝亚': { id: 15, prestige: 81, funds: 18500000, city: '南京', arena: '五台山体育中心' },
-        '四川金强': { id: 16, prestige: 75, funds: 16000000, city: '成都', arena: '四川省体育馆' }
+    'Europe': {
+        '牛津大学': { id: 9, prestige: 96, funds: 26000000, city: '牛津', arena: '牛津大学体育馆' },
+        '剑桥大学': { id: 10, prestige: 95, funds: 25000000, city: '剑桥', arena: '剑桥体育中心' },
+        '帝国理工': { id: 11, prestige: 91, funds: 23000000, city: '伦敦', arena: '帝国理工体育馆' },
+        '伦敦政经': { id: 12, prestige: 89, funds: 22000000, city: '伦敦', arena: 'LSE体育中心' },
+        '巴黎高师': { id: 13, prestige: 90, funds: 22500000, city: '巴黎', arena: '巴黎高师体育馆' },
+        '慕尼黑工大': { id: 14, prestige: 88, funds: 21000000, city: '慕尼黑', arena: 'TUM体育馆' },
+        '苏黎世联邦': { id: 15, prestige: 93, funds: 24000000, city: '苏黎世', arena: 'ETH体育中心' },
+        '代尔夫特理工': { id: 16, prestige: 87, funds: 20000000, city: '代尔夫特', arena: 'TUD体育馆' }
     },
-    'CBA-East': {
-        '浙江广厦': { id: 17, prestige: 92, funds: 23000000, city: '杭州', arena: '杭州体育馆' },
-        '南京同曦宙光': { id: 18, prestige: 87, funds: 20500000, city: '南京', arena: '南京青奥体育公园' },
-        '宁波富邦': { id: 19, prestige: 90, funds: 22000000, city: '宁波', arena: '宁波市体育中心' },
-        '苏州肯帝亚': { id: 20, prestige: 86, funds: 20000000, city: '苏州', arena: '苏州市体育中心' },
-        '上海大鲨鱼': { id: 21, prestige: 84, funds: 19500000, city: '上海', arena: '东方体育中心' },
-        '福建豹发力': { id: 22, prestige: 78, funds: 17000000, city: '福州', arena: '福建省体育馆' },
-        '青岛每日优鲜': { id: 23, prestige: 80, funds: 18000000, city: '青岛', arena: '青岛大学体育馆' },
-        '山东王者': { id: 24, prestige: 74, funds: 15500000, city: '烟台', arena: '烟台体育公园' }
+    'Americas': {
+        '哈佛大学': { id: 17, prestige: 98, funds: 28000000, city: '波士顿', arena: '哈佛体育馆' },
+        '麻省理工': { id: 18, prestige: 97, funds: 27000000, city: '波士顿', arena: 'MIT体育中心' },
+        '斯坦福大学': { id: 19, prestige: 96, funds: 26000000, city: '斯坦福', arena: '斯坦福体育馆' },
+        '耶鲁大学': { id: 20, prestige: 95, funds: 25000000, city: '纽黑文', arena: '耶鲁体育中心' },
+        '普林斯顿': { id: 21, prestige: 94, funds: 24500000, city: '普林斯顿', arena: '普林斯顿体育馆' },
+        '加州理工': { id: 22, prestige: 92, funds: 23000000, city: '帕萨迪纳', arena: 'Caltech体育馆' },
+        '芝加哥大学': { id: 23, prestige: 91, funds: 22500000, city: '芝加哥', arena: '芝大体育中心' },
+        '多伦多大学': { id: 24, prestige: 89, funds: 21000000, city: '多伦多', arena: '多大体育馆' }
     },
-    'CBA-West': {
-        '新疆伊力特': { id: 25, prestige: 93, funds: 23500000, city: '乌鲁木齐', arena: '新疆体育中心' },
-        '四川五粮金樽': { id: 26, prestige: 89, funds: 21500000, city: '宜宾', arena: '宜宾市体育中心' },
-        '重庆华熙国际': { id: 27, prestige: 83, funds: 19000000, city: '重庆', arena: '重庆体育馆' },
-        '陕西信达': { id: 28, prestige: 79, funds: 17500000, city: '西安', arena: '陕西省体育场' },
-        '甘肃农垦': { id: 29, prestige: 76, funds: 16500000, city: '兰州', arena: '兰州体育馆' },
-        '宁夏哈纳斯': { id: 30, prestige: 77, funds: 17000000, city: '银川', arena: '宁夏体育馆' },
-        '青海三江源': { id: 31, prestige: 73, funds: 15000000, city: '西宁', arena: '青海省体育馆' },
-        '西藏净土': { id: 32, prestige: 70, funds: 14000000, city: '拉萨', arena: '西藏自治区体育馆' }
+    'Wild-Card': {
+        '悉尼大学': { id: 25, prestige: 88, funds: 20000000, city: '悉尼', arena: '悉尼大体育馆' },
+        '墨尔本大学': { id: 26, prestige: 87, funds: 19500000, city: '墨尔本', arena: '墨大体育中心' },
+        '开普敦大学': { id: 27, prestige: 82, funds: 17000000, city: '开普敦', arena: '开普敦大体育馆' },
+        '开罗大学': { id: 28, prestige: 80, funds: 16000000, city: '开罗', arena: '开罗大体育馆' },
+        '耶路撒冷希伯来': { id: 29, prestige: 85, funds: 18500000, city: '耶路撒冷', arena: '希伯来体育馆' },
+        '伊斯坦布尔大学': { id: 30, prestige: 83, funds: 17500000, city: '伊斯坦布尔', arena: '伊斯坦布尔体育馆' },
+        '奥克兰大学': { id: 31, prestige: 84, funds: 18000000, city: '奥克兰', arena: '奥大体育中心' },
+        '圣保罗大学': { id: 32, prestige: 86, funds: 19000000, city: '圣保罗', arena: '圣保罗大体育馆' }
     }
 };
 

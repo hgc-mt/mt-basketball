@@ -137,18 +137,19 @@ header {
         #0f3460 75%, 
         #1a1a2e 100%);
     color: white;
-    padding: 30px 40px;
-    border-radius: 20px;
-    margin-bottom: 25px;
+    padding: 60px 70px;
+    border-radius: 24px;
+    margin-bottom: 30px;
     display: flex;
     justify-content: space-between;
     align-items: center;
     box-shadow: 
-        0 10px 40px rgba(0, 0, 0, 0.5),
+        0 15px 50px rgba(0, 0, 0, 0.5),
         0 0 0 1px rgba(255, 255, 255, 0.1),
         inset 0 1px 0 rgba(255, 255, 255, 0.1);
     position: relative;
     overflow: hidden;
+    min-height: 140px;
 }
 
 header::before {
@@ -187,9 +188,9 @@ header::after {
 }
 
 header h1 {
-    font-size: 2.4rem;
-    font-weight: 900;
-    letter-spacing: 3px;
+    font-size: 2.2rem;
+    font-weight: 800;
+    letter-spacing: 2px;
     text-transform: uppercase;
     position: relative;
     z-index: 1;
@@ -202,34 +203,145 @@ header h1 {
     background-clip: text;
 }
 
+/* Header 左侧区域 */
+.header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    z-index: 1;
+}
+
+.header-team-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#header-team-name {
+    font-size: 2rem;
+    font-weight: 900;
+    color: #ffffff;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    padding: 12px 24px;
+    border-radius: 16px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5), 0 0 40px rgba(102, 126, 234, 0.3);
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+}
+
+#header-team-name::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    animation: shimmer 3s infinite;
+}
+
+#header-team-name::after {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    border-radius: 16px;
+    padding: 2px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #764ba2 75%, #667eea 100%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: borderRotate 4s linear infinite;
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    50%, 100% { left: 100%; }
+}
+
+@keyframes borderRotate {
+    0% { filter: hue-rotate(0deg); }
+    100% { filter: hue-rotate(360deg); }
+}
+
+#header-team-rating {
+    font-size: 1rem;
+    font-weight: 800;
+    padding: 6px 12px;
+    border-radius: 8px;
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8), 0 0 20px rgba(255, 255, 255, 0.4);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.3s ease;
+    animation: ratingPulse 2s ease-in-out infinite;
+}
+
+@keyframes ratingPulse {
+    0%, 100% {
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 20px currentColor;
+    }
+    50% {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 30px currentColor;
+    }
+}
+
+/* Header 右侧游戏信息 */
 #game-info {
     display: flex;
-    gap: 15px;
-    font-size: 0.9rem;
+    gap: 12px;
     position: relative;
     z-index: 1;
 }
 
-#game-info span {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.05) 100%);
-    padding: 12px 20px;
+.info-item {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.03) 100%);
+    padding: 10px 16px;
     border-radius: 12px;
-    font-weight: 600;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    min-width: 80px;
     transition: all 0.3s ease;
-    box-shadow: 
-        0 4px 15px rgba(0, 0, 0, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
 }
 
-#game-info span:hover {
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.2) 0%, rgba(255, 255, 255, 0.1) 100%);
-    transform: translateY(-3px);
-    box-shadow: 
-        0 8px 25px rgba(0, 0, 0, 0.3),
-        inset 0 1px 0 rgba(255, 255, 255, 0.2);
-    border-color: rgba(255, 255, 255, 0.2);
+.info-item:hover {
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
+    transform: translateY(-2px);
+    border-color: rgba(255, 255, 255, 0.15);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+.info-label {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.power-value {
+    background: linear-gradient(135deg, #e94560 0%, #c0392b 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-size: 1.1rem;
 }
 
 .editable-team-name {
@@ -246,6 +358,11 @@ header h1 {
     font-size: 0.8rem;
 }
 
+#header-team-name.editable-team-name:hover::after {
+    right: -20px;
+    font-size: 0.7rem;
+}
+
 #team-university-name.editable-team-name {
     cursor: pointer;
     padding: 5px 10px;
@@ -256,6 +373,62 @@ header h1 {
 #team-university-name.editable-team-name:hover {
     background: rgba(102, 126, 234, 0.2);
     border: 1px dashed var(--secondary-color);
+}
+
+#header-team-name.editable-team-name {
+    cursor: pointer;
+    padding: 5px 12px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+#header-team-name.editable-team-name::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+        90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent
+    );
+    transition: left 0.5s ease;
+}
+
+#header-team-name.editable-team-name:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 
+        0 4px 15px rgba(0, 0, 0, 0.3),
+        0 0 20px rgba(102, 126, 234, 0.3);
+}
+
+#header-team-name.editable-team-name:hover::before {
+    left: 100%;
+}
+
+#header-team-name.editable-team-name:hover::after {
+    content: '✏️';
+    position: absolute;
+    right: -25px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.8rem;
+    animation: editIconBounce 0.5s ease infinite alternate;
+}
+
+@keyframes editIconBounce {
+    0% {
+        transform: translateY(-50%) scale(1);
+    }
+    100% {
+        transform: translateY(-50%) scale(1.2);
+    }
 }
 
 /* 导航样式 - 现代化标签页 */
@@ -311,8 +484,7 @@ nav#main-nav::before {
     content: '';
     position: absolute;
     bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 0;
     width: 0;
     height: 3px;
     background: var(--accent-gradient);
@@ -325,13 +497,13 @@ nav#main-nav::before {
 }
 
 .nav-btn:hover::after {
-    width: 80%;
+    width: 100%;
 }
 
 .nav-btn.active {
     color: white;
-    background: linear-gradient(180deg, 
-        rgba(233, 69, 96, 0.15) 0%, 
+    background: linear-gradient(180deg,
+        rgba(233, 69, 96, 0.15) 0%,
         rgba(233, 69, 96, 0.05) 100%);
 }
 
@@ -1456,11 +1628,16 @@ select option {
         flex-direction: column;
         text-align: center;
         gap: 20px;
-        padding: 25px;
+        padding: 55px 60px;
+        min-height: 120px;
     }
     
     header h1 {
         font-size: 1.8rem;
+    }
+    
+    .header-left {
+        align-items: center;
     }
     
     #game-info {
@@ -1468,13 +1645,43 @@ select option {
         justify-content: center;
     }
     
-    nav#main-nav {
-        flex-wrap: wrap;
+    .info-item {
+        min-width: 70px;
+        padding: 8px 12px;
     }
     
+    .info-label {
+        font-size: 0.65rem;
+    }
+    
+    .info-value {
+        font-size: 0.9rem;
+    }
+    
+    nav#main-nav {
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 6px;
+    }
+
     .nav-btn {
-        padding: 15px 20px;
-        font-size: 0.85rem;
+        flex: 1 1 auto;
+        min-width: 90px;
+        padding: 14px 16px;
+        font-size: 0.8rem;
+        border-radius: 10px;
+        margin: 2px;
+    }
+
+    .nav-btn::after {
+        height: 2px;
+        bottom: 2px;
+        left: 10%;
+    }
+
+    .nav-btn.active::after {
+        width: 80%;
+        left: 10%;
     }
     
     .standing-row {
@@ -1497,37 +1704,107 @@ select option {
 
 @media (max-width: 768px) {
     #app {
-        padding: 15px;
+        padding: 12px;
     }
-    
+
     header {
-        padding: 20px;
+        padding: 55px 50px;
+        flex-direction: column;
+        gap: 15px;
+        min-height: 110px;
     }
-    
+
+    .header-left {
+        align-items: center;
+        text-align: center;
+        width: 100%;
+    }
+
     header h1 {
         font-size: 1.5rem;
+        letter-spacing: 2px;
     }
-    
-    #game-info {
+
+    .header-team-info {
+        justify-content: center;
+        flex-wrap: wrap;
         gap: 10px;
     }
-    
-    #game-info span {
-        padding: 8px 14px;
-        font-size: 0.85rem;
+
+    #header-team-name {
+        font-size: 1.1rem;
+    }
+
+    .team-rating-badge {
+        font-size: 0.8rem;
+        padding: 4px 12px;
+    }
+
+    #game-info {
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: center;
+        width: 100%;
+    }
+
+    .info-item {
+        min-width: 80px;
+        padding: 12px 16px;
+        flex: 1 1 auto;
+        max-width: calc(50% - 5px);
+    }
+
+    .info-label {
+        font-size: 0.75rem;
+    }
+
+    .info-value {
+        font-size: 1.1rem;
     }
     
     nav#main-nav {
-        flex-direction: column;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 2px;
+        padding: 4px;
+        border-radius: 12px;
     }
     
     .nav-btn {
-        width: 100%;
-        border-bottom: 1px solid var(--border-color);
+        flex: 1 1 calc(25% - 4px);
+        min-width: 70px;
+        max-width: 120px;
+        padding: 10px 6px;
+        font-size: 0.7rem;
+        border-radius: 8px;
+        border: none;
+        background: rgba(255, 255, 255, 0.03);
+        margin: 2px;
+    }
+    
+    .nav-btn:hover {
+        background: rgba(255, 255, 255, 0.08);
+    }
+    
+    .nav-btn.active {
+        background: linear-gradient(135deg, 
+            rgba(233, 69, 96, 0.3) 0%, 
+            rgba(233, 69, 96, 0.1) 100%);
+        box-shadow: 0 2px 8px rgba(233, 69, 96, 0.3);
     }
     
     .nav-btn::after {
-        display: none;
+        display: block;
+        height: 2px;
+        bottom: 2px;
+        left: 10%;
+        width: 0;
+    }
+    
+    .nav-btn.active::after {
+        width: 80%;
+        left: 10%;
     }
     
     main {
@@ -1537,6 +1814,80 @@ select option {
     .screen h2 {
         font-size: 1.3rem;
     }
+}
+
+@media (max-width: 480px) {
+    header {
+        padding: 50px 40px;
+        gap: 12px;
+        min-height: 100px;
+    }
+
+    header h1 {
+        font-size: 1.3rem;
+        letter-spacing: 1px;
+    }
+
+    .header-team-info {
+        flex-direction: row;
+        justify-content: center;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    #header-team-name {
+        font-size: 1rem;
+    }
+
+    .team-rating-badge {
+        font-size: 0.75rem;
+        padding: 3px 10px;
+    }
+
+    #game-info {
+        gap: 8px;
+    }
+
+    .info-item {
+        min-width: 70px;
+        padding: 10px 12px;
+        max-width: calc(50% - 4px);
+    }
+
+    .info-label {
+        font-size: 0.7rem;
+    }
+
+    .info-value {
+        font-size: 1rem;
+    }
+    
+    nav#main-nav {
+        gap: 1px;
+        padding: 2px;
+    }
+
+    .nav-btn {
+        flex: 1 1 calc(33.333% - 2px);
+        min-width: 60px;
+        max-width: none;
+        padding: 8px 4px;
+        font-size: 0.65rem;
+        border-radius: 6px;
+        margin: 1px;
+    }
+
+    .nav-btn::after {
+        height: 2px;
+        bottom: 1px;
+        left: 5%;
+    }
+
+    .nav-btn.active::after {
+        width: 90%;
+        left: 5%;
+    }
+}
     
     .player-attributes {
         grid-template-columns: 1fr 1fr;
@@ -1613,6 +1964,44 @@ select option {
         left: 20px;
         right: 20px;
         padding: 15px 20px;
+    }
+}
+
+/* 超小屏幕优化 */
+@media (max-width: 360px) {
+    header {
+        padding: 45px 35px;
+        min-height: 90px;
+    }
+
+    header h1 {
+        font-size: 1.2rem;
+    }
+
+    #header-team-name {
+        font-size: 0.95rem;
+    }
+
+    .team-rating-badge {
+        font-size: 0.7rem;
+        padding: 3px 8px;
+    }
+
+    #game-info {
+        gap: 6px;
+    }
+
+    .info-item {
+        min-width: 65px;
+        padding: 8px 10px;
+    }
+
+    .info-label {
+        font-size: 0.65rem;
+    }
+
+    .info-value {
+        font-size: 0.9rem;
     }
 }
 
@@ -1966,39 +2355,41 @@ tr:hover {
     #app {
         padding: 10px;
     }
-    
+
     header {
         flex-direction: column;
         text-align: center;
         gap: 10px;
+        padding: 55px 50px;
+        min-height: 110px;
     }
-    
+
     header h1 {
         font-size: 1.8rem;
     }
-    
+
     #game-info {
         flex-direction: column;
         gap: 5px;
     }
-    
+
     nav#main-nav {
         flex-direction: column;
     }
-    
+
     .player-attributes {
         grid-template-columns: 1fr 1fr;
     }
-    
+
     .standing-row {
         grid-template-columns: 30px 2fr 1fr;
     }
-    
+
     .standing-row > *:nth-child(4),
     .standing-row > *:nth-child(5) {
         display: none;
     }
-    
+
     .modal-content {
         width: 95%;
         margin: 10% auto;
@@ -8699,6 +9090,315 @@ tr:hover {
     box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
 }
 
+/* 签约教练确认对话框样式 */
+.hire-coach-confirmation {
+    max-width: 500px;
+    margin: 0 auto;
+    padding: 10px;
+}
+
+.hire-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.hire-header .hire-icon {
+    font-size: 1.8rem;
+}
+
+.hire-header h3 {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.coach-summary {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+    padding: 20px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+    border-radius: 16px;
+    border: 1px solid rgba(102, 126, 234, 0.2);
+}
+
+.coach-avatar-large {
+    font-size: 3rem;
+    width: 70px;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+}
+
+.coach-basic-info {
+    flex: 1;
+}
+
+.coach-name-large {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 5px;
+}
+
+.coach-archetype {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+.coach-rating-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(102, 126, 234, 0.2);
+    padding: 6px 12px;
+    border-radius: 20px;
+}
+
+.coach-rating-badge .rating-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.coach-rating-badge .rating-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--secondary-color);
+}
+
+.hire-details {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.detail-row:last-child {
+    border-bottom: none;
+}
+
+.detail-row.warning {
+    background: rgba(239, 68, 68, 0.1);
+    margin: 0 -15px;
+    padding: 10px 15px;
+    border-radius: 8px;
+}
+
+.detail-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.detail-value {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.detail-value.salary {
+    color: #fbbf24;
+    font-size: 1.1rem;
+}
+
+.detail-value.insufficient {
+    color: #ef4444;
+}
+
+.hire-notice {
+    margin-bottom: 20px;
+    padding: 15px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.hire-notice p {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--secondary-color);
+    margin: 0 0 10px 0;
+}
+
+.hire-notice ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.hire-notice li {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin-bottom: 5px;
+}
+
+.hire-notice .highlight {
+    color: var(--secondary-color);
+    font-weight: 600;
+}
+
+.hire-buttons {
+    display: flex;
+    gap: 15px;
+}
+
+.hire-buttons .btn {
+    flex: 1;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: none;
+}
+
+.hire-buttons .cancel-btn {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.hire-buttons .cancel-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.hire-buttons .confirm-hire-btn {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.hire-buttons .confirm-hire-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+}
+
+/* 教练等级标签样式 */
+.coach-rating-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.coach-level {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.coach-level.legendary {
+    background: linear-gradient(135deg, #ffd700 0%, #ffaa00 100%);
+    color: #1a1a2e;
+    box-shadow: 0 2px 8px rgba(255, 215, 0, 0.4);
+}
+
+.coach-level.elite {
+    background: linear-gradient(135deg, #c084fc 0%, #a855f7 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(168, 85, 247, 0.4);
+}
+
+.coach-level.excellent {
+    background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+}
+
+.coach-level.good {
+    background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+    color: white;
+    box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
+}
+
+.coach-level.average {
+    background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+    color: white;
+}
+
+.coach-level.rookie {
+    background: linear-gradient(135deg, #cbd5e1 0%, #94a3b8 100%);
+    color: #1a1a2e;
+}
+
+/* 教练加成区域样式 */
+.coach-bonus-section {
+    margin-top: 15px;
+    padding: 15px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.08) 100%);
+    border-radius: 12px;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.bonus-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.bonus-icon {
+    font-size: 1.1rem;
+}
+
+.bonus-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.bonus-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.bonus-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+}
+
+.bonus-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.bonus-value {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.bonus-value.positive {
+    color: #4ade80;
+}
+
+.bonus-value.negative {
+    color: #ef4444;
+}
+
 /* 响应式设计 - 球员列表 */
 @media (max-width: 900px) {
     .player-list-header,
@@ -9396,7 +10096,7 @@ tr:hover {
 /* 多维度筛选系统 */
 .recruitment-filters {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 20px;
     margin-bottom: 25px;
     padding: 20px 25px;
@@ -9405,9 +10105,21 @@ tr:hover {
     border: 1px solid var(--border-color);
 }
 
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    align-items: flex-start;
+}
+
 .filter-section {
     flex: 1;
     min-width: 200px;
+}
+
+.filter-section.search-section {
+    flex: 1.5;
+    min-width: 250px;
 }
 
 .filter-section h4 {
@@ -9618,6 +10330,18 @@ tr:hover {
     font-weight: 600;
     color: var(--text-primary);
     margin: 0 0 15px 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.stats-hint {
+    font-size: 0.75rem;
+    font-weight: 400;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 4px 10px;
+    border-radius: 20px;
 }
 
 .distribution-bars {
@@ -9631,22 +10355,60 @@ tr:hover {
     background: rgba(255, 255, 255, 0.03);
     border-radius: 12px;
     border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.dist-bar:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+}
+
+.dist-bar.active {
+    background: rgba(59, 130, 246, 0.15);
+    border-color: var(--accent-color);
+    box-shadow: 0 0 20px rgba(59, 130, 246, 0.3);
 }
 
 .dist-bar.elite {
     border-left: 3px solid #ef4444;
 }
 
+.dist-bar.elite:hover,
+.dist-bar.elite.active {
+    border-left-color: #ef4444;
+    box-shadow: 0 8px 25px rgba(239, 68, 68, 0.3);
+}
+
 .dist-bar.excellent {
     border-left: 3px solid #f59e0b;
+}
+
+.dist-bar.excellent:hover,
+.dist-bar.excellent.active {
+    border-left-color: #f59e0b;
+    box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
 }
 
 .dist-bar.good {
     border-left: 3px solid #3b82f6;
 }
 
+.dist-bar.good:hover,
+.dist-bar.good.active {
+    border-left-color: #3b82f6;
+    box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+}
+
 .dist-bar.normal {
     border-left: 3px solid #6b7280;
+}
+
+.dist-bar.normal:hover,
+.dist-bar.normal.active {
+    border-left-color: #6b7280;
+    box-shadow: 0 8px 25px rgba(107, 114, 128, 0.3);
 }
 
 .dist-icon {
@@ -9744,12 +10506,47 @@ tr:hover {
     margin-bottom: 2px;
 }
 
-.avatar-initials {
-    font-size: 0.7rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+.avatar-position {
+    font-family: 'Impact', 'Arial Black', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 900;
+    color: #ffffff;
+    text-shadow: 
+        0 2px 4px rgba(0,0,0,0.8),
+        0 0 10px rgba(255,255,255,0.3);
     letter-spacing: 1px;
+    margin-bottom: 0;
+    line-height: 1;
+}
+
+/* 不同等级头像的特殊效果 */
+.player-avatar-nba2k.gold {
+    box-shadow: 
+        0 0 0 3px #ffd700,
+        0 0 30px rgba(255, 215, 0, 0.4),
+        inset 0 2px 10px rgba(255,255,255,0.2);
+}
+
+.player-avatar-nba2k.silver {
+    box-shadow: 
+        0 0 0 3px #c0c0c0,
+        0 0 20px rgba(192, 192, 192, 0.3),
+        inset 0 2px 10px rgba(255,255,255,0.15);
+}
+
+.player-avatar-nba2k.bronze {
+    box-shadow: 
+        0 0 0 3px #cd7f32,
+        0 0 15px rgba(205, 127, 50, 0.25),
+        inset 0 2px 10px rgba(255,255,255,0.1);
+}
+
+.avatar-initials {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
 }
 
 .avatar-rating-badge {
@@ -11230,6 +12027,30 @@ tr:hover {
     
     .detailed-attributes {
         grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .filter-row {
+        flex-direction: column;
+    }
+    
+    .filter-section {
+        min-width: 100%;
+    }
+    
+    .filter-section.search-section {
+        min-width: 100%;
+    }
+    
+    .filter-actions {
+        flex-direction: row;
+        width: 100%;
+    }
+    
+    .filter-confirm-btn,
+    .filter-reset-btn {
+        flex: 1;
     }
 }
 

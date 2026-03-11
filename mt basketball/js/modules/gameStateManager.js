@@ -65,6 +65,7 @@ class GameStateManager {
             coachHiringCount: 0,
             maxCoachHiresPerSeason: 2,
             lastCoachHireDate: null,
+            coachMarketRefreshDate: defaultDate, // 使用游戏内日期
 
             // Counters for generating unique IDs
             playerIdCounter: 1000,
@@ -378,6 +379,23 @@ class GameStateManager {
                 parsed.state.currentDate = new Date(2024, 5, 15); // June 15, 2024
             }
 
+            // ===== 修复：验证并修复招募预算 =====
+            if (parsed.state.recruitmentBudget !== undefined) {
+                // 确保预算是数字
+                let budget = Number(parsed.state.recruitmentBudget);
+                
+                // 检查预算是否为负数或无效
+                if (isNaN(budget) || budget < 0) {
+                    console.warn(`[游戏状态] 招募预算异常 (${budget})，重置为初始值 50000`);
+                    parsed.state.recruitmentBudget = 50000;
+                } else {
+                    parsed.state.recruitmentBudget = budget;
+                }
+            } else {
+                // 如果没有预算数据，初始化为默认值
+                parsed.state.recruitmentBudget = 50000;
+            }
+
             // Reconstruct Player, Team, and Coach objects to restore their methods
             await this.reconstructGameObjects(parsed.state);
 
@@ -436,6 +454,11 @@ class GameStateManager {
             if (state.userCoach) {
                 state.userCoach = new Coach(state.userCoach);
             }
+
+            // Reconstruct userTeam's coach
+            if (state.userTeam && state.userTeam.coach) {
+                state.userTeam.coach = new Coach(state.userTeam.coach);
+            }
         } catch (error) {
             console.error('Failed to reconstruct game objects:', error);
         }
@@ -480,16 +503,106 @@ class GameStateManager {
     /**
      * Advance the game date
      * @param {number} days - Number of days to advance
+     * @returns {Object} 推进结果，包含是否被中断的信息
      */
     advanceDate(days = 1) {
+        // 在推进日期前，先记录玩家正在谈判的球员
+        const negotiatingPlayers = this.getNegotiatingPlayers();
+        
         const newDate = new Date(this.state.currentDate);
         newDate.setDate(newDate.getDate() + days);
         this.set('currentDate', newDate);
         
-        // 更新承诺签约的过期状态
+        // 更新承诺签约的过期状态，并处理AI招募
         if (window.recruitmentCompetitionSystem) {
             window.recruitmentCompetitionSystem.dailyUpdate();
         }
+        
+        // 检查是否有正在谈判的球员被AI签走
+        const signedByAI = this.checkPlayersSignedByAI(negotiatingPlayers);
+        
+        if (signedByAI.length > 0) {
+            // 有球员被签走，触发中断事件
+            this.handlePlayerSignedByAI(signedByAI);
+            return {
+                interrupted: true,
+                signedPlayers: signedByAI,
+                message: `谈判中的 ${signedByAI.map(p => p.playerName).join('、')} 已被其他球队签下！`
+            };
+        }
+        
+        return { interrupted: false };
+    }
+    
+    /**
+     * 获取玩家正在谈判的球员列表
+     * @returns {Array} 正在谈判的球员ID列表
+     */
+    getNegotiatingPlayers() {
+        const negotiatingPlayers = [];
+        
+        // 从negotiationManager获取活跃谈判
+        if (window.negotiationManager?.activeNegotiations) {
+            for (const [id, negotiation] of window.negotiationManager.activeNegotiations) {
+                if (negotiation.status === 'active' || negotiation.status === 'pending') {
+                    negotiatingPlayers.push({
+                        playerId: negotiation.playerId,
+                        playerName: negotiation.playerName
+                    });
+                }
+            }
+        }
+        
+        return negotiatingPlayers;
+    }
+    
+    /**
+     * 检查是否有球员被AI签走
+     * @param {Array} negotiatingPlayers - 正在谈判的球员列表
+     * @returns {Array} 被签走的球员列表
+     */
+    checkPlayersSignedByAI(negotiatingPlayers) {
+        const signedByAI = [];
+        
+        if (!window.recruitmentCompetitionSystem) return signedByAI;
+        
+        for (const player of negotiatingPlayers) {
+            const status = window.recruitmentCompetitionSystem.getPlayerRecruitmentStatus(player.playerId);
+            if (status && status.isSigned && status.signedWith !== 'user') {
+                signedByAI.push({
+                    playerId: player.playerId,
+                    playerName: player.playerName,
+                    signedWith: status.signedWith
+                });
+            }
+        }
+        
+        return signedByAI;
+    }
+    
+    /**
+     * 处理球员被AI签走的事件
+     * @param {Array} signedPlayers - 被签走的球员列表
+     */
+    handlePlayerSignedByAI(signedPlayers) {
+        // 关闭相关谈判
+        if (window.negotiationManager) {
+            for (const player of signedPlayers) {
+                const negotiation = window.negotiationManager.getNegotiationByPlayerId?.(player.playerId);
+                if (negotiation) {
+                    window.negotiationManager.endNegotiation(negotiation.id, 'player_signed_by_ai');
+                }
+            }
+        }
+        
+        // 通知UI显示中断信息（使用特殊key）
+        this.notifySubscribers('negotiationInterrupted', {
+            type: 'player_signed_by_ai',
+            players: signedPlayers,
+            message: `谈判中的 ${signedPlayers.map(p => p.playerName).join('、')} 已被其他球队签下！`
+        });
+        
+        console.log('[日期推进] 谈判中断，球员被签走:', signedPlayers.map(p => p.playerName).join('、'));
     }
 
     /**

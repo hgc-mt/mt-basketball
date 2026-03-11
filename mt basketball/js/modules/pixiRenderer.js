@@ -98,7 +98,8 @@
         bg.addChild(accentGlow2);
 
         this.createBackgroundParticles();
-        this.createCourtLines();
+        // 篮球场将在比赛开始时显示，不在背景中显示
+        // this.createCourtLines();
         this.createFloatingOrbs();
     };
 
@@ -157,20 +158,181 @@
     };
 
     PixiRenderer.prototype.createCourtLines = function() {
+        var courtContainer = new PIXI.Container();
         var court = new PIXI.Graphics();
         
-        court.lineStyle(2, 0x667eea, 0.08);
+        // 获取canvas实际尺寸
+        var canvasWidth = this.app ? this.app.screen.width : 1300;
+        var canvasHeight = this.app ? this.app.screen.height : 600;
         
-        for (var x = 0; x < 2000; x += 100) {
-            court.moveTo(x, 0);
-            court.lineTo(x, 1500);
+        // 计算篮球场尺寸（适配canvas）
+        var marginX = canvasWidth * 0.05;
+        var marginY = canvasHeight * 0.05;
+        var courtWidth = canvasWidth - marginX * 2;
+        var courtHeight = canvasHeight - marginY * 2;
+        var courtX = marginX;
+        var courtY = marginY;
+        
+        // 计算比例因子（基于标准篮球场比例 1.5:1）
+        var scaleX = courtWidth / 1800;
+        var scaleY = courtHeight / 1200;
+        var scale = Math.min(scaleX, scaleY);
+        
+        // 居中篮球场
+        var centerX = canvasWidth / 2;
+        var centerY = canvasHeight / 2;
+        var courtCenterX = centerX;
+        var courtCenterY = centerY;
+        
+        // 篮球场地板颜色 - 经典枫木色
+        var floorColor = 0x8B4513;
+        var lineColor = 0xFFFFFF;
+        var lineAlpha = 0.6;
+        var lineWidth = Math.max(1, 3 * scale);
+        
+        // 绘制半透明地板背景
+        court.beginFill(floorColor, 0.15);
+        court.drawRect(
+            courtCenterX - 900 * scale, 
+            courtCenterY - 600 * scale, 
+            1800 * scale, 
+            1200 * scale
+        );
+        court.endFill();
+        
+        // 设置线条样式
+        court.lineStyle(lineWidth, lineColor, lineAlpha);
+        
+        // 外边界线
+        court.drawRect(
+            courtCenterX - 900 * scale, 
+            courtCenterY - 600 * scale, 
+            1800 * scale, 
+            1200 * scale
+        );
+        
+        // 中线
+        court.moveTo(courtCenterX, courtCenterY - 600 * scale);
+        court.lineTo(courtCenterX, courtCenterY + 600 * scale);
+        
+        // 中圈
+        court.drawCircle(courtCenterX, courtCenterY, 120 * scale);
+        
+        // 左侧三分线
+        court.drawCircle(courtCenterX - 600 * scale, courtCenterY, 360 * scale);
+        // 左侧三分线直线部分
+        court.moveTo(courtCenterX - 900 * scale, courtCenterY - 360 * scale);
+        court.lineTo(courtCenterX - 600 * scale, courtCenterY - 360 * scale);
+        court.moveTo(courtCenterX - 900 * scale, courtCenterY + 360 * scale);
+        court.lineTo(courtCenterX - 600 * scale, courtCenterY + 360 * scale);
+        
+        // 右侧三分线
+        court.drawCircle(courtCenterX + 600 * scale, courtCenterY, 360 * scale);
+        // 右侧三分线直线部分
+        court.moveTo(courtCenterX + 600 * scale, courtCenterY - 360 * scale);
+        court.lineTo(courtCenterX + 900 * scale, courtCenterY - 360 * scale);
+        court.moveTo(courtCenterX + 600 * scale, courtCenterY + 360 * scale);
+        court.lineTo(courtCenterX + 900 * scale, courtCenterY + 360 * scale);
+        
+        // 左侧罚球区
+        court.drawRect(
+            courtCenterX - 900 * scale, 
+            courtCenterY - 180 * scale, 
+            380 * scale, 
+            360 * scale
+        );
+        // 左侧罚球圈
+        court.drawCircle(courtCenterX - 520 * scale, courtCenterY, 90 * scale);
+        
+        // 右侧罚球区
+        court.drawRect(
+            courtCenterX + 520 * scale, 
+            courtCenterY - 180 * scale, 
+            380 * scale, 
+            360 * scale
+        );
+        // 右侧罚球圈
+        court.drawCircle(courtCenterX + 520 * scale, courtCenterY, 90 * scale);
+        
+        // 左侧篮筐
+        court.beginFill(lineColor, lineAlpha);
+        court.drawCircle(courtCenterX - 870 * scale, courtCenterY, 12 * scale);
+        court.endFill();
+        // 左侧篮板
+        court.lineStyle(Math.max(1, 4 * scale), lineColor, lineAlpha);
+        court.moveTo(courtCenterX - 900 * scale, courtCenterY - 60 * scale);
+        court.lineTo(courtCenterX - 900 * scale, courtCenterY + 60 * scale);
+        
+        // 右侧篮筐
+        court.beginFill(lineColor, lineAlpha);
+        court.drawCircle(courtCenterX + 870 * scale, courtCenterY, 12 * scale);
+        court.endFill();
+        // 右侧篮板
+        court.lineStyle(Math.max(1, 4 * scale), lineColor, lineAlpha);
+        court.moveTo(courtCenterX + 900 * scale, courtCenterY - 60 * scale);
+        court.lineTo(courtCenterX + 900 * scale, courtCenterY + 60 * scale);
+        
+        // 添加木地板纹理效果
+        var woodTexture = new PIXI.Graphics();
+        woodTexture.lineStyle(Math.max(1, 1 * scale), 0xA0522D, 0.1);
+        for (var y = courtCenterY - 580 * scale; y < courtCenterY + 580 * scale; y += 20 * scale) {
+            woodTexture.moveTo(courtCenterX - 880 * scale, y);
+            woodTexture.lineTo(courtCenterX + 880 * scale, y);
         }
-        for (var y = 0; y < 1500; y += 100) {
-            court.moveTo(0, y);
-            court.lineTo(2000, y);
+        courtContainer.addChild(woodTexture);
+        
+        courtContainer.addChild(court);
+        this.containers.background.addChild(courtContainer);
+        
+        // 保存引用以便动画使用
+        this.courtContainer = courtContainer;
+        this.courtScale = scale;
+        this.courtCenterX = courtCenterX;
+        this.courtCenterY = courtCenterY;
+    };
+
+    // 显示篮球场（用于比赛时）
+    PixiRenderer.prototype.showBasketballCourt = function() {
+        // 如果篮球场已存在，先移除
+        if (this.courtContainer) {
+            this.containers.background.removeChild(this.courtContainer);
+            this.courtContainer = null;
         }
         
-        this.containers.background.addChild(court);
+        // 移除之前的篮球动画和比分牌
+        this.clearBasketballAnimations();
+        
+        // 创建新的篮球场
+        this.createCourtLines();
+        
+        // 确保篮球场可见
+        if (this.courtContainer) {
+            this.courtContainer.visible = true;
+            this.courtContainer.alpha = 1;
+        }
+        
+        // 创建篮球动画和比分牌
+        this.createBasketballAnimation();
+        
+        console.log('篮球场已显示');
+    };
+
+    // 清除篮球相关的动画
+    PixiRenderer.prototype.clearBasketballAnimations = function() {
+        // 过滤掉篮球和比分牌相关的动画
+        this.animations = this.animations.filter(function(anim) {
+            return anim.type !== 'basketball' && anim.type !== 'scoreboard';
+        });
+    };
+
+    // 隐藏篮球场
+    PixiRenderer.prototype.hideBasketballCourt = function() {
+        if (this.courtContainer) {
+            this.courtContainer.visible = false;
+        }
+        // 清除篮球动画和比分牌
+        this.clearBasketballAnimations();
+        console.log('篮球场已隐藏');
     };
 
     PixiRenderer.prototype.createFloatingOrbs = function() {
@@ -206,6 +368,200 @@
                 }
             });
         }
+        
+        // 篮球动画和比分牌将在显示篮球场时创建
+        // this.createBasketballAnimation();
+    };
+
+    // 篮球场比赛动画
+    PixiRenderer.prototype.createBasketballAnimation = function() {
+        var self = this;
+        
+        // 获取篮球场缩放比例和中心点
+        var scale = this.courtScale || 1;
+        var centerX = this.courtCenterX || 1000;
+        var centerY = this.courtCenterY || 700;
+        
+        // 创建篮球
+        var basketball = new PIXI.Container();
+        var ballGraphics = new PIXI.Graphics();
+        
+        // 篮球主体 - 橙色
+        ballGraphics.beginFill(0xFF6600);
+        ballGraphics.drawCircle(0, 0, 15 * scale);
+        ballGraphics.endFill();
+        
+        // 篮球线条
+        ballGraphics.lineStyle(Math.max(1, 2 * scale), 0x000000, 0.5);
+        ballGraphics.moveTo(-15 * scale, 0);
+        ballGraphics.lineTo(15 * scale, 0);
+        ballGraphics.moveTo(0, -15 * scale);
+        ballGraphics.lineTo(0, 15 * scale);
+        
+        basketball.addChild(ballGraphics);
+        basketball.x = centerX - 870 * scale;
+        basketball.y = centerY;
+        basketball.scale.set(0);
+        
+        this.containers.background.addChild(basketball);
+        
+        // 篮球动画状态
+        var ballState = {
+            phase: 'idle',
+            startX: centerX - 870 * scale,
+            startY: centerY,
+            endX: centerX + 870 * scale,
+            endY: centerY,
+            progress: 0,
+            speed: 0.008
+        };
+        
+        this.animations.push({
+            type: 'basketball',
+            obj: basketball,
+            state: ballState,
+            update: function(delta) {
+                var ball = this.obj;
+                var state = this.state;
+                
+                if (state.phase === 'idle') {
+                    // 等待一段时间后开始动画
+                    if (Math.random() < 0.005) {
+                        state.phase = 'shoot';
+                        state.progress = 0;
+                        ball.x = state.startX;
+                        ball.y = state.startY;
+                    }
+                } else if (state.phase === 'shoot') {
+                    // 投篮动画 - 抛物线运动
+                    state.progress += state.speed * delta;
+                    
+                    if (state.progress >= 1) {
+                        state.phase = 'score';
+                        state.progress = 0;
+                    } else {
+                        // 线性插值X坐标
+                        ball.x = state.startX + (state.endX - state.startX) * state.progress;
+                        // 抛物线Y坐标
+                        var height = 300;
+                        ball.y = state.startY - Math.sin(state.progress * Math.PI) * height;
+                        // 旋转效果
+                        ball.rotation = state.progress * Math.PI * 4;
+                        // 缩放效果 - 远小近大
+                        var scale = 0.8 + Math.sin(state.progress * Math.PI) * 0.4;
+                        ball.scale.set(scale);
+                    }
+                } else if (state.phase === 'score') {
+                    // 得分效果
+                    state.progress += 0.05 * delta;
+                    if (state.progress >= 1) {
+                        state.phase = 'return';
+                        state.progress = 0;
+                    }
+                    ball.scale.set(1 + state.progress * 0.5);
+                    ball.alpha = 1 - state.progress;
+                } else if (state.phase === 'return') {
+                    // 返回起点
+                    state.progress += state.speed * delta;
+                    if (state.progress >= 1) {
+                        state.phase = 'idle';
+                        ball.alpha = 1;
+                        ball.scale.set(0);
+                    } else {
+                        ball.x = state.endX + (state.startX - state.endX) * state.progress;
+                        ball.y = state.endY;
+                        ball.rotation = state.progress * Math.PI * 2;
+                        ball.scale.set(state.progress * 0.8);
+                        ball.alpha = state.progress;
+                    }
+                }
+            }
+        });
+        
+        // 创建比分牌
+        this.createScoreboard();
+    };
+    
+    // 创建比分牌
+    PixiRenderer.prototype.createScoreboard = function() {
+        var scoreboard = new PIXI.Container();
+        // 使用篮球场中心点和缩放比例
+        var scale = this.courtScale || 1;
+        var centerX = this.courtCenterX || 1000;
+        var canvasHeight = this.app ? this.app.screen.height : 600;
+        
+        scoreboard.x = centerX;
+        scoreboard.y = canvasHeight * 0.08;
+        
+        var bg = new PIXI.Graphics();
+        bg.beginFill(0x000000, 0.7);
+        bg.lineStyle(2, 0xFFFFFF, 0.5);
+        bg.drawRoundedRect(-150, 0, 300, 60, 10);
+        bg.endFill();
+        scoreboard.addChild(bg);
+        
+        // 主队分数
+        var homeScore = new PIXI.Text('88', {
+            fontSize: 32,
+            fontWeight: 'bold',
+            fill: 0xFFFFFF
+        });
+        homeScore.anchor.set(0.5);
+        homeScore.x = -80;
+        homeScore.y = 30;
+        scoreboard.addChild(homeScore);
+        
+        // 分隔符
+        var separator = new PIXI.Text(':', {
+            fontSize: 32,
+            fontWeight: 'bold',
+            fill: 0xFFFFFF
+        });
+        separator.anchor.set(0.5);
+        separator.x = 0;
+        separator.y = 30;
+        scoreboard.addChild(separator);
+        
+        // 客队分数
+        var awayScore = new PIXI.Text('86', {
+            fontSize: 32,
+            fontWeight: 'bold',
+            fill: 0xFFFFFF
+        });
+        awayScore.anchor.set(0.5);
+        awayScore.x = 80;
+        awayScore.y = 30;
+        scoreboard.addChild(awayScore);
+        
+        // 时间
+        var timeText = new PIXI.Text('Q4 02:35', {
+            fontSize: 14,
+            fill: 0xFFD700
+        });
+        timeText.anchor.set(0.5);
+        timeText.x = 0;
+        timeText.y = 75;
+        scoreboard.addChild(timeText);
+        
+        this.containers.ui.addChild(scoreboard);
+        
+        // 比分动画
+        this.animations.push({
+            type: 'scoreboard',
+            obj: { home: homeScore, away: awayScore, time: timeText },
+            update: function(delta) {
+                var obj = this.obj;
+                // 模拟比分变化
+                if (Math.random() < 0.001) {
+                    var currentHome = parseInt(obj.home.text);
+                    obj.home.text = (currentHome + 2).toString();
+                }
+                if (Math.random() < 0.001) {
+                    var currentAway = parseInt(obj.away.text);
+                    obj.away.text = (currentAway + 2).toString();
+                }
+            }
+        });
     };
 
     PixiRenderer.prototype.createPlayerCard = function(player, x, y, width, height) {

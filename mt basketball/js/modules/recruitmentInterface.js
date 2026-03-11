@@ -129,13 +129,13 @@ class RecruitmentInterface {
     }
 
     /**
-     * 生成NBA 2K风格球员头像
+     * 生成NBA 2K风格球员头像 - 使用位置字母而非emoji
      * @param {Object} player - 球员对象
-     * @param {string} emoji - 位置emoji
+     * @param {string} position - 球员位置
      * @param {string} color - 头像颜色
      * @returns {string} 头像HTML
      */
-    generatePlayerAvatar(player, emoji, color) {
+    generatePlayerAvatar(player, position, color) {
         const nameParts = player.name.split(' ');
         const firstName = nameParts[0] || '';
         const lastName = nameParts[nameParts.length - 1] || '';
@@ -148,22 +148,26 @@ class RecruitmentInterface {
         
         let borderColor = color;
         let glowColor = color;
+        let tier = 'bronze';
         
         if (rating >= 85) {
             borderColor = '#ffd700'; // 金色 - 超级巨星
             glowColor = 'rgba(255, 215, 0, 0.5)';
+            tier = 'gold';
         } else if (rating >= 75) {
             borderColor = '#c0c0c0'; // 银色 - 明星
             glowColor = 'rgba(192, 192, 192, 0.4)';
+            tier = 'silver';
         } else if (rating >= 65) {
             borderColor = '#cd7f32'; // 铜色 - 普通
             glowColor = 'rgba(205, 127, 50, 0.3)';
+            tier = 'bronze';
         }
         
         return `
-            <div class="player-avatar-nba2k" style="--avatar-color: ${color}; --border-color: ${borderColor}; --glow-color: ${glowColor};">
+            <div class="player-avatar-nba2k ${tier}" style="--avatar-color: ${color}; --border-color: ${borderColor}; --glow-color: ${glowColor};">
                 <div class="avatar-inner">
-                    <span class="avatar-emoji">${emoji}</span>
+                    <span class="avatar-position">${position}</span>
                     <span class="avatar-initials">${initials}</span>
                 </div>
                 <div class="avatar-rating-badge">${Math.round(rating)}</div>
@@ -370,6 +374,40 @@ class RecruitmentInterface {
         }
     }
 
+    // 通过潜力值分布条筛选球员
+    filterByPotential(min, max) {
+        // 更新筛选条件
+        this.pendingFilters.potentialMin = min;
+        this.pendingFilters.potentialMax = max;
+        
+        // 应用筛选
+        this.applyFilters();
+        
+        // 更新分布条的激活状态
+        this.updateDistributionBarActiveState(min, max);
+        
+        // 显示提示
+        const levelName = this.getPotentialLevelName(min);
+        this.showNotification(`已筛选: ${levelName} (${min}-${max})`, 'info');
+    }
+
+    // 获取潜力等级名称
+    getPotentialLevelName(min) {
+        if (min >= 90) return '天之骄子';
+        if (min >= 80) return '精英球员';
+        if (min >= 70) return '优秀球员';
+        return '普通球员';
+    }
+
+    // 更新分布条的激活状态
+    updateDistributionBarActiveState(min, max) {
+        document.querySelectorAll('.dist-bar').forEach(bar => {
+            const barMin = parseInt(bar.dataset.min);
+            const barMax = parseInt(bar.dataset.max);
+            bar.classList.toggle('active', barMin === min && barMax === max);
+        });
+    }
+
     getFilteredPlayers() {
         return this.players.filter(player => {
             // 位置筛选
@@ -450,11 +488,23 @@ class RecruitmentInterface {
             const state = this.gameStateManager.getState();
             const userTeam = state.userTeam;
             // 使用新的5级奖学金系统计算
-            const used = userTeam?.calculateUsedScholarshipShare ? 
+            const usedInRoster = userTeam?.calculateUsedScholarshipShare ? 
                 userTeam.calculateUsedScholarshipShare() : 
                 (userTeam?.roster?.reduce((sum, p) => sum + (p.scholarship || 0), 0) || 0);
+            
+            // 计算正在谈判中占用的奖学金
+            const negotiations = state.activeNegotiations || [];
+            const usedInNegotiations = negotiations.reduce((sum, neg) => {
+                // 只计算活跃的谈判
+                if (neg.status === 'active' || neg.status === 'pending' || neg.status === 'countered') {
+                    return sum + (neg.offer?.scholarship || 0);
+                }
+                return sum;
+            }, 0);
+            
+            const totalUsed = usedInRoster + usedInNegotiations;
             const max = 5; // 新的奖学金总额
-            scholarshipRemaining.textContent = `${(max - used).toFixed(1)}/${max}`;
+            scholarshipRemaining.textContent = `${(max - totalUsed).toFixed(1)}/${max}`;
         }
 
         if (activeNegotiations) {
@@ -614,18 +664,15 @@ class RecruitmentInterface {
 
         const ratingColor = this.getRatingColor(rating);
         
-        // NBA 2K风格头像 - 使用位置emoji和颜色
-        const positionEmojis = {
-            'PG': '🏀', 'SG': '🔥', 'SF': '⚡', 'PF': '💪', 'C': '🏆'
-        };
+        // NBA 2K风格头像 - 使用位置字母和颜色
         const positionColors = {
             'PG': '#e74c3c', 'SG': '#f39c12', 'SF': '#3498db', 'PF': '#9b59b6', 'C': '#1abc9c'
         };
-        const avatarEmoji = positionEmojis[player.position] || '🏀';
-        const avatarColor = positionColors[player.position] || '#667eea';
+        const position = player.position || 'PG';
+        const avatarColor = positionColors[position] || '#667eea';
         
         // 生成球员照片风格头像
-        const avatarHtml = this.generatePlayerAvatar(player, avatarEmoji, avatarColor);
+        const avatarHtml = this.generatePlayerAvatar(player, position, avatarColor);
 
         // 获取球员状态
         const statusLabel = player.getStatusLabel();
@@ -836,16 +883,13 @@ class RecruitmentInterface {
         const yearLabels = { 1: '大一', 2: '大二', 3: '大三', 4: '大四' };
         const background = player.background || {};
         
-        // NBA 2K风格头像
-        const positionEmojis = {
-            'PG': '🏀', 'SG': '🔥', 'SF': '⚡', 'PF': '💪', 'C': '🏆'
-        };
+        // NBA 2K风格头像 - 使用位置字母
         const positionColors = {
             'PG': '#e74c3c', 'SG': '#f39c12', 'SF': '#3498db', 'PF': '#9b59b6', 'C': '#1abc9c'
         };
-        const avatarEmoji = positionEmojis[player.position] || '🏀';
-        const avatarColor = positionColors[player.position] || '#667eea';
-        const avatarHtml = this.generatePlayerAvatar(player, avatarEmoji, avatarColor);
+        const position = player.position || 'PG';
+        const avatarColor = positionColors[position] || '#667eea';
+        const avatarHtml = this.generatePlayerAvatar(player, position, avatarColor);
 
         content.innerHTML = `
             <div class="player-detail-new">
@@ -921,6 +965,27 @@ class RecruitmentInterface {
                                 <h3 style="margin: 0; font-size: 1.1rem; color: var(--text-primary);">招募谈判</h3>
                             </div>
                             <span id="neg-status-badge-${player.id}" style="padding: 6px 12px; background: rgba(16, 185, 129, 0.2); color: #10b981; border-radius: 20px; font-size: 0.8rem; font-weight: 500;">进行中</span>
+                        </div>
+                        
+                        <!-- 竞争态势概览 -->
+                        <div class="competition-overview" style="background: rgba(0,0,0,0.2); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                                <span style="font-size: 1.1rem;">🏆</span>
+                                <h4 style="margin: 0; font-size: 0.95rem; color: var(--text-primary);">竞争态势</h4>
+                            </div>
+                            <div id="competition-status-${player.id}" style="display: flex; flex-direction: column; gap: 10px;">
+                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                                    <span style="color: var(--text-secondary); font-size: 0.85rem;">球员对我的兴趣度</span>
+                                    <span id="player-interest-${player.id}" style="font-weight: 700; color: #10b981; font-size: 1rem;">--</span>
+                                </div>
+                                <div id="competing-teams-${player.id}" style="display: flex; flex-direction: column; gap: 8px;">
+                                    <!-- 竞争球队将在这里动态显示 -->
+                                </div>
+                                <div id="my-advantages-${player.id}" style="margin-top: 8px; padding: 10px; background: rgba(245, 158, 11, 0.1); border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px;">💪 我的优势</div>
+                                    <div id="advantages-list-${player.id}" style="font-size: 0.85rem; color: var(--text-primary);">加载中...</div>
+                                </div>
+                            </div>
                         </div>
                         
                         <!-- 状态信息 -->
@@ -1003,8 +1068,27 @@ class RecruitmentInterface {
                             <div id="action-result-${player.id}" style="margin-top: 12px;"></div>
                         </div>
 
+                        <!-- 还价显示区域 -->
+                        <div id="counter-offer-section-${player.id}" style="display: none; background: rgba(245, 158, 11, 0.1); border: 2px solid rgba(245, 158, 11, 0.5); border-radius: 12px; padding: 16px; margin-bottom: 20px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                                <span style="font-size: 1.3rem;">🔄</span>
+                                <h4 style="margin: 0; font-size: 1rem; color: #f59e0b; font-weight: 700;">球员还价</h4>
+                            </div>
+                            <div id="counter-offer-content-${player.id}" style="display: flex; flex-direction: column; gap: 10px;">
+                                <!-- 还价内容将在这里动态显示 -->
+                            </div>
+                            <div style="display: flex; gap: 10px; margin-top: 12px;">
+                                <button class="neg-action-btn primary" onclick="window.recruitmentInterface.acceptCounterOffer('${player.id}')" style="flex: 1; padding: 10px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 8px; font-size: 0.85rem; cursor: pointer;">
+                                    <span>✓</span> 接受还价
+                                </button>
+                                <button class="neg-action-btn secondary" onclick="window.recruitmentInterface.modifyOffer('${player.id}')" style="flex: 1; padding: 10px; background: rgba(102, 126, 234, 0.2); color: #667eea; border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 8px; font-size: 0.85rem; cursor: pointer;">
+                                    <span>✏️</span> 修改报价
+                                </button>
+                            </div>
+                        </div>
+
                         <!-- 操作按钮 -->
-                        <div class="negotiation-actions-panel" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                        <div class="negotiation-actions-panel" id="negotiation-actions-panel-${player.id}" style="display: flex; gap: 10px; margin-bottom: 20px;">
                             <button class="neg-action-btn primary" onclick="window.recruitmentInterface.makeOffer('${player.id}')" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; border: none; border-radius: 10px; font-size: 0.9rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; transition: all 0.2s;">
                                 <span>📤</span> 提交报价
                             </button>
@@ -1569,14 +1653,148 @@ class RecruitmentInterface {
             return;
         }
 
-        // 关闭当前详情弹窗
-        const modal = document.getElementById('player-modal');
-        if (modal) {
-            modal.style.display = 'none';
+        // 检查球员是否因被羞辱而消失
+        if (window.recruitmentCompetitionSystem && 
+            !window.recruitmentCompetitionSystem.isPlayerVisible(player.id)) {
+            this.showNotification(`${player.name} 暂时不想考虑您的球队（之前报价被羞辱）`, 'warning');
+            return;
         }
 
-        // 发起谈判
-        this.openNegotiation(player);
+        // 初始化球员招募状态（如果还没有）
+        if (window.recruitmentCompetitionSystem) {
+            window.recruitmentCompetitionSystem.initializePlayerRecruitment(player);
+        }
+
+        // 询问初始报价
+        this.inquirePlayerOffer(player);
+    }
+
+    /**
+     * 询问球员初始报价期望
+     * @param {Object} player - 球员对象
+     */
+    inquirePlayerOffer(player) {
+        if (!window.recruitmentCompetitionSystem) {
+            // 如果没有竞争系统，直接打开谈判
+            this.openNegotiation(player);
+            return;
+        }
+
+        const result = window.recruitmentCompetitionSystem.inquireInitialOffer(player.id);
+        
+        if (!result.success) {
+            this.showNotification(result.message, 'warning');
+            return;
+        }
+
+        // 显示球员期望弹窗
+        this.showPlayerExpectationsModal(player, result.expectations, result.hint);
+    }
+
+    /**
+     * 显示球员期望弹窗
+     * @param {Object} player - 球员对象
+     * @param {Object} expectations - 期望配置
+     * @param {string} hint - 提示信息
+     */
+    showPlayerExpectationsModal(player, expectations, hint) {
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.id = 'player-expectations-modal';
+        
+        const level = this.getPotentialLevel(player.potential);
+        const initials = player.name.split(' ').map(n => n[0]).join('');
+        
+        // 根据球员类型确定衰减提示
+        let decayHint = '';
+        let decayBadge = '';
+        const playerType = expectations.playerType;
+        
+        if (playerType === 'freshman') {
+            decayHint = '大一新生价格坚定，不会随时间降低';
+            decayBadge = '<span style="background: rgba(16, 185, 129, 0.2); color: #10b981; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; margin-left: 6px;">价格稳定</span>';
+        } else if (playerType === 'transfer') {
+            decayHint = '前2个月价格稳定，最后1个月开始降价';
+            decayBadge = '<span style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; margin-left: 6px;">60天后降价</span>';
+        } else {
+            decayHint = '7-14天后开始逐渐降低期望';
+            decayBadge = '<span style="background: rgba(102, 126, 234, 0.2); color: #667eea; padding: 2px 8px; border-radius: 4px; font-size: 0.65rem; margin-left: 6px;">逐渐降价</span>';
+        }
+        
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 480px; border-radius: 16px; overflow: hidden;">
+                <!-- 头部 -->
+                <div class="modal-header" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; color: white;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: 600;">${initials}</div>
+                        <div>
+                            <h3 style="margin: 0; font-size: 1.1rem;">🤔 球员意向询问</h3>
+                            <div style="font-size: 0.85rem; opacity: 0.9; margin-top: 4px;">${player.name} · ${level.icon} ${player.potential}潜力</div>
+                        </div>
+                    </div>
+                    <span class="close" onclick="this.closest('.modal').remove()" style="position: absolute; right: 20px; top: 20px; font-size: 1.5rem; cursor: pointer; opacity: 0.8;">&times;</span>
+                </div>
+                
+                <!-- 内容 -->
+                <div class="modal-body" style="padding: 24px;">
+                    <div style="background: rgba(102, 126, 234, 0.1); border-radius: 12px; padding: 16px; margin-bottom: 20px; border: 1px solid rgba(102, 126, 234, 0.3);">
+                        <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 8px;">💭 球员性格</div>
+                        <div style="font-size: 1rem; color: var(--text-primary); font-weight: 500;">${hint}</div>
+                    </div>
+                    
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px;">
+                        <div style="text-align: center; padding: 16px; background: rgba(239, 68, 68, 0.1); border-radius: 12px; border: 1px solid rgba(239, 68, 68, 0.3);">
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 6px;">⚠️ 最低要求</div>
+                            <div style="font-size: 1.3rem; font-weight: 700; color: #ef4444;">${expectations.minAcceptable}%</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">低于此值会被羞辱</div>
+                        </div>
+                        <div style="text-align: center; padding: 16px; background: rgba(245, 158, 11, 0.1); border-radius: 12px; border: 1px solid rgba(245, 158, 11, 0.3);">
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 6px;">
+                                📊 当前期望
+                                ${decayBadge}
+                            </div>
+                            <div style="font-size: 1.3rem; font-weight: 700; color: #f59e0b;">${expectations.currentExpectation}%</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">${decayHint}</div>
+                        </div>
+                        <div style="text-align: center; padding: 16px; background: rgba(16, 185, 129, 0.1); border-radius: 12px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 6px;">✨ 理想报价</div>
+                            <div style="font-size: 1.3rem; font-weight: 700; color: #10b981;">${expectations.idealOffer}%</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">达到直接签约</div>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(255,255,255,0.05); border-radius: 10px; padding: 14px; margin-bottom: 20px;">
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 8px;">📋 谈判提示</div>
+                        <ul style="font-size: 0.8rem; color: var(--text-primary); margin: 0; padding-left: 18px; line-height: 1.8;">
+                            <li>报价低于 <strong style="color: #ef4444;">${expectations.minAcceptable}%</strong> 会被羞辱，球员将消失30天</li>
+                            <li>报价达到 <strong style="color: #10b981;">${expectations.idealOffer}%</strong> 会直接签约</li>
+                            ${playerType === 'freshman' ? 
+                                `<li style="color: #10b981;"><strong>大一新生价格坚定，不会随时间降低，建议尽早谈判</strong></li>` :
+                                playerType === 'transfer' ?
+                                `<li>转学生<strong style="color: #f59e0b;">前2个月价格稳定，最后1个月开始降价</strong></li>` :
+                                `<li>当前期望 <strong style="color: #f59e0b;">${expectations.currentExpectation}%</strong> 会随时间逐渐降低</li>`
+                            }
+                            <li>等待可能获得更好的价格，但也可能被其他球队签走</li>
+                        </ul>
+                    </div>
+                    
+                    <!-- 按钮 -->
+                    <div style="display: flex; gap: 12px;">
+                        <button class="btn-secondary" onclick="this.closest('.modal').remove()" style="flex: 1; padding: 12px; background: rgba(107, 114, 128, 0.2); color: var(--text-secondary); border: 1px solid rgba(107, 114, 128, 0.3); border-radius: 10px; font-size: 0.95rem; cursor: pointer;">稍后再说</button>
+                        <button class="btn-primary" id="start-negotiation-btn" style="flex: 1; padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-size: 0.95rem; cursor: pointer; font-weight: 500;">🎯 开始谈判</button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        document.body.appendChild(modal);
+        modal.style.display = 'block';
+
+        // 绑定开始谈判按钮
+        document.getElementById('start-negotiation-btn').addEventListener('click', () => {
+            modal.remove();
+            this.openNegotiation(player);
+        });
     }
 
     openMessageModal(negotiationId) {
@@ -1643,13 +1861,27 @@ class RecruitmentInterface {
         timeline.innerHTML = negotiation.history.map((entry, index) => {
             const icon = this.getHistoryIcon(entry.action);
             const time = new Date(entry.timestamp).toLocaleString('zh-CN');
+            
+            // 构建详情文本
+            let detailsText = '';
+            if (entry.action === 'started') {
+                detailsText = '发起谈判';
+            } else if (entry.action === 'countered') {
+                detailsText = '对方还价';
+            } else if (entry.action === 'accepted') {
+                detailsText = '接受报价';
+            } else if (entry.action === 'message_sent') {
+                detailsText = entry.message ? `消息内容: "${entry.message}"` : '发送了消息';
+            } else {
+                detailsText = entry.action;
+            }
 
             return `
                 <div class="timeline-item">
                     <div class="timeline-icon">${icon}</div>
                     <div class="timeline-content">
                         <div class="timeline-title">${this.getHistoryTitle(entry.action)}</div>
-                        <div class="timeline-details">${entry.action === 'started' ? '发起谈判' : (entry.action === 'countered' ? '对方还价' : (entry.action === 'accepted' ? '接受报价' : entry.action))}</div>
+                        <div class="timeline-details">${detailsText}</div>
                         ${entry.offer ? `
                             <div class="timeline-offer">
                                 <span>奖学金: ${Math.round(entry.offer.scholarship * 100)}%</span>
@@ -1673,7 +1905,8 @@ class RecruitmentInterface {
             'rejected': '❌',
             'withdrawn': '🚫',
             'failed': '💔',
-            'accepted_counter': '🤝'
+            'accepted_counter': '🤝',
+            'message_sent': '💬'
         };
         return icons[action] || '📝';
     }
@@ -1686,7 +1919,8 @@ class RecruitmentInterface {
             'rejected': '拒绝报价',
             'withdrawn': '取消谈判',
             'failed': '谈判失败',
-            'accepted_counter': '达成协议'
+            'accepted_counter': '达成协议',
+            'message_sent': '发送消息'
         };
         return titles[action] || '谈判记录';
     }
@@ -2157,6 +2391,14 @@ class RecruitmentInterface {
                 setTimeout(() => {
                     this.showPlayerDetail(player, true);
                 }, 300);
+            } else if (result && result.status === 'active' && result.negotiation?.playerResponse?.counterOffer) {
+                // 球员提出还价，这是正常流程，不是错误
+                this.showNotification('球员提出了还价，请查看谈判详情', 'warning');
+                
+                // 显示谈判详情（包含还价信息）
+                setTimeout(() => {
+                    this.showPlayerDetail(player, true);
+                }, 300);
             } else {
                 this.showNotification(result?.message || '提交报价失败', 'error');
             }
@@ -2517,8 +2759,368 @@ class RecruitmentInterface {
         // 更新历史记录
         this.updateNegotiationHistory(playerId, negotiation.history);
         
+        // 加载竞争态势信息
+        this.loadCompetitionData(playerId);
+        
+        // 加载还价信息
+        this.loadCounterOfferData(playerId, negotiation);
+        
         // 绑定招募行动按钮事件
         this.bindRecruitmentActionButtons(playerId);
+    }
+    
+    /**
+     * 加载还价数据
+     * @param {string|number} playerId - 球员ID
+     * @param {Object} negotiation - 谈判对象
+     */
+    loadCounterOfferData(playerId, negotiation) {
+        const counterOfferSection = document.getElementById(`counter-offer-section-${playerId}`);
+        const counterOfferContent = document.getElementById(`counter-offer-content-${playerId}`);
+        const actionPanel = document.getElementById(`negotiation-actions-panel-${playerId}`);
+        
+        if (!counterOfferSection || !counterOfferContent) return;
+        
+        // 检查是否有还价
+        const hasCounterOffer = negotiation.playerResponse?.counterOffer;
+        
+        if (hasCounterOffer) {
+            // 显示还价区域，隐藏普通操作按钮
+            counterOfferSection.style.display = 'block';
+            if (actionPanel) actionPanel.style.display = 'none';
+            
+            const counterOffer = negotiation.playerResponse.counterOffer;
+            const playerMessage = negotiation.playerResponse.message || '我觉得这个条件还可以再商量一下。';
+            
+            // 显示还价内容
+            counterOfferContent.innerHTML = `
+                <div style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: 8px; margin-bottom: 10px;">
+                    <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 6px;">💬 球员留言</div>
+                    <div style="font-size: 0.9rem; color: var(--text-primary); font-style: italic;">"${playerMessage}"</div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+                    <div style="text-align: center; padding: 10px; background: rgba(102, 126, 234, 0.1); border-radius: 8px;">
+                        <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 4px;">💰 奖学金</div>
+                        <div style="font-size: 1rem; font-weight: 600; color: #667eea;">${Math.round((counterOffer.scholarship || 0) * 100)}%</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: rgba(16, 185, 129, 0.1); border-radius: 8px;">
+                        <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 4px;">⏱️ 出场时间</div>
+                        <div style="font-size: 1rem; font-weight: 600; color: #10b981;">${counterOffer.playingTime || 0}分钟</div>
+                    </div>
+                    <div style="text-align: center; padding: 10px; background: rgba(245, 158, 11, 0.1); border-radius: 8px;">
+                        <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 4px;">🎯 角色</div>
+                        <div style="font-size: 1rem; font-weight: 600; color: #f59e0b;">${counterOffer.role || '主力'}</div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // 隐藏还价区域，显示普通操作按钮
+            counterOfferSection.style.display = 'none';
+            if (actionPanel) actionPanel.style.display = 'flex';
+        }
+    }
+    
+    /**
+     * 加载竞争态势数据
+     * @param {string|number} playerId - 球员ID
+     */
+    loadCompetitionData(playerId) {
+        // 获取竞争系统数据
+        const competitionSystem = window.recruitmentCompetitionSystem;
+        if (!competitionSystem) {
+            console.warn('Competition system not available');
+            return;
+        }
+
+        // 使用正确的方法获取球员招募状态
+        let playerRecruitment = competitionSystem.playerRecruitmentStatus?.get?.(playerId);
+        
+        // 如果没有找到，尝试使用 getPlayerRecruitmentStatus 方法
+        if (!playerRecruitment && competitionSystem.getPlayerRecruitmentStatus) {
+            playerRecruitment = competitionSystem.getPlayerRecruitmentStatus(playerId);
+        }
+        
+        if (!playerRecruitment) {
+            console.warn('No recruitment data for player:', playerId);
+            // 尝试初始化招募数据
+            const player = this.players.find(p => p.id == playerId);
+            if (player && competitionSystem.initializePlayerRecruitment) {
+                playerRecruitment = competitionSystem.initializePlayerRecruitment(player);
+            }
+            if (!playerRecruitment) {
+                return;
+            }
+        }
+
+        // 更新球员兴趣度
+        const interestEl = document.getElementById(`player-interest-${playerId}`);
+        if (interestEl) {
+            // 使用 playerInterestInUser 或 playerInterest
+            const interest = playerRecruitment.playerInterestInUser || playerRecruitment.playerInterest || 0;
+            interestEl.textContent = `${Math.round(interest)}%`;
+            // 根据兴趣度设置颜色
+            if (interest >= 70) {
+                interestEl.style.color = '#10b981'; // 绿色
+            } else if (interest >= 40) {
+                interestEl.style.color = '#f59e0b'; // 黄色
+            } else {
+                interestEl.style.color = '#ef4444'; // 红色
+            }
+        }
+
+        // 更新竞争态势标题（添加竞争强度）
+        const competitionStatusEl = document.getElementById(`competition-status-${playerId}`);
+        if (competitionStatusEl) {
+            const competingTeams = playerRecruitment.competingTeams;
+            // competingTeams 是数组，使用 length 而不是 size
+            const teamCount = Array.isArray(competingTeams) ? competingTeams.length : 0;
+            const myInterest = playerRecruitment.playerInterestInUser || playerRecruitment.playerInterest || 0;
+
+            // 计算竞争强度
+            let intensityLabel = '低';
+            let intensityColor = '#10b981';
+            if (teamCount >= 5) {
+                intensityLabel = '激烈';
+                intensityColor = '#ef4444';
+            } else if (teamCount >= 3) {
+                intensityLabel = '中等';
+                intensityColor = '#f59e0b';
+            }
+
+            // 添加竞争强度标签
+            const existingHeader = competitionStatusEl.querySelector('.competition-header');
+            if (!existingHeader) {
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'competition-header';
+                headerDiv.style.cssText = 'display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 8px;';
+                headerDiv.innerHTML = `
+                    <span style="font-size: 0.85rem; color: var(--text-secondary);">竞争球队: ${teamCount}支</span>
+                    <span style="font-size: 0.8rem; padding: 4px 10px; background: ${intensityColor}20; color: ${intensityColor}; border-radius: 12px; font-weight: 600;">竞争强度: ${intensityLabel}</span>
+                `;
+                competitionStatusEl.insertBefore(headerDiv, competitionStatusEl.firstChild);
+            }
+        }
+
+        // 更新竞争球队
+        const competingTeamsEl = document.getElementById(`competing-teams-${playerId}`);
+        if (competingTeamsEl && playerRecruitment.competingTeams) {
+            const teams = playerRecruitment.competingTeams;
+            const myInterest = playerRecruitment.playerInterestInUser || playerRecruitment.playerInterest || 0;
+
+            if (teams.length > 0) {
+                // 按兴趣度排序
+                teams.sort((a, b) => (b.interest || 0) - (a.interest || 0));
+
+                competingTeamsEl.innerHTML = teams.slice(0, 3).map((team, index) => {
+                    const interest = team.interest || 0;
+                    let interestColor = '#ef4444';
+                    if (interest >= 70) interestColor = '#10b981';
+                    else if (interest >= 40) interestColor = '#f59e0b';
+
+                    // 判断是否领先于我
+                    const isLeading = interest > myInterest;
+                    const leadingBadge = isLeading ? '<span style="font-size: 0.7rem; padding: 2px 6px; background: #ef444420; color: #ef4444; border-radius: 4px; margin-left: 6px;">领先</span>' : '';
+
+                    return `
+                        <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 6px; ${isLeading ? 'border: 1px solid rgba(239, 68, 68, 0.3);' : ''}">
+                            <div style="display: flex; align-items: center;">
+                                <span style="font-size: 0.75rem; color: var(--text-muted); margin-right: 8px;">#${index + 1}</span>
+                                <span style="color: var(--text-secondary); font-size: 0.85rem;">${team.teamName || '未知球队'}</span>
+                                ${leadingBadge}
+                            </div>
+                            <span style="font-weight: 600; color: ${interestColor}; font-size: 0.85rem;">${Math.round(interest)}%</span>
+                        </div>
+                    `;
+                }).join('');
+
+                // 如果还有更多球队，显示省略
+                if (teams.length > 3) {
+                    competingTeamsEl.innerHTML += `
+                        <div style="text-align: center; padding: 6px; color: var(--text-muted); font-size: 0.8rem;">
+                            还有 ${teams.length - 3} 支球队在竞争...
+                        </div>
+                    `;
+                }
+            } else {
+                competingTeamsEl.innerHTML = `
+                    <div style="padding: 10px; background: rgba(255,255,255,0.03); border-radius: 8px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+                        暂无其他竞争球队
+                    </div>
+                `;
+            }
+        }
+        
+        // 更新我的优势
+        const advantagesEl = document.getElementById(`advantages-list-${playerId}`);
+        if (advantagesEl) {
+            const advantages = this.calculateMyAdvantages(playerId, playerRecruitment);
+            if (advantages.length > 0) {
+                advantagesEl.innerHTML = advantages.map(adv => `
+                    <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 4px;">
+                        <span style="color: #10b981;">✓</span>
+                        <span>${adv}</span>
+                    </div>
+                `).join('');
+            } else {
+                advantagesEl.innerHTML = '<span style="color: var(--text-muted);">暂无明显优势</span>';
+            }
+        }
+
+        // 添加实时更新提示
+        const myAdvantagesSection = document.getElementById(`my-advantages-${playerId}`);
+        if (myAdvantagesSection) {
+            // 检查是否已存在更新时间提示
+            let updateTimeEl = myAdvantagesSection.querySelector('.update-time');
+            if (!updateTimeEl) {
+                updateTimeEl = document.createElement('div');
+                updateTimeEl.className = 'update-time';
+                updateTimeEl.style.cssText = 'margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.75rem; color: var(--text-muted); text-align: right;';
+                myAdvantagesSection.appendChild(updateTimeEl);
+            }
+            const now = new Date();
+            updateTimeEl.textContent = `更新于 ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+        }
+
+        // 设置自动刷新（每5秒刷新一次）
+        this.setupCompetitionAutoRefresh(playerId);
+    }
+
+    /**
+     * 设置竞争数据自动刷新
+     * @param {string|number} playerId - 球员ID
+     */
+    setupCompetitionAutoRefresh(playerId) {
+        // 清除现有的定时器
+        if (this.competitionRefreshTimers?.[playerId]) {
+            clearInterval(this.competitionRefreshTimers[playerId]);
+        }
+
+        // 创建新的定时器
+        if (!this.competitionRefreshTimers) {
+            this.competitionRefreshTimers = {};
+        }
+
+        this.competitionRefreshTimers[playerId] = setInterval(() => {
+            // 检查弹窗是否仍然打开
+            const modal = document.getElementById(`negotiation-modal-${playerId}`);
+            if (modal && modal.style.display === 'flex') {
+                this.loadCompetitionData(playerId);
+            } else {
+                // 弹窗已关闭，清除定时器
+                clearInterval(this.competitionRefreshTimers[playerId]);
+                delete this.competitionRefreshTimers[playerId];
+            }
+        }, 5000); // 每5秒刷新一次
+    }
+    
+    /**
+     * 计算我的优势
+     * @param {string|number} playerId - 球员ID
+     * @param {Object} playerRecruitment - 球员招募数据
+     * @returns {Array} 优势列表
+     */
+    calculateMyAdvantages(playerId, playerRecruitment) {
+        const advantages = [];
+        const state = window.gameStateManager?.getState?.();
+        const userTeam = state?.userTeam;
+        
+        if (!userTeam) return advantages;
+        
+        // 获取球员数据
+        const player = this.players.find(p => p.id == playerId);
+        if (!player) return advantages;
+        
+        // 1. 兴趣度优势
+        const myInterest = playerRecruitment.playerInterestInUser || playerRecruitment.playerInterest || 0;
+        const competingTeams = playerRecruitment.competingTeams;
+        let hasInterestAdvantage = true;
+        if (competingTeams) {
+            // competingTeams 可能是数组或 Map
+            const teams = Array.isArray(competingTeams) ? competingTeams : Array.from(competingTeams.values());
+            for (const team of teams) {
+                // 使用 interest 或 interestLevel
+                const teamInterest = (team.interest || team.interestLevel) || 0;
+                if (teamInterest > myInterest) {
+                    hasInterestAdvantage = false;
+                    break;
+                }
+            }
+        }
+        if (hasInterestAdvantage && myInterest > 50) {
+            advantages.push(`兴趣度领先 (${Math.round(myInterest)}%)`);
+        }
+        
+        // 2. 球队战绩优势
+        const userTeamRating = userTeam.rating || userTeam.teamRating || 70;
+        if (userTeamRating >= 80) {
+            advantages.push('球队实力强劲');
+        }
+
+        // 3-5. 获取谈判信息（只声明一次）
+        const negotiation = window.negotiationManager?.getNegotiation?.(playerId);
+        const offer = negotiation?.offer;
+        const role = offer?.role;
+
+        // 3. 奖学金优势
+        if (offer?.scholarship >= 1.0) {
+            advantages.push('提供全额奖学金');
+        } else if (offer?.scholarship >= 0.75) {
+            advantages.push('高额奖学金支持');
+        }
+
+        // 4. 出场时间优势
+        if (offer?.playingTime >= 35) {
+            advantages.push('首发位置承诺');
+        } else if (offer?.playingTime >= 25) {
+            advantages.push('重要轮换地位');
+        } else if (offer?.playingTime >= 20) {
+            advantages.push('稳定轮换时间');
+        }
+
+        // 5. 角色定位优势
+        if (role === '核心' || role === 'star' || role === '首发') {
+            advantages.push('球队核心定位');
+        } else if (role === '第六人') {
+            advantages.push('重要替补角色');
+        }
+
+        // 6. 地理位置优势（简化处理）
+        if (player.background?.hometown && userTeam.location) {
+            advantages.push('地理位置适宜');
+        }
+
+        // 7. 教练加成优势
+        if (userTeam.coach) {
+            const coachRating = userTeam.coach.overallRating || userTeam.coach.getOverallRating?.() || 0;
+            if (coachRating >= 85) {
+                advantages.push('传奇教练执教');
+            } else if (coachRating >= 75) {
+                advantages.push('优秀教练团队');
+            }
+        }
+
+        // 8. 战绩优势
+        if (userTeam.stats) {
+            const winRate = userTeam.stats.wins / (userTeam.stats.wins + userTeam.stats.losses || 1);
+            if (winRate >= 0.7) {
+                advantages.push('球队战绩优异');
+            } else if (winRate >= 0.6) {
+                advantages.push('球队表现稳定');
+            }
+        }
+
+        // 9. 设施优势（如果有相关数据）
+        if (userTeam.facilities) {
+            const facilityRating = userTeam.facilities.overall || 0;
+            if (facilityRating >= 80) {
+                advantages.push('顶级训练设施');
+            } else if (facilityRating >= 70) {
+                advantages.push('良好训练条件');
+            }
+        }
+
+        // 限制优势数量，保留最重要的6个
+        return advantages.slice(0, 6);
     }
     
     /**
@@ -2703,7 +3305,35 @@ class RecruitmentInterface {
             return;
         }
 
-        // 提交当前报价
+        // 使用新的报价处理系统
+        if (window.recruitmentCompetitionSystem) {
+            const offer = negotiation.offer || {};
+            const processResult = window.recruitmentCompetitionSystem.processPlayerOffer(playerId, offer);
+            
+            if (!processResult.success) {
+                this.showNotification(processResult.message, 'error');
+                return;
+            }
+            
+            // 处理羞辱情况
+            if (processResult.type === 'INSULTED') {
+                this.showPlayerInsultedModal(processResult);
+                // 关闭谈判弹窗
+                const modal = document.getElementById('player-modal');
+                if (modal) modal.style.display = 'none';
+                return;
+            }
+            
+            // 处理直接签约情况
+            if (processResult.type === 'AUTO_SIGN') {
+                this.showNotification(processResult.message, 'success');
+                // 直接签约
+                this.signPlayerDirectly(playerId, negotiation);
+                return;
+            }
+        }
+
+        // 提交当前报价（原有逻辑）
         const result = window.negotiationManager?.makeOffer?.(negotiation.id, negotiation.offer);
         
         if (result && result.success) {
@@ -2711,6 +3341,66 @@ class RecruitmentInterface {
             this.loadNegotiationData(playerId);
         } else {
             this.showNotification(result?.message || '提交失败', 'error');
+        }
+    }
+
+    /**
+     * 显示球员被羞辱弹窗
+     * @param {Object} result - 处理结果
+     */
+    showPlayerInsultedModal(result) {
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.display = 'block';
+        modal.innerHTML = `
+            <div class="modal-content" style="max-width: 420px; border-radius: 16px; overflow: hidden; text-align: center;">
+                <div style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 30px 20px; color: white;">
+                    <div style="font-size: 4rem; margin-bottom: 10px;">😤</div>
+                    <h3 style="margin: 0; font-size: 1.3rem;">球员感到被羞辱！</h3>
+                </div>
+                <div style="padding: 24px;">
+                    <p style="font-size: 1rem; color: var(--text-primary); margin-bottom: 16px;">${result.message}</p>
+                    <div style="background: rgba(239, 68, 68, 0.1); border-radius: 10px; padding: 14px; margin-bottom: 20px; border: 1px solid rgba(239, 68, 68, 0.3);">
+                        <p style="font-size: 0.9rem; color: #ef4444; margin: 0;">${result.consequence}</p>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 20px;">${result.playerReaction}</p>
+                    <button onclick="this.closest('.modal').remove()" style="padding: 12px 32px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; border-radius: 10px; font-size: 0.95rem; cursor: pointer;">我知道了</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    /**
+     * 直接签约球员（达到理想报价）
+     * @param {string|number} playerId - 球员ID
+     * @param {Object} negotiation - 谈判对象
+     */
+    signPlayerDirectly(playerId, negotiation) {
+        // 使用negotiationManager完成签约
+        if (window.negotiationManager?.signPlayer) {
+            const result = window.negotiationManager.signPlayer(negotiation.id);
+            
+            if (result && result.success) {
+                // 显示签约成功动画
+                if (window.recruitmentPixiRenderer && window.recruitmentPixiRenderer.isInitialized) {
+                    const centerX = window.innerWidth / 2;
+                    const centerY = window.innerHeight / 2;
+                    window.recruitmentPixiRenderer.animateSigningSuccess(centerX, centerY);
+                }
+                
+                this.showNotification('🎉 签约成功！球员已加入您的球队', 'success');
+                
+                // 关闭弹窗并刷新
+                setTimeout(() => {
+                    const modal = document.getElementById('player-modal');
+                    if (modal) modal.style.display = 'none';
+                    this.renderPlayerCards();
+                    this.renderNegotiationList();
+                }, 1000);
+            } else {
+                this.showNotification(result?.message || '签约失败', 'error');
+            }
         }
     }
 
@@ -2774,6 +3464,49 @@ class RecruitmentInterface {
             if (modal) modal.style.display = 'none';
             // 刷新列表
             this.renderPlayerCards();
+        }
+    }
+
+    /**
+     * 接受球员还价
+     * @param {string|number} playerId - 球员ID
+     */
+    acceptCounterOffer(playerId) {
+        const negotiation = window.negotiationManager?.getNegotiationByPlayerId?.(playerId) ||
+                           window.negotiationManager?.getNegotiation?.(playerId);
+        
+        if (!negotiation) {
+            this.showNotification('找不到谈判记录', 'error');
+            return;
+        }
+
+        if (!negotiation.playerResponse?.counterOffer) {
+            this.showNotification('没有可接受的还价', 'error');
+            return;
+        }
+
+        const result = window.negotiationManager?.acceptCounterOffer?.(negotiation.id);
+        
+        if (result) {
+            this.showNotification('🎉 已接受还价，签约成功！', 'success');
+            
+            // PixiJS 签约成功动画
+            if (window.recruitmentPixiRenderer && window.recruitmentPixiRenderer.isInitialized) {
+                const centerX = window.innerWidth / 2;
+                const centerY = window.innerHeight / 2;
+                window.recruitmentPixiRenderer.animateSigningSuccess(centerX, centerY);
+            }
+            
+            // 关闭弹窗
+            const modal = document.getElementById('player-modal');
+            if (modal) modal.style.display = 'none';
+            
+            // 刷新列表
+            this.renderPlayerCards();
+            this.renderNegotiationList();
+            this.updateAllTabCounts();
+        } else {
+            this.showNotification('接受还价失败', 'error');
         }
     }
 

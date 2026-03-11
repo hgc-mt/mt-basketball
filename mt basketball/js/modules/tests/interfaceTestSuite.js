@@ -127,7 +127,7 @@ class InterfaceTestSuite {
         const mockTeam = {
             id: 1,
             name: 'Test Team',
-            scholarships: 13,
+            scholarships: 5,
             roster: [
                 { id: 1, name: 'Player1', scholarship: 1.0 },
                 { id: 2, name: 'Player2', scholarship: 0.8 },

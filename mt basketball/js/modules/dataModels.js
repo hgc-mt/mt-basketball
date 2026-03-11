@@ -1681,14 +1681,14 @@ class Coach {
      */
     getOverallRating() {
         const weights = {
-            offense: 0.18,
-            defense: 0.18,
+            offense: 0.15,
+            defense: 0.15,
             recruiting: 0.12,
-            development: 0.22,
-            motivation: 0.1,
-            playerDevRating: 0.1,
-            influence: 0.05,
-            innovation: 0.05
+            development: 0.18,
+            motivation: 0.12,
+            playerDevRating: 0.12,
+            influence: 0.08,
+            innovation: 0.08
         };
 
         let weightedSum = 0;
@@ -1698,10 +1698,104 @@ class Coach {
             weightedSum += value * weight;
         }
 
-        const achievementBonus = Math.min(this.achievements.length * 1.5, 10);
-        const championshipBonus = this.careerStats.championships * 3;
+        // 基础评分
+        const baseRating = weightedSum;
         
-        return Math.round(weightedSum + achievementBonus + championshipBonus);
+        // 经验加成 (每年+0.5，最高+15)
+        const experienceBonus = Math.min(this.experience * 0.5, 15);
+        
+        // 成就加成 (每个成就+2，最高+20)
+        const achievementBonus = Math.min(this.achievements.length * 2, 20);
+        
+        // 冠军加成 (每个冠军+5，最高+25)
+        const championshipBonus = Math.min(this.careerStats.championships * 5, 25);
+        
+        // 头衔加成
+        let titleBonus = 0;
+        if (this.titles.includes('传奇教头')) titleBonus += 10;
+        else if (this.titles.includes('冠军教头')) titleBonus += 8;
+        else if (this.titles.includes('王朝教头')) titleBonus += 12;
+        else if (this.titles.includes('名人堂级别')) titleBonus += 10;
+        else if (this.titles.includes('千胜教头')) titleBonus += 8;
+        else if (this.titles.includes('新人教父')) titleBonus += 5;
+        
+        // 冠军教头额外加成
+        const championBonus = this.isChampion ? 5 : 0;
+        
+        const finalRating = Math.min(99, Math.round(baseRating + experienceBonus + achievementBonus + championshipBonus + titleBonus + championBonus));
+        
+        return finalRating;
+    }
+    
+    /**
+     * Get coach's rating level name
+     * @returns {string} Rating level name
+     */
+    getRatingLevel() {
+        const rating = this.getOverallRating();
+        if (rating >= 90) return '传奇';
+        if (rating >= 80) return '精英';
+        if (rating >= 70) return '优秀';
+        if (rating >= 60) return '良好';
+        if (rating >= 50) return '普通';
+        return '新手';
+    }
+    
+    /**
+     * Get coach bonus to team strength (percentage based)
+     * 教练加成改为百分比形式，确保总战力控制在99以下
+     * @returns {number} Team strength bonus percentage (0-15%)
+     */
+    getTeamStrengthBonus() {
+        const rating = this.getOverallRating();
+        
+        // 基础加成：评分/20，最高5%
+        let bonus = rating / 20;
+        
+        // 专长额外加成，每个专长+1%，最高3%
+        const specialtyBonus = Math.min(this.specialties.length * 1, 3);
+        
+        // 冠军教头额外加成+2%
+        const championBonus = this.isChampion ? 2 : 0;
+        
+        // 经验加成，每年+0.1%，最高2%
+        const expBonus = Math.min(this.experience * 0.1, 2);
+        
+        // 总加成控制在15%以内
+        return Math.min(15, Math.round((bonus + specialtyBonus + championBonus + expBonus) * 10) / 10);
+    }
+    
+    /**
+     * Get detailed coach bonuses (percentage based)
+     * @returns {Object} Detailed bonuses with percentage values
+     */
+    getDetailedBonuses() {
+        const rating = this.getOverallRating();
+        const archetypeMultipliers = {
+            'offensive': { offense: 1.3, defense: 0.9, development: 1.0 },
+            'defensive': { offense: 0.9, defense: 1.3, development: 1.0 },
+            'balanced': { offense: 1.1, defense: 1.1, development: 1.1 },
+            'developmental': { offense: 1.0, defense: 1.0, development: 1.3 },
+            'veteran': { offense: 1.1, defense: 1.1, development: 0.9 }
+        };
+        
+        const multipliers = archetypeMultipliers[this.archetype] || archetypeMultipliers['balanced'];
+        
+        // 计算各项加成百分比
+        const offenseBonus = Math.round((this.attributes.offense - 50) * 0.1 * multipliers.offense * 10) / 10;
+        const defenseBonus = Math.round((this.attributes.defense - 50) * 0.1 * multipliers.defense * 10) / 10;
+        const devBonus = Math.round((this.playerDevRating - 50) * 0.08 * multipliers.development * 10) / 10;
+        const recruitingBonus = Math.round((this.attributes.recruiting - 50) * 0.08 * 10) / 10;
+        const motivationBonus = Math.round((this.attributes.motivation - 50) * 0.05 * 10) / 10;
+        
+        return {
+            teamStrength: this.getTeamStrengthBonus(),
+            offense: offenseBonus,
+            defense: defenseBonus,
+            playerDevelopment: devBonus,
+            recruiting: recruitingBonus,
+            motivation: motivationBonus
+        };
     }
 
     /**
@@ -2042,7 +2136,8 @@ class Team {
     /**
      * Calculate team strength with rotation weights
      * 按轮换权重计算球队战力
-     * 首发5人: 85% | 主要替补3人: 12% | 边缘替补: 3%
+     * 首发5人: 80% | 主要替补3人: 15% | 边缘替补: 5%
+     * 教练加成改为百分比形式
      * @returns {number} Team strength rating (1-100)
      */
     getTeamStrength() {
@@ -2053,23 +2148,115 @@ class Team {
             b.getOverallRating() - a.getOverallRating()
         );
 
-        // 首发5人 (85%权重)
+        // 首发5人 (80%权重)
         const starters = sortedRoster.slice(0, 5);
-        const starterStrength = starters.reduce((sum, p) => sum + p.getOverallRating(), 0) / starters.length * 0.85;
+        const starterStrength = starters.reduce((sum, p) => sum + p.getOverallRating(), 0) / starters.length * 0.80;
 
-        // 主要替补3人 (12%权重)
+        // 主要替补3人 (15%权重)
         const mainBench = sortedRoster.slice(5, 8);
         const benchStrength = mainBench.length > 0 
-            ? mainBench.reduce((sum, p) => sum + p.getOverallRating(), 0) / mainBench.length * 0.12
+            ? mainBench.reduce((sum, p) => sum + p.getOverallRating(), 0) / mainBench.length * 0.15
             : 0;
 
-        // 边缘替补 (3%权重)
+        // 边缘替补 (5%权重)
         const deepBench = sortedRoster.slice(8);
         const deepStrength = deepBench.length > 0
-            ? deepBench.reduce((sum, p) => sum + p.getOverallRating(), 0) / deepBench.length * 0.03
+            ? deepBench.reduce((sum, p) => sum + p.getOverallRating(), 0) / deepBench.length * 0.05
             : 0;
 
-        return Math.round(starterStrength + benchStrength + deepStrength);
+        // 基础战力（不含教练加成）
+        let baseStrength = starterStrength + benchStrength + deepStrength;
+        
+        // 教练加成（百分比形式）
+        if (this.coach) {
+            let coachBonusPercent = 0;
+            if (typeof this.coach.getTeamStrengthBonus === 'function') {
+                coachBonusPercent = this.coach.getTeamStrengthBonus();
+            } else if (this.coach.overallRating) {
+                // 如果教练是普通对象，使用简化计算：评分/20，最高5%
+                coachBonusPercent = Math.min(5, Math.round(this.coach.overallRating / 20 * 10) / 10);
+            }
+            // 应用百分比加成
+            baseStrength = baseStrength * (1 + coachBonusPercent / 100);
+        }
+
+        return Math.min(99, Math.round(baseStrength));
+    }
+    
+    /**
+     * Get detailed team strength breakdown
+     * @returns {Object} Strength breakdown
+     */
+    getTeamStrengthBreakdown() {
+        if (this.roster.length === 0) {
+            return {
+                baseStrength: 0,
+                coachBonus: 0,
+                totalStrength: 0,
+                details: {
+                    starters: 0,
+                    bench: 0,
+                    deepBench: 0
+                }
+            };
+        }
+
+        const sortedRoster = [...this.roster].sort((a, b) => 
+            b.getOverallRating() - a.getOverallRating()
+        );
+
+        const starters = sortedRoster.slice(0, 5);
+        const starterStrength = starters.reduce((sum, p) => sum + p.getOverallRating(), 0) / starters.length;
+        const starterWeighted = starterStrength * 0.80;
+
+        const mainBench = sortedRoster.slice(5, 8);
+        const benchStrength = mainBench.length > 0
+            ? mainBench.reduce((sum, p) => sum + p.getOverallRating(), 0) / mainBench.length
+            : 0;
+        const benchWeighted = benchStrength * 0.15;
+
+        const deepBench = sortedRoster.slice(8);
+        const deepStrength = deepBench.length > 0
+            ? deepBench.reduce((sum, p) => sum + p.getOverallRating(), 0) / deepBench.length
+            : 0;
+        const deepWeighted = deepStrength * 0.05;
+
+        const baseStrength = starterWeighted + benchWeighted + deepWeighted;
+        
+        let coachBonusPercent = 0;
+        let coachInfo = null;
+        if (this.coach) {
+            if (typeof this.coach.getTeamStrengthBonus === 'function') {
+                coachBonusPercent = this.coach.getTeamStrengthBonus();
+                coachInfo = {
+                    name: this.coach.name,
+                    rating: this.coach.getOverallRating(),
+                    level: this.coach.getRatingLevel()
+                };
+            } else if (this.coach.overallRating) {
+                coachBonusPercent = Math.min(5, Math.round(this.coach.overallRating / 20 * 10) / 10);
+                coachInfo = {
+                    name: this.coach.name,
+                    rating: this.coach.overallRating,
+                    level: '未知'
+                };
+            }
+        }
+        
+        // 计算加成后的战力
+        const totalStrength = Math.min(99, Math.round(baseStrength * (1 + coachBonusPercent / 100)));
+
+        return {
+            baseStrength: Math.round(baseStrength),
+            coachBonusPercent: coachBonusPercent,
+            totalStrength: totalStrength,
+            coachInfo: coachInfo,
+            details: {
+                starters: Math.round(starterStrength),
+                bench: Math.round(benchStrength),
+                deepBench: Math.round(deepStrength)
+            }
+        };
     }
 
     /**

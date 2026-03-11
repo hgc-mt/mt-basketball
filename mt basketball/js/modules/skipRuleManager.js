@@ -599,7 +599,7 @@ class SkipRuleManager {
             originalScholarships = userTeam.scholarships.total || 5;
             userTeam.scholarships.total = originalScholarships + inherited;
         } else {
-            originalScholarships = userTeam.scholarships || 15;
+            originalScholarships = userTeam.scholarships || 5;
             userTeam.scholarships = originalScholarships + inherited;
         }
 

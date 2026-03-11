@@ -331,13 +331,27 @@ class CoachManager {
         const userTeam = state.userTeam;
         const availableCoaches = state.availableCoaches;
 
-        if (!userTeam) return;
+        if (!userTeam) {
+            this.showNotification('请先创建或选择球队', 'error');
+            return;
+        }
 
         // Find coach in available coaches
         const coachIndex = availableCoaches.findIndex(c => c.id === coachId);
-        if (coachIndex === -1) return;
+        if (coachIndex === -1) {
+            this.showNotification('教练不存在或已被签约', 'error');
+            return;
+        }
 
         const newCoach = availableCoaches[coachIndex];
+
+        // Get coach info
+        let coachInfo;
+        if (typeof newCoach.getInfo === 'function') {
+            coachInfo = newCoach.getInfo();
+        } else {
+            coachInfo = newCoach;
+        }
 
         // Check coach hiring limit
         if (state.coachHiringCount >= state.maxCoachHiresPerSeason) {
@@ -345,54 +359,106 @@ class CoachManager {
             return;
         }
 
-        // Check if team already has a coach
-        if (userTeam.coach) {
-            // Show confirmation dialog for replacing coach
-            this.showReplaceCoachConfirmation(newCoach);
+        // Check if hiring is allowed based on time
+        const lastHireDate = state.lastCoachHireDate;
+        if (lastHireDate) {
+            const daysSinceLastHire = Math.floor((new Date() - new Date(lastHireDate)) / (1000 * 60 * 60 * 24));
+            const minDaysBetweenHires = 7; // Minimum 7 days between hires
+            if (daysSinceLastHire < minDaysBetweenHires) {
+                this.showNotification(`签约过于频繁，请等待 ${minDaysBetweenHires - daysSinceLastHire} 天后再次签约`, 'error');
+                return;
+            }
+        }
+
+        // Check funds
+        if (userTeam.funds < coachInfo.salary) {
+            this.showNotification(`资金不足！需要 $${coachInfo.salary.toLocaleString()} 来签约该教练`, 'error');
             return;
         }
 
-        // Hire coach
-        this.completeCoachHiring(newCoach, coachIndex);
+        // Show confirmation dialog
+        this.showHireConfirmation(newCoach, coachIndex);
     }
 
-    showReplaceCoachConfirmation(newCoach) {
+    showHireConfirmation(coach, coachIndex) {
         const state = this.gameStateManager.getState();
         const userTeam = state.userTeam;
         
+        // Get coach info
+        let coachInfo;
+        if (typeof coach.getInfo === 'function') {
+            coachInfo = coach.getInfo();
+        } else {
+            coachInfo = coach;
+        }
+
         const modal = document.getElementById('player-modal');
         const modalContentDiv = modal.querySelector('.modal-content');
 
+        const archetypeNames = {
+            'offensive': '进攻型教练',
+            'defensive': '防守型教练',
+            'balanced': '均衡型教练',
+            'developmental': '培养型教练',
+            'veteran': '老练型教练'
+        };
+
+        const hasExistingCoach = userTeam.coach !== null;
+        const existingCoachName = hasExistingCoach ? userTeam.coach.name : '无';
+
         const modalContent = `
-            <div class="replace-coach-confirmation">
-                <div class="replace-warning">
-                    <span class="warning-icon">⚠️</span>
-                    <h3>确认更换教练</h3>
+            <div class="hire-coach-confirmation">
+                <div class="hire-header">
+                    <span class="hire-icon">📝</span>
+                    <h3>确认签约教练</h3>
                 </div>
                 
-                <div class="replace-coach-info">
-                    <div class="current-coach">
-                        <span class="label">当前教练:</span>
-                        <span class="value">${userTeam.coach ? userTeam.coach.name : '无'}</span>
-                    </div>
-                    <div class="new-coach">
-                        <span class="label">新教练:</span>
-                        <span class="value">${newCoach.name}</span>
+                <div class="coach-summary">
+                    <div class="coach-avatar-large">${this.getCoachAvatar(coachInfo.archetype, coachInfo.age)}</div>
+                    <div class="coach-basic-info">
+                        <div class="coach-name-large">${coachInfo.name}</div>
+                        <div class="coach-archetype">${archetypeNames[coachInfo.archetype] || coachInfo.archetype}</div>
+                        <div class="coach-rating-badge">
+                            <span class="rating-label">综合评分</span>
+                            <span class="rating-value">${coachInfo.overallRating || '-'}</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="replace-notice">
-                    <p>此操作将产生以下影响：</p>
+                <div class="hire-details">
+                    <div class="detail-row">
+                        <span class="detail-label">签约费用</span>
+                        <span class="detail-value salary">$${coachInfo.salary.toLocaleString()}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">当前资金</span>
+                        <span class="detail-value">$${userTeam.funds.toLocaleString()}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">签约后剩余</span>
+                        <span class="detail-value ${userTeam.funds - coachInfo.salary < 0 ? 'insufficient' : ''}">$${(userTeam.funds - coachInfo.salary).toLocaleString()}</span>
+                    </div>
+                    ${hasExistingCoach ? `
+                    <div class="detail-row warning">
+                        <span class="detail-label">⚠️ 将替换</span>
+                        <span class="detail-value">${existingCoachName}</span>
+                    </div>
+                    ` : ''}
+                </div>
+
+                <div class="hire-notice">
+                    <p>签约须知：</p>
                     <ul>
-                        <li>当前教练将被解聘并返回市场</li>
-                        <li>新教练将执掌球队</li>
+                        <li>签约费用将从球队资金中扣除</li>
+                        <li>本赛季剩余签约次数：${state.maxCoachHiresPerSeason - state.coachHiringCount}次</li>
+                        ${hasExistingCoach ? '<li>当前教练将被解聘并返回教练市场</li>' : ''}
                         <li>此操作<span class="highlight">不可撤销</span></li>
                     </ul>
                 </div>
 
-                <div class="replace-buttons">
-                    <button class="btn cancel-btn" id="cancel-replace">取消</button>
-                    <button class="btn confirm-replace-btn" id="confirm-replace">确认更换</button>
+                <div class="hire-buttons">
+                    <button class="btn cancel-btn" id="cancel-hire">取消</button>
+                    <button class="btn confirm-hire-btn" id="confirm-hire">确认签约</button>
                 </div>
             </div>
         `;
@@ -400,25 +466,15 @@ class CoachManager {
         modalContentDiv.innerHTML = modalContent;
         modal.style.display = 'block';
 
-        const cancelBtn = document.getElementById('cancel-replace');
-        const confirmBtn = document.getElementById('confirm-replace');
+        const cancelBtn = document.getElementById('cancel-hire');
+        const confirmBtn = document.getElementById('confirm-hire');
 
         cancelBtn.addEventListener('click', () => {
             modal.style.display = 'none';
         });
 
         confirmBtn.addEventListener('click', () => {
-            const currentState = this.gameStateManager.getState();
-            const availableCoaches = currentState.availableCoaches;
-            const coachIndex = availableCoaches.findIndex(c => c.id === newCoach.id);
-            
-            // Return old coach to market
-            if (currentState.userTeam.coach) {
-                currentState.userTeam.coach.teamId = null;
-                availableCoaches.push(currentState.userTeam.coach);
-            }
-            
-            this.completeCoachHiring(newCoach, coachIndex);
+            this.completeCoachHiring(coach, coachIndex);
             modal.style.display = 'none';
         });
     }
@@ -428,8 +484,33 @@ class CoachManager {
         const userTeam = state.userTeam;
         const availableCoaches = state.availableCoaches;
 
-        // Hire coach
-        userTeam.coach = coach;
+        // Get coach info
+        let coachInfo;
+        if (typeof coach.getInfo === 'function') {
+            coachInfo = coach.getInfo();
+        } else {
+            coachInfo = coach;
+        }
+
+        // Deduct salary from team funds
+        if (userTeam.funds < coachInfo.salary) {
+            this.showNotification('资金不足，签约失败', 'error');
+            return;
+        }
+        
+        // 如果有旧教练，将其返回到市场
+        if (userTeam.coach) {
+            const oldCoach = userTeam.coach;
+            oldCoach.teamId = null;
+            availableCoaches.push(oldCoach);
+        }
+
+        // 创建新的 userTeam 对象以触发状态更新
+        const updatedUserTeam = {
+            ...userTeam,
+            funds: userTeam.funds - coachInfo.salary,
+            coach: coach
+        };
         coach.teamId = userTeam.id;
 
         // Remove from available coaches
@@ -438,19 +519,30 @@ class CoachManager {
         // Update coach hiring count and date
         const newHiringCount = state.coachHiringCount + 1;
         this.gameStateManager.set('coachHiringCount', newHiringCount);
-        this.gameStateManager.set('lastCoachHireDate', new Date());
+        this.gameStateManager.set('lastCoachHireDate', state.currentDate);
 
         // Update game state
         this.gameStateManager.set('availableCoaches', [...availableCoaches]);
+        this.gameStateManager.set('userTeam', updatedUserTeam);
 
         // Update UI
         this.displayCoachList();
+        
+        // Update header funds display if available
+        this.updateHeaderFunds(updatedUserTeam.funds);
 
         const remainingHires = state.maxCoachHiresPerSeason - newHiringCount;
-        this.showNotification(`成功签约教练 ${coach.name}（本赛季剩余签约次数：${remainingHires}）`, 'success');
+        this.showNotification(`✅ 成功签约教练 ${coachInfo.name}！\n💰 花费: $${coachInfo.salary.toLocaleString()}\n📊 本赛季剩余签约次数: ${remainingHires}次`, 'success');
 
         // Save game state
         this.gameStateManager.saveGameState();
+    }
+
+    updateHeaderFunds(funds) {
+        const fundsEl = document.getElementById('header-funds');
+        if (fundsEl) {
+            fundsEl.textContent = '$' + funds.toLocaleString();
+        }
     }
 
     viewCoachDetails(coachId) {
@@ -773,9 +865,9 @@ class CoachManager {
         // Generate new coaches
         const newCoaches = this.generateCoaches(10);
 
-        // Update game state
+        // Update game state - 使用游戏内日期而不是真实日期
         this.gameStateManager.set('availableCoaches', newCoaches);
-        this.gameStateManager.set('coachMarketRefreshDate', new Date());
+        this.gameStateManager.set('coachMarketRefreshDate', state.currentDate);
 
         // Update UI
         this.displayCoachList();
@@ -1004,7 +1096,8 @@ class CoachManager {
             const innovation = 50 + Math.floor(Math.random() * 40);
             const adaptability = 50 + Math.floor(Math.random() * 40);
             
-            const coach = {
+            // Create Coach instance instead of plain object
+            const coachData = {
                 id: this.gameStateManager.getCoachId(),
                 name: `${firstName} ${lastName}`,
                 age: 40 + Math.floor(Math.random() * 25),
@@ -1049,6 +1142,8 @@ class CoachManager {
                 adaptability: adaptability
             };
 
+            // Create Coach instance
+            const coach = new Coach(coachData);
             coaches.push(coach);
         }
 
@@ -1057,9 +1152,21 @@ class CoachManager {
 
     formatDate(date) {
         if (!date) {
-            return new Date().toISOString().split('T')[0];
+            return '未刷新';
         }
-        return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+        
+        // 如果是字符串，转换为 Date 对象
+        let dateObj = date;
+        if (typeof date === 'string') {
+            dateObj = new Date(date);
+        }
+        
+        // 验证日期是否有效
+        if (!(dateObj instanceof Date) || isNaN(dateObj)) {
+            return '未刷新';
+        }
+        
+        return `${dateObj.getFullYear()}-${(dateObj.getMonth() + 1).toString().padStart(2, '0')}-${dateObj.getDate().toString().padStart(2, '0')}`;
     }
 
     showNotification(message, type = 'info') {

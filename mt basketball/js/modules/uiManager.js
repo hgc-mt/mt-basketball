@@ -29,6 +29,9 @@ class UIManager {
         // Subscribe to game state changes
         this.gameStateManager.subscribe(this.handleStateChange.bind(this));
 
+        // Initial UI update
+        this.updateGameInfoHeader();
+
         this.isInitialized = true;
         console.log('UI Manager initialized');
     }
@@ -112,6 +115,8 @@ class UIManager {
                 break;
             case 'userTeam':
                 this.updateTeamDisplay(value);
+                this.updateTeamPowerDisplay(value);
+                this.updateTeamRatingDisplay(value);
                 break;
             case 'funds':
                 this.updateFundsDisplay(value);
@@ -252,7 +257,16 @@ class UIManager {
     updateFundsDisplay(funds) {
         const fundsElement = document.getElementById('funds');
         if (fundsElement) {
-            fundsElement.textContent = `$${funds.toLocaleString()}`;
+            // 格式化资金显示，大于10000显示为xx万
+            let displayFunds;
+            if (funds >= 1000000) {
+                displayFunds = (funds / 1000000).toFixed(1) + 'M';
+            } else if (funds >= 1000) {
+                displayFunds = (funds / 1000).toFixed(1) + 'K';
+            } else {
+                displayFunds = funds.toString();
+            }
+            fundsElement.textContent = '$' + displayFunds;
         }
     }
 
@@ -263,20 +277,20 @@ class UIManager {
     updateScholarshipsDisplay(scholarships) {
         const scholarshipsElement = document.getElementById('scholarships');
         if (scholarshipsElement) {
-            const userTeam = this.gameStateManager.get('userTeam');
-            const gameStateScholarships = this.gameStateManager.get('scholarships');
+            const state = this.gameStateManager.getState();
+            const userTeam = state.userTeam;
             
             let used, total;
-            if (gameStateScholarships && typeof gameStateScholarships === 'object') {
-                used = gameStateScholarships.used || 0;
-                total = gameStateScholarships.total || 5;
+            if (scholarships && typeof scholarships === 'object') {
+                used = scholarships.used || 0;
+                total = scholarships.total || 5;
             } else {
                 // Fallback to old method if scholarships is just a number
                 used = userTeam ? userTeam.roster.length : 0;
-                total = gameStateScholarships || 5;
+                total = scholarships || 5;
             }
             
-            scholarshipsElement.textContent = `奖学金: ${used}/${total}`;
+            scholarshipsElement.textContent = `${used}/${total}`;
         }
     }
 
@@ -506,6 +520,93 @@ class UIManager {
         this.updateFundsDisplay(state.funds);
         this.updateScholarshipsDisplay(state.scholarships);
         this.updateSeasonPhaseDisplay(state.seasonPhase);
+        this.updateTeamPowerDisplay(state.userTeam);
+        this.updateTeamRatingDisplay(state.userTeam);
+    }
+
+    /**
+     * Update the team power display in the header
+     * @param {Object} userTeam - User team
+     */
+    updateTeamPowerDisplay(userTeam) {
+        const powerEl = document.getElementById('header-team-power');
+        if (powerEl && userTeam) {
+            const power = userTeam.getTeamStrength ? userTeam.getTeamStrength() : 0;
+            powerEl.textContent = power;
+            
+            // 根据战力设置颜色
+            if (power >= 80) {
+                powerEl.style.background = 'linear-gradient(135deg, #f1c40f 0%, #f39c12 100%)';
+                powerEl.style.webkitBackgroundClip = 'text';
+                powerEl.style.webkitTextFillColor = 'transparent';
+            } else if (power >= 65) {
+                powerEl.style.background = 'linear-gradient(135deg, #3498db 0%, #2980b9 100%)';
+                powerEl.style.webkitBackgroundClip = 'text';
+                powerEl.style.webkitTextFillColor = 'transparent';
+            } else if (power >= 50) {
+                powerEl.style.background = 'linear-gradient(135deg, #27ae60 0%, #229954 100%)';
+                powerEl.style.webkitBackgroundClip = 'text';
+                powerEl.style.webkitTextFillColor = 'transparent';
+            } else {
+                powerEl.style.background = 'linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%)';
+                powerEl.style.webkitBackgroundClip = 'text';
+                powerEl.style.webkitTextFillColor = 'transparent';
+            }
+        }
+    }
+
+    /**
+     * Update the team rating badge in the header
+     * @param {Object} userTeam - User team
+     */
+    updateTeamRatingDisplay(userTeam) {
+        const ratingEl = document.getElementById('header-team-rating');
+        const nameEl = document.getElementById('header-team-name');
+        
+        if (nameEl && userTeam) {
+            nameEl.textContent = userTeam.name || '未命名球队';
+        }
+        
+        if (ratingEl && userTeam) {
+            const power = userTeam.getTeamStrength ? userTeam.getTeamStrength() : 0;
+            let ratingText = 'C';
+            let ratingColor = '#95a5a6';
+            
+            if (power >= 90) {
+                ratingText = 'S';
+                ratingColor = '#e74c3c';
+            } else if (power >= 80) {
+                ratingText = 'A';
+                ratingColor = '#f39c12';
+            } else if (power >= 70) {
+                ratingText = 'B';
+                ratingColor = '#3498db';
+            } else if (power >= 60) {
+                ratingText = 'C';
+                ratingColor = '#27ae60';
+            } else {
+                ratingText = 'D';
+                ratingColor = '#95a5a6';
+            }
+            
+            ratingEl.textContent = ratingText;
+            ratingEl.style.background = `linear-gradient(135deg, ${ratingColor} 0%, ${this.darkenColor(ratingColor, 20)} 100%)`;
+        }
+    }
+
+    /**
+     * Darken a color by a percentage
+     * @param {string} color - Hex color
+     * @param {number} percent - Percentage to darken
+     * @returns {string} Darkened hex color
+     */
+    darkenColor(color, percent) {
+        const num = parseInt(color.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = Math.max((num >> 16) - amt, 0);
+        const G = Math.max((num >> 8 & 0x00FF) - amt, 0);
+        const B = Math.max((num & 0x0000FF) - amt, 0);
+        return '#' + (0x1000000 + R * 0x10000 + G * 0x100 + B).toString(16).slice(1);
     }
 
     /**

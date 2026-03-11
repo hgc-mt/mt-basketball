@@ -100,10 +100,19 @@ class RecruitmentBudgetManager {
     
     /**
      * 获取当前预算
+     * 确保返回非负数
      */
     getCurrentBudget() {
         const state = this.gameStateManager.getState();
-        return state.recruitmentBudget || 0;
+        const budget = state.recruitmentBudget || 0;
+        // 如果预算为负数，修正为0并更新状态
+        if (budget < 0) {
+            console.warn(`[招募预算] 检测到负数预算 (${budget})，修正为 0`);
+            state.recruitmentBudget = 0;
+            this.gameStateManager.set('recruitmentBudget', 0);
+            return 0;
+        }
+        return budget;
     }
     
     /**
