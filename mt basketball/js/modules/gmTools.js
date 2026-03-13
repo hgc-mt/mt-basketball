@@ -42,8 +42,39 @@ class GMTools {
             return true;
         }
 
-        // 获取当前谈判中的球员
+        // 计算当前已使用的奖学金份额
+        const usedInRoster = userTeam?.calculateUsedScholarshipShare ? 
+            userTeam.calculateUsedScholarshipShare() : 
+            (userTeam?.roster?.reduce((sum, p) => sum + (p.scholarship || 0), 0) || 0);
+        
+        // 计算正在谈判中占用的奖学金份额
         const activeNegotiations = state.activeNegotiations || [];
+        const usedInNegotiations = activeNegotiations.reduce((sum, neg) => {
+            if (neg.status === 'active' || neg.status === 'pending' || neg.status === 'countered') {
+                const scholarshipPercent = neg.offer?.scholarship || 0;
+                let scholarshipShare = 0;
+                if (scholarshipPercent >= 0.8) scholarshipShare = 1.0;
+                else if (scholarshipPercent >= 0.6) scholarshipShare = 0.75;
+                else if (scholarshipPercent >= 0.4) scholarshipShare = 0.5;
+                else if (scholarshipPercent >= 0.2) scholarshipShare = 0.25;
+                else scholarshipShare = 0;
+                return sum + scholarshipShare;
+            }
+            return sum;
+        }, 0);
+        
+        const totalUsed = usedInRoster + usedInNegotiations;
+        const maxScholarships = 5;
+        const availableScholarshipShare = Math.max(0, maxScholarships - totalUsed);
+        
+        console.log(`[GM Tools] 奖学金使用情况: 已用${totalUsed.toFixed(1)}/5, 可用${availableScholarshipShare.toFixed(1)}`);
+        
+        if (availableScholarshipShare <= 0) {
+            this.showNotification('奖学金份额已满，无法发起新的谈判', 'warning');
+            return false;
+        }
+
+        // 获取当前谈判中的球员
         const negotiatingPlayerIds = new Set(activeNegotiations.map(n => n.playerId));
 
         // 筛选可用球员（不在阵容中，不在谈判中）
@@ -68,8 +99,12 @@ class GMTools {
             return ratingB - ratingA;
         });
 
-        // 选择球员，尽量覆盖不同位置
-        const selectedPlayers = this.selectBalancedPlayers(eligiblePlayers, neededPlayers);
+        // 选择球员，考虑奖学金份额限制
+        const selectedPlayers = this.selectBalancedPlayersWithScholarshipLimit(
+            eligiblePlayers, 
+            neededPlayers,
+            availableScholarshipShare
+        );
         
         console.log(`[GM Tools] 选中 ${selectedPlayers.length} 名球员进行快速招募`);
 
@@ -93,31 +128,61 @@ class GMTools {
      * 尽量覆盖不同位置，同时考虑能力值
      */
     selectBalancedPlayers(players, count) {
+        return this.selectBalancedPlayersWithScholarshipLimit(players, count, 5);
+    }
+
+    /**
+     * 选择均衡的球员阵容（考虑奖学金份额限制）
+     * 尽量覆盖不同位置，同时考虑能力值和奖学金限制
+     */
+    selectBalancedPlayersWithScholarshipLimit(players, count, availableScholarshipShare) {
         const positions = ['PG', 'SG', 'SF', 'PF', 'C'];
         const selected = [];
         const positionCount = { 'PG': 0, 'SG': 0, 'SF': 0, 'PF': 0, 'C': 0 };
         
+        // 计算每个球员需要的奖学金份额（根据球员能力估算）
+        const getPlayerScholarshipShare = (player) => {
+            const rating = player.getOverallRating ? player.getOverallRating() : (player.rating || 50);
+            // 根据能力值估算奖学金需求
+            if (rating >= 80) return 1.0;      // 全额奖学金
+            else if (rating >= 70) return 0.75; // 四分之三
+            else if (rating >= 60) return 0.5;  // 半额
+            else return 0.25;                   // 四分之一
+        };
+        
         // 每个位置最多选3人，最少1人
         const maxPerPosition = Math.min(3, Math.ceil(count / 3));
         
-        // 第一轮：确保每个位置至少有一人
+        let remainingScholarship = availableScholarshipShare;
+        
+        // 第一轮：确保每个位置至少有一人（优先选择奖学金需求低的）
         for (const position of positions) {
             if (selected.length >= count) break;
+            if (remainingScholarship <= 0) break;
             
             const positionPlayers = players.filter(p => p.position === position);
             if (positionPlayers.length > 0) {
-                // 选择该位置能力最强的
-                const bestPlayer = positionPlayers[0];
-                selected.push(bestPlayer);
-                positionCount[position]++;
-                // 从候选列表中移除
-                const index = players.indexOf(bestPlayer);
-                if (index > -1) players.splice(index, 1);
+                // 按奖学金需求排序，优先选择需求低的
+                positionPlayers.sort((a, b) => {
+                    return getPlayerScholarshipShare(a) - getPlayerScholarshipShare(b);
+                });
+                
+                // 选择第一个符合奖学金限制的球员
+                const affordablePlayer = positionPlayers.find(p => getPlayerScholarshipShare(p) <= remainingScholarship);
+                
+                if (affordablePlayer) {
+                    selected.push(affordablePlayer);
+                    positionCount[position]++;
+                    remainingScholarship -= getPlayerScholarshipShare(affordablePlayer);
+                    // 从候选列表中移除
+                    const index = players.indexOf(affordablePlayer);
+                    if (index > -1) players.splice(index, 1);
+                }
             }
         }
         
-        // 第二轮：继续选择直到达到数量
-        while (selected.length < count && players.length > 0) {
+        // 第二轮：继续选择直到达到数量或奖学金用完
+        while (selected.length < count && players.length > 0 && remainingScholarship > 0) {
             // 找到人数最少的位置
             let minPosition = positions[0];
             let minCount = positionCount[minPosition];
@@ -135,24 +200,36 @@ class GMTools {
                 targetPosition = null; // 不限制位置
             }
             
-            // 选择球员
-            let playerToAdd;
+            // 筛选符合奖学金限制的球员
+            let affordablePlayers = players.filter(p => getPlayerScholarshipShare(p) <= remainingScholarship);
             if (targetPosition) {
-                playerToAdd = players.find(p => p.position === targetPosition);
+                affordablePlayers = affordablePlayers.filter(p => p.position === targetPosition);
             }
             
-            // 如果没有找到指定位置的球员，选择第一个可用球员
-            if (!playerToAdd) {
-                playerToAdd = players[0];
+            if (affordablePlayers.length === 0) {
+                // 没有符合奖学金限制的球员，尝试放宽位置限制
+                affordablePlayers = players.filter(p => getPlayerScholarshipShare(p) <= remainingScholarship);
             }
+            
+            if (affordablePlayers.length === 0) {
+                // 仍然没有，结束选择
+                break;
+            }
+            
+            // 选择奖学金需求最低的球员
+            affordablePlayers.sort((a, b) => getPlayerScholarshipShare(a) - getPlayerScholarshipShare(b));
+            const playerToAdd = affordablePlayers[0];
             
             selected.push(playerToAdd);
             positionCount[playerToAdd.position]++;
+            remainingScholarship -= getPlayerScholarshipShare(playerToAdd);
             
             // 从候选列表中移除
             const index = players.indexOf(playerToAdd);
             if (index > -1) players.splice(index, 1);
         }
+        
+        console.log(`[GM Tools] 选中 ${selected.length} 人，剩余奖学金份额: ${remainingScholarship.toFixed(1)}`);
         
         return selected;
     }
@@ -281,6 +358,22 @@ class GMTools {
                 ">
                     ⚡ 快速招募13人
                 </button>
+                <button id="gm-view-ai-teams" style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    border: none;
+                    border-radius: 6px;
+                    padding: 10px 16px;
+                    font-size: 13px;
+                    cursor: pointer;
+                    text-align: left;
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    transition: opacity 0.2s;
+                ">
+                    👥 查看AI球队阵容
+                </button>
                 <button id="gm-close-menu" style="
                     background: #f3f4f6;
                     color: #666;
@@ -307,6 +400,11 @@ class GMTools {
             menu.remove();
         });
 
+        document.getElementById('gm-view-ai-teams').addEventListener('click', () => {
+            this.showAITeamsViewer();
+            menu.remove();
+        });
+
         document.getElementById('gm-close-menu').addEventListener('click', () => {
             menu.remove();
         });
@@ -320,6 +418,193 @@ class GMTools {
                 }
             });
         }, 100);
+    }
+
+    /**
+     * 显示AI球队查看器
+     * 查看所有AI球队的球员组成和新签约球员
+     */
+    showAITeamsViewer() {
+        const state = this.gameStateManager.getState();
+        const allTeams = state.allTeams || [];
+        const userTeam = state.userTeam;
+
+        // 创建查看器弹窗
+        const modal = document.createElement('div');
+        modal.id = 'gm-ai-teams-viewer';
+        modal.className = 'modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: auto;
+        `;
+
+        // 构建球队列表HTML
+        let teamsHTML = '';
+        allTeams.forEach((team, index) => {
+            if (userTeam && team.id === userTeam.id) return; // 跳过玩家球队
+
+            const roster = team.roster || [];
+            const newSignings = roster.filter(p => p.isNewSigning || p.signedThisSeason).slice(0, 5);
+            
+            // 计算球队平均实力
+            const avgRating = roster.length > 0 
+                ? (roster.reduce((sum, p) => sum + (p.rating || 70), 0) / roster.length).toFixed(1)
+                : 0;
+
+            // 位置分布
+            const positionCount = { 'PG': 0, 'SG': 0, 'SF': 0, 'PF': 0, 'C': 0 };
+            roster.forEach(p => {
+                if (positionCount[p.position] !== undefined) {
+                    positionCount[p.position]++;
+                }
+            });
+
+            teamsHTML += `
+                <div style="
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    border-radius: 12px;
+                    padding: 16px;
+                    margin-bottom: 16px;
+                    border: 1px solid rgba(255,255,255,0.1);
+                ">
+                    <div style="
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                        margin-bottom: 12px;
+                        padding-bottom: 12px;
+                        border-bottom: 1px solid rgba(255,255,255,0.1);
+                    ">
+                        <div>
+                            <div style="font-size: 16px; font-weight: bold; color: #fff;">${team.name}</div>
+                            <div style="font-size: 12px; color: #888; margin-top: 4px;">
+                                ${roster.length}人 | 平均实力: ${avgRating} | 
+                                PG:${positionCount.PG} SG:${positionCount.SG} SF:${positionCount.SF} PF:${positionCount.PF} C:${positionCount.C}
+                            </div>
+                        </div>
+                        <div style="
+                            background: ${roster.length >= 13 ? '#11998e' : '#e74c3c'};
+                            color: white;
+                            padding: 4px 12px;
+                            border-radius: 20px;
+                            font-size: 12px;
+                            font-weight: bold;
+                        ">
+                            ${roster.length}人
+                        </div>
+                    </div>
+                    
+                    ${newSignings.length > 0 ? `
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-size: 12px; color: #38ef7d; margin-bottom: 8px; font-weight: bold;">
+                                🆕 新签约球员 (${newSignings.length}人)
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                                ${newSignings.map(p => `
+                                    <div style="
+                                        background: rgba(56, 239, 125, 0.2);
+                                        border: 1px solid rgba(56, 239, 125, 0.3);
+                                        border-radius: 6px;
+                                        padding: 6px 10px;
+                                        font-size: 11px;
+                                        color: #38ef7d;
+                                    ">
+                                        ${p.name} ${p.position} ${p.rating || 70}分
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                    
+                    <div>
+                        <div style="font-size: 12px; color: #667eea; margin-bottom: 8px; font-weight: bold;">
+                            👥 完整阵容
+                        </div>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px;">
+                            ${roster.map(p => `
+                                <div style="
+                                    background: rgba(102, 126, 234, 0.1);
+                                    border-radius: 6px;
+                                    padding: 8px;
+                                    font-size: 11px;
+                                    color: #ccc;
+                                ">
+                                    <div style="font-weight: bold; color: #fff;">${p.name}</div>
+                                    <div style="color: #888; margin-top: 2px;">
+                                        ${p.position} | ${p.year || 1}年级 | ${p.rating || 70}分
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+
+        modal.innerHTML = `
+            <div style="
+                background: #0f0f1a;
+                border-radius: 16px;
+                width: 90%;
+                max-width: 1000px;
+                max-height: 85vh;
+                overflow: auto;
+                padding: 24px;
+                position: relative;
+            ">
+                <div style="
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 20px;
+                    padding-bottom: 16px;
+                    border-bottom: 2px solid #667eea;
+                ">
+                    <div>
+                        <h2 style="margin: 0; color: #fff; font-size: 20px;">🏀 AI球队阵容查看器</h2>
+                        <div style="color: #888; font-size: 12px; margin-top: 4px;">
+                            共 ${allTeams.length - (userTeam ? 1 : 0)} 支AI球队 | 🆕 标记为新签约球员
+                        </div>
+                    </div>
+                    <button onclick="this.closest('.modal').remove()" style="
+                        background: rgba(255,255,255,0.1);
+                        border: none;
+                        color: #fff;
+                        width: 32px;
+                        height: 32px;
+                        border-radius: 50%;
+                        cursor: pointer;
+                        font-size: 18px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">×</button>
+                </div>
+                
+                <div style="max-height: calc(85vh - 100px); overflow-y: auto;">
+                    ${teamsHTML || '<div style="color: #888; text-align: center; padding: 40px;">暂无AI球队数据</div>'}
+                </div>
+            </div>
+        `;
+
+        // 点击背景关闭
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.remove();
+            }
+        });
+
+        document.body.appendChild(modal);
+        console.log('[GM Tools] 已打开AI球队查看器');
     }
 }
 

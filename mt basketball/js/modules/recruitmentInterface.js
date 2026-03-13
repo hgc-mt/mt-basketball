@@ -410,6 +410,14 @@ class RecruitmentInterface {
 
     getFilteredPlayers() {
         return this.players.filter(player => {
+            // 过滤已签约的球员（通过recruitmentCompetitionSystem检查）
+            if (window.recruitmentCompetitionSystem) {
+                const status = window.recruitmentCompetitionSystem.playerRecruitmentStatus?.get(player.id);
+                if (status && status.isSigned) {
+                    return false;
+                }
+            }
+            
             // 位置筛选
             if (this.filters.position !== 'all' && player.position !== this.filters.position) {
                 return false;
@@ -492,24 +500,47 @@ class RecruitmentInterface {
                 userTeam.calculateUsedScholarshipShare() : 
                 (userTeam?.roster?.reduce((sum, p) => sum + (p.scholarship || 0), 0) || 0);
             
-            // 计算正在谈判中占用的奖学金
-            const negotiations = state.activeNegotiations || [];
+            // 计算正在谈判中占用的奖学金（转换为份额）
+            // 优先从negotiationManager获取最新的谈判数据
+            let negotiations = [];
+            if (window.negotiationManager && window.negotiationManager.negotiations) {
+                negotiations = window.negotiationManager.negotiations;
+            } else {
+                negotiations = state.activeNegotiations || [];
+            }
+            
             const usedInNegotiations = negotiations.reduce((sum, neg) => {
                 // 只计算活跃的谈判
                 if (neg.status === 'active' || neg.status === 'pending' || neg.status === 'countered') {
-                    return sum + (neg.offer?.scholarship || 0);
+                    // offer.scholarship 是0-1之间的小数（百分比），需要转换为份额
+                    const scholarshipPercent = neg.offer?.scholarship || 0;
+                    // 根据百分比确定奖学金等级对应的份额
+                    let scholarshipShare = 0;
+                    if (scholarshipPercent >= 0.8) scholarshipShare = 1.0;      // 全额
+                    else if (scholarshipPercent >= 0.6) scholarshipShare = 0.75; // 四分之三
+                    else if (scholarshipPercent >= 0.4) scholarshipShare = 0.5;  // 半额
+                    else if (scholarshipPercent >= 0.2) scholarshipShare = 0.25; // 四分之一
+                    else scholarshipShare = 0;                                   // 无奖学金
+                    return sum + scholarshipShare;
                 }
                 return sum;
             }, 0);
             
             const totalUsed = usedInRoster + usedInNegotiations;
             const max = 5; // 新的奖学金总额
-            scholarshipRemaining.textContent = `${(max - totalUsed).toFixed(1)}/${max}`;
+            const remaining = Math.max(0, max - totalUsed); // 确保不为负数
+            scholarshipRemaining.textContent = `${remaining.toFixed(1)}/${max}`;
         }
 
         if (activeNegotiations) {
-            const state = this.gameStateManager.getState();
-            const negotiations = state.activeNegotiations || [];
+            // 优先从negotiationManager获取最新的谈判数据
+            let negotiations = [];
+            if (window.negotiationManager && window.negotiationManager.negotiations) {
+                negotiations = window.negotiationManager.negotiations;
+            } else {
+                const state = this.gameStateManager.getState();
+                negotiations = state.activeNegotiations || [];
+            }
             activeNegotiations.textContent = negotiations.length;
         }
         
@@ -1033,7 +1064,10 @@ class RecruitmentInterface {
                                 <h4 style="margin: 0; font-size: 0.95rem; color: var(--text-primary);">招募行动</h4>
                                 <span style="font-size: 0.75rem; color: var(--text-muted);">(提升球员兴趣度)</span>
                             </div>
-                            <div class="recruitment-actions-grid" id="recruitment-actions-${player.id}" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px;">
+                            
+                            <!-- 基础行动 -->
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">基础行动</div>
+                            <div class="recruitment-actions-grid" id="recruitment-actions-basic-${player.id}" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px;">
                                 <button class="recruitment-action-btn" data-action="campus_visit" data-player-id="${player.id}" style="padding: 12px; background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
                                     <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">🏫 校园参观</div>
                                     <div style="font-size: 0.75rem; color: var(--text-secondary);">展示校园设施和文化</div>
@@ -1043,6 +1077,11 @@ class RecruitmentInterface {
                                     <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">🏠 家访</div>
                                     <div style="font-size: 0.75rem; color: var(--text-secondary);">深入了解球员家庭</div>
                                     <div style="font-size: 0.75rem; color: #f59e0b; margin-top: 4px;">💰 $8,000 | 兴趣度 +10-20%</div>
+                                </button>
+                                <button class="recruitment-action-btn" data-action="introduce_team_culture" data-player-id="${player.id}" style="padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">🏆 介绍球队文化</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">展示球队历史和荣誉</div>
+                                    <div style="font-size: 0.75rem; color: #10b981; margin-top: 4px;">免费 | 兴趣度 +10-18%</div>
                                 </button>
                                 <button class="recruitment-action-btn" data-action="promise_playing_time" data-player-id="${player.id}" style="padding: 12px; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
                                     <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">⏱️ 承诺上场时间</div>
@@ -1059,10 +1098,40 @@ class RecruitmentInterface {
                                     <div style="font-size: 0.75rem; color: var(--text-secondary);">突出学术优势</div>
                                     <div style="font-size: 0.75rem; color: #f59e0b; margin-top: 4px;">💰 $1,000 | 兴趣度 +4-10%</div>
                                 </button>
+                            </div>
+                            
+                            <!-- 高级行动 -->
+                            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">高级行动（有冷却时间）</div>
+                            <div class="recruitment-actions-grid" id="recruitment-actions-advanced-${player.id}" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 15px;">
+                                <button class="recruitment-action-btn" data-action="invite_to_game" data-player-id="${player.id}" style="padding: 12px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">🎫 邀请观赛</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">邀请观看主场比赛</div>
+                                    <div style="font-size: 0.75rem; color: #8b5cf6; margin-top: 4px;">💰 $3,000 | 兴趣度 +12-20% ⏱️7天</div>
+                                </button>
+                                <button class="recruitment-action-btn" data-action="connect_with_alumni" data-player-id="${player.id}" style="padding: 12px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">🤝 校友交流</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">安排与成功校友见面</div>
+                                    <div style="font-size: 0.75rem; color: #8b5cf6; margin-top: 4px;">💰 $4,000 | 兴趣度 +8-14% ⏱️5天</div>
+                                </button>
+                                <button class="recruitment-action-btn" data-action="social_media_campaign" data-player-id="${player.id}" style="padding: 12px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">📱 社媒宣传</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">在社交媒体宣传</div>
+                                    <div style="font-size: 0.75rem; color: #8b5cf6; margin-top: 4px;">💰 $1,500 | 兴趣度 +6-11% ⏱️3天</div>
+                                </button>
+                                <button class="recruitment-action-btn" data-action="one_on_one_training" data-player-id="${player.id}" style="padding: 12px; background: rgba(139, 92, 246, 0.1); border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">💪 一对一训练</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">展示个人发展计划</div>
+                                    <div style="font-size: 0.75rem; color: #8b5cf6; margin-top: 4px;">💰 $6,000 | 兴趣度 +10-17% ⏱️10天</div>
+                                </button>
+                                <button class="recruitment-action-btn" data-action="family_dinner" data-player-id="${player.id}" style="padding: 12px; background: rgba(236, 72, 153, 0.1); border: 1px solid rgba(236, 72, 153, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">🍽️ 家庭晚宴</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">与球员家庭共进晚餐</div>
+                                    <div style="font-size: 0.75rem; color: #ec4899; margin-top: 4px;">💰 $7,000 | 兴趣度 +14-22% ⏱️14天</div>
+                                </button>
                                 <button class="recruitment-action-btn" data-action="offer_scholarship" data-player-id="${player.id}" style="padding: 12px; background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 10px; cursor: pointer; text-align: left; transition: all 0.2s;">
-                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">💰 提供奖学金</div>
+                                    <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">🎓 提供奖学金</div>
                                     <div style="font-size: 0.75rem; color: var(--text-secondary);">正式提供奖学金offer</div>
-                                    <div style="font-size: 0.75rem; color: #f59e0b; margin-top: 4px;">免费 | 兴趣度 +15-25%</div>
+                                    <div style="font-size: 0.75rem; color: #f59e0b; margin-top: 4px;">免费 | 兴趣度 +15-25% 🔥仅限1次</div>
                                 </button>
                             </div>
                             <div id="action-result-${player.id}" style="margin-top: 12px;"></div>
@@ -1589,6 +1658,12 @@ class RecruitmentInterface {
         const container = document.getElementById('negotiation-list');
         if (!container) return;
 
+        // 检查是否已经绑定过事件，避免重复绑定
+        if (container.dataset.eventsBound === 'true') {
+            return;
+        }
+        container.dataset.eventsBound = 'true';
+
         container.addEventListener('click', (e) => {
             const btn = e.target.closest('[data-action]');
             if (!btn) return;
@@ -1931,7 +2006,8 @@ class RecruitmentInterface {
         const result = window.negotiationManager?.withdrawNegotiation(negotiationId);
         if (result !== false) {
             this.showNotification('谈判已终止', 'info');
-            this.renderNegotiationList();
+            // withdrawNegotiation 内部已经调用了 renderNegotiationList，这里不需要再调用
+            // this.renderNegotiationList();
         }
     }
 
@@ -2164,6 +2240,12 @@ class RecruitmentInterface {
                     </div>
                 </div>
                 
+                <!-- 兴趣度显示 -->
+                <div style="display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; background: rgba(16, 185, 129, 0.1); border-radius: 8px; margin: 0 20px 16px; border: 1px solid rgba(16, 185, 129, 0.3);">
+                    <span style="color: var(--text-secondary); font-size: 0.9rem;">球员对我的兴趣度</span>
+                    <span id="player-interest-${player.id}" style="font-weight: 700; color: #10b981; font-size: 1.1rem;">--</span>
+                </div>
+                
                 <!-- 报价设置区域 -->
                 <div class="recruit-offer-body">
                     <!-- 奖学金 -->
@@ -2305,6 +2387,51 @@ class RecruitmentInterface {
         `;
 
         modal.style.display = 'block';
+        
+        // 初始化招募数据并加载兴趣度
+        this.initializeAndLoadInterest(player.id);
+        
+        // 加载竞争态势信息（包括竞争球队）
+        this.loadCompetitionData(player.id);
+    }
+    
+    /**
+     * 初始化招募数据并加载兴趣度显示
+     * @param {string|number} playerId - 球员ID
+     */
+    initializeAndLoadInterest(playerId) {
+        const competitionSystem = window.recruitmentCompetitionSystem;
+        if (!competitionSystem) {
+            console.warn('Competition system not available');
+            return;
+        }
+        
+        // 检查是否已有招募数据
+        let playerRecruitment = competitionSystem.playerRecruitmentStatus?.get?.(playerId);
+        
+        // 如果没有，初始化招募数据
+        if (!playerRecruitment) {
+            const player = this.players.find(p => p.id == playerId);
+            if (player && competitionSystem.initializePlayerRecruitment) {
+                console.log('[RecruitmentInterface] 初始化球员招募数据:', playerId);
+                playerRecruitment = competitionSystem.initializePlayerRecruitment(player);
+            }
+        }
+        
+        // 更新兴趣度显示
+        const interestEl = document.getElementById(`player-interest-${playerId}`);
+        if (interestEl && playerRecruitment) {
+            const interest = playerRecruitment.playerInterestInUser || playerRecruitment.playerInterest || 0;
+            interestEl.textContent = `${Math.round(interest)}%`;
+            // 根据兴趣度设置颜色
+            if (interest >= 70) {
+                interestEl.style.color = '#10b981'; // 绿色
+            } else if (interest >= 40) {
+                interestEl.style.color = '#f59e0b'; // 黄色
+            } else {
+                interestEl.style.color = '#ef4444'; // 红色
+            }
+        }
     }
 
     /**
@@ -2341,10 +2468,36 @@ class RecruitmentInterface {
             message: messageTextarea?.value || ''
         };
         
-        // 查找球员
-        const player = this.players.find(p => p.id == playerId || p.id === playerId);
+        // 查找球员 - 从多个来源查找
+        let player = this.players.find(p => p.id == playerId || p.id === playerId);
+        
+        // 如果找不到，尝试从其他来源查找
+        if (!player) {
+            // 1. 从 availablePlayers 查找
+            const state = this.gameStateManager?.getState();
+            if (state?.availablePlayers) {
+                player = state.availablePlayers.find(p => p.id == playerId);
+            }
+            
+            // 2. 从 playerPool 查找
+            if (!player && window.playerPool) {
+                player = window.playerPool.getPlayerById(playerId);
+            }
+            
+            // 3. 从 negotiationManager 的活跃谈判中查找
+            if (!player && window.negotiationManager?.activeNegotiations) {
+                for (const [id, neg] of window.negotiationManager.activeNegotiations) {
+                    if (neg.playerId == playerId && neg.player) {
+                        player = neg.player;
+                        break;
+                    }
+                }
+            }
+        }
+        
         if (!player) {
             this.showNotification('找不到球员信息', 'error');
+            console.error('[confirmOfferFromSetup] 找不到球员:', playerId, 'this.players长度:', this.players?.length);
             return;
         }
         
@@ -2699,6 +2852,15 @@ class RecruitmentInterface {
             // 如果没找到，尝试getNegotiation方法
             if (!negotiation) {
                 negotiation = window.negotiationManager.getNegotiation?.(playerId);
+            }
+            
+            // 如果还是没找到，尝试重新初始化谈判
+            if (!negotiation) {
+                const player = this.players.find(p => p.id == playerId);
+                if (player) {
+                    console.log('[RecruitmentInterface] 重新初始化谈判:', playerId);
+                    negotiation = window.negotiationManager.startNegotiation(player.id);
+                }
             }
         }
         
@@ -3413,20 +3575,26 @@ class RecruitmentInterface {
         let negotiation = null;
         
         if (window.negotiationManager) {
-            // 尝试从activeNegotiations Map中获取
-            if (window.negotiationManager.activeNegotiations) {
-                for (const [id, neg] of window.negotiationManager.activeNegotiations) {
-                    if (neg.playerId == playerId || neg.player?.id == playerId) {
-                        negotiation = neg;
-                        negotiation.id = id;
-                        break;
-                    }
-                }
+            // 1. 首先尝试使用 getActiveNegotiation 方法（通过playerId查找）
+            if (window.negotiationManager.getActiveNegotiation) {
+                negotiation = window.negotiationManager.getActiveNegotiation(playerId);
             }
             
-            // 如果没找到，尝试getNegotiation方法
+            // 2. 如果没找到，尝试从 negotiations 数组中查找
+            if (!negotiation && window.negotiationManager.negotiations) {
+                negotiation = window.negotiationManager.negotiations.find(
+                    n => (n.playerId == playerId || n.player?.id == playerId) && n.status === 'active'
+                );
+            }
+            
+            // 3. 还是没找到，尝试使用 getNegotiation（传入playerId作为negotiationId）
             if (!negotiation) {
                 negotiation = window.negotiationManager.getNegotiation?.(playerId);
+            }
+            
+            // 4. 最后尝试 getNegotiationByPlayerId
+            if (!negotiation && window.negotiationManager.getNegotiationByPlayerId) {
+                negotiation = window.negotiationManager.getNegotiationByPlayerId(playerId);
             }
         }
         
@@ -3436,8 +3604,10 @@ class RecruitmentInterface {
             return;
         }
 
-        // 打开修改报价弹窗
-        this.showModifyOfferModal(negotiation.id || playerId);
+        // 打开修改报价弹窗 - 使用谈判ID
+        const negotiationId = negotiation.id;
+        console.log('[modifyOffer] 找到谈判:', { playerId, negotiationId, playerName: negotiation.playerName });
+        this.showModifyOfferModal(negotiationId);
     }
 
     /**
@@ -3521,8 +3691,42 @@ class RecruitmentInterface {
             return;
         }
 
-        // 获取球员信息
-        const player = negotiation.player || this.players.find(p => p.id == negotiation.playerId);
+        // 获取球员信息 - 从多个来源查找
+        let player = negotiation.player;
+        const playerId = negotiation.playerId || negotiation.targetId;
+        
+        // 如果 negotiation.player 不存在，尝试从其他来源查找
+        if (!player && playerId) {
+            // 1. 从 this.players 查找
+            if (this.players) {
+                player = this.players.find(p => p.id == playerId);
+            }
+            
+            // 2. 从 availablePlayers 查找
+            if (!player) {
+                const state = window.gameStateManager?.getState();
+                if (state?.availablePlayers) {
+                    player = state.availablePlayers.find(p => p.id == playerId);
+                }
+            }
+            
+            // 3. 从 playerPool 查找
+            if (!player && window.playerPool) {
+                player = window.playerPool.getPlayerById(playerId);
+            }
+            
+            // 4. 从 negotiation 的其他字段获取
+            if (!player) {
+                player = {
+                    id: playerId,
+                    name: negotiation.playerName || negotiation.targetName || '未知球员',
+                    potential: negotiation.potential || 70,
+                    year: negotiation.year || 1,
+                    position: negotiation.position || 'SF'
+                };
+            }
+        }
+        
         if (!player) {
             this.showNotification('找不到球员信息', 'error');
             return;
@@ -3646,19 +3850,34 @@ class RecruitmentInterface {
                 role: selectedRole
             };
 
-            // 更新报价
-            if (window.negotiationManager?.updateOffer) {
-                window.negotiationManager.updateOffer(negotiationId, newOffer);
+            console.log('[修改报价] 保存新报价:', { negotiationId, newOffer });
+
+            // 更新报价 - 使用 makeOffer 方法
+            if (window.negotiationManager?.makeOffer) {
+                const result = window.negotiationManager.makeOffer(negotiationId, newOffer);
+                if (result) {
+                    this.showNotification('报价已更新，等待球员回复', 'success');
+                } else {
+                    this.showNotification('报价更新失败', 'error');
+                }
             } else if (negotiation.offer) {
-                // 直接修改谈判对象
+                // 直接修改谈判对象（降级方案）
                 Object.assign(negotiation.offer, newOffer);
+                negotiation.round = (negotiation.round || 0) + 1;
+                negotiation.lastUpdated = new Date().toISOString();
+                if (window.negotiationManager?.saveNegotiations) {
+                    window.negotiationManager.saveNegotiations();
+                }
+                this.showNotification('报价已更新', 'success');
             }
 
             // 更新显示
-            this.loadNegotiationData(negotiation.playerId || negotiation.player?.id || player.id);
+            const targetPlayerId = negotiation.playerId || negotiation.player?.id || player?.id;
+            if (targetPlayerId) {
+                this.loadNegotiationData(targetPlayerId);
+            }
             
             modal.remove();
-            this.showNotification('报价已更新', 'success');
         });
     }
 }

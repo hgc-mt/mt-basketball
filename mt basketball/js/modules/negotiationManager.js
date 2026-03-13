@@ -460,10 +460,14 @@ class NegotiationManager {
     signPlayer(negotiation) {
         const state = this.gameStateManager.getState();
         const userTeam = state.userTeam;
-        const availablePlayers = state.availablePlayers;
+        // 创建数组的副本，避免直接修改原始数组
+        const availablePlayers = [...(state.availablePlayers || [])];
 
         const playerIndex = availablePlayers.findIndex(p => p.id === negotiation.playerId);
-        if (playerIndex === -1) return false;
+        if (playerIndex === -1) {
+            console.error(`[signPlayer] 球员 ${negotiation.playerId} 不在可用球员列表中`);
+            return false;
+        }
 
         const player = availablePlayers[playerIndex];
         // 设置球员的奖学金比例（如0.2表示20%）
@@ -471,13 +475,17 @@ class NegotiationManager {
         player.playingTimeGuarantee = negotiation.offer.playingTime;
         player.guaranteed = negotiation.offer.guaranteed;
 
+        // 从可用球员列表中移除
         availablePlayers.splice(playerIndex, 1);
         
         if (userTeam.addPlayer(player)) {
-            this.gameStateManager.set('availablePlayers', [...availablePlayers]);
+            // 保存更新后的可用球员列表
+            this.gameStateManager.set('availablePlayers', availablePlayers);
             this.showNotification(`成功签约球员 ${player.name}！`, 'success');
             
             this.gameStateManager.saveGameState();
+            
+            console.log(`[signPlayer] 球员 ${player.name} 已签约并从市场移除，剩余可用球员: ${availablePlayers.length}`);
             
             // 刷新招募界面的所有列表
             if (typeof window.recruitmentInterface !== 'undefined') {
@@ -515,11 +523,13 @@ class NegotiationManager {
     immediateSignPlayer(playerId, offer) {
         const state = this.gameStateManager.getState();
         const userTeam = state.userTeam;
-        const availablePlayers = state.availablePlayers;
+        // 创建数组的副本，避免直接修改原始数组
+        const availablePlayers = [...(state.availablePlayers || [])];
 
         const playerIndex = availablePlayers.findIndex(p => p.id == playerId || p.id === playerId);
         if (playerIndex === -1) {
             this.showNotification('找不到该球员', 'error');
+            console.error(`[immediateSignPlayer] 球员 ${playerId} 不在可用球员列表中`);
             return false;
         }
 
@@ -540,12 +550,16 @@ class NegotiationManager {
         player.guaranteed = offer.guaranteed;
         player.redShirt = offer.redShirt;
 
+        // 从可用球员列表中移除
         availablePlayers.splice(playerIndex, 1);
         
         if (userTeam.addPlayer(player)) {
-            this.gameStateManager.set('availablePlayers', [...availablePlayers]);
+            // 保存更新后的可用球员列表
+            this.gameStateManager.set('availablePlayers', availablePlayers);
             this.showNotification(`🎉 签约成功！${player.name} 已加入球队！`, 'success');
             this.gameStateManager.saveGameState();
+            
+            console.log(`[immediateSignPlayer] 球员 ${player.name} 已签约并从市场移除，剩余可用球员: ${availablePlayers.length}`);
             
             // 关闭modal
             this.closeNegotiationModal();

@@ -100,15 +100,23 @@ const PotentialConfig = {
 /**
  * 球员资源池配置
  * 控制球员数量和分类
+ * 
+ * 32支球队的合理配置：
+ * - 每队每年需要招募4-5名大一新生补充阵容
+ * - 每队每年需要招募1-2名转学生
+ * - 总计：大一新生 128-160名，转学生 32-64名
  */
 const PlayerPoolConfig = {
-    // 球员总数范围
-    totalMin: 80,
-    totalMax: 100,
+    // 球员总数范围 - 基于32支球队的需求计算
+    // 大一新生：160名（每队5人）
+    // 转学生：50名（每队1-2人）
+    // 总计：210名左右
+    totalMin: 200,
+    totalMax: 240,
     
-    // 球员分类比例
-    freeAgentRatio: 0.45,     // 45% 自由球员（主要是大一新生）
-    transferWantedRatio: 0.55, // 55% 转会球员（大二、大三、大四）
+    // 球员分类比例 - 大一新生是主力
+    freeAgentRatio: 0.75,     // 75% 大一新生（约150-180名）
+    transferWantedRatio: 0.25, // 25% 转学生（约50-60名）
     
     // 位置分布
     positionDistribution: {
@@ -119,12 +127,13 @@ const PlayerPoolConfig = {
         C: 0.2    // 中锋
     },
     
-    // 年级分布 - 调整为更符合实际情况
+    // 年级分布 - 基于32支球队的实际需求
+    // 大一新生是招募主力，转学生分布在大二大三大四
     yearDistribution: {
-        1: 0.45, // 大一 45% - 新生是主力，每个学校需要招4-5名新生
-        2: 0.20, // 大二 20% - 主要是转会球员
-        3: 0.20, // 大三 20% - 主要是转会球员
-        4: 0.15  // 大四 15% - 退役前最后搏一次机会
+        1: 0.75, // 大一 75% - 新生是主力，约150-180名
+        2: 0.10, // 大二 10% - 转学生
+        3: 0.10, // 大三 10% - 转学生
+        4: 0.05  // 大四 5% - 很少转学的老将
     },
     
     // 技术特点配置
@@ -245,6 +254,15 @@ class GameInitializer {
             allCoaches: allCoaches,
             availableCoaches: availableCoaches
         });
+
+        // ===== 使用 offseasonManager 处理AI球队初始阵容 =====
+        if (window.offseasonManager) {
+            console.log('[GameInitializer] 使用 offseasonManager 处理AI球队初始阵容');
+            const offseasonReport = window.offseasonManager.processOffseason({ isInitialSetup: true });
+            console.log('[GameInitializer] AI球队初始阵容处理完成', offseasonReport);
+        } else {
+            console.warn('[GameInitializer] offseasonManager 未初始化，跳过初始阵容处理');
+        }
 
         // Save game state
         this.gameStateManager.saveGameState();
@@ -727,34 +745,32 @@ class GameInitializer {
     }
     
     /**
-     * 根据球队风格生成阵容 - 新版按球队级别分配潜力
+     * 根据球队风格生成阵容 - 改进版
+     * 实现差异化阵容规模和多样化位置配置
      * @param {Team} team - 球队对象
      * @param {Object} style - 球队风格配置
      */
     generateTeamRosterWithStyle(team, style) {
-        const positions = ['PG', 'SG', 'SF', 'PF', 'C'];
-        const preferredPositions = style.playerPreferences.preferredPositions || positions;
-        
-        // 根据球队级别确定潜力分配策略
+        // 根据球队级别确定阵容配置
         const teamLevel = this.getTeamLevelByStyle(style);
-        const potentialDistribution = this.getPotentialDistributionByTeamLevel(teamLevel);
+        const rosterConfig = this.getRosterConfigByTeamLevel(teamLevel);
         
+        // 选择位置策略
+        const positionStrategy = this.selectPositionStrategy(teamLevel, style);
+        
+        // 生成各位置目标人数
+        const positionTargets = this.calculatePositionTargets(rosterConfig.targetSize, positionStrategy);
+        
+        // 按位置生成球员
         let playerIndex = 0;
-        
-        // 按潜力等级生成球员
-        for (const tier of potentialDistribution) {
-            for (let i = 0; i < tier.count; i++) {
-                // 根据风格优先选择位置
-                let position;
-                if (playerIndex < preferredPositions.length) {
-                    position = preferredPositions[playerIndex % preferredPositions.length];
-                } else {
-                    position = positions[playerIndex % positions.length];
-                }
+        for (const [position, count] of Object.entries(positionTargets)) {
+            for (let i = 0; i < count; i++) {
+                // 根据球员在阵容中的位置确定年级（不是按索引）
+                const year = this.getYearByRosterPosition(playerIndex, rosterConfig.targetSize);
                 
-                // 根据年级分布生成球员
-                const year = this.getYearByRosterPosition(playerIndex);
-                const potential = this.generatePotentialForTier(tier.level);
+                // 根据球队级别和位置确定潜力范围
+                const potentialRange = this.getPotentialRangeForPosition(teamLevel, position, i);
+                const potential = this.generatePotentialInRange(potentialRange);
                 
                 // 创建球员
                 const player = this.createPlayerWithCorrectAgeAndPotential(position, year, false, potential);
@@ -762,15 +778,16 @@ class GameInitializer {
                 // 根据风格调整属性权重
                 this.adjustPlayerAttributesByStyle(player, style);
                 
-                // 设置奖学金 - 根据球员等级
-                const scholarshipInfo = this.getScholarshipForTier(tier.level);
+                // 根据实力（非潜力）确定奖学金
+                const rating = player.rating || player.getOverallRating();
+                const scholarshipInfo = this.getScholarshipByRating(rating);
                 player.scholarship = scholarshipInfo.percentage;
                 player.scholarshipLevel = scholarshipInfo.level;
                 
                 // 同步更新scholarshipRequirement
                 player.scholarshipRequirement = this.generateScholarshipRequirement(
                     player.potential, 
-                    player.rating || player.getOverallRating(), 
+                    rating, 
                     player.year
                 );
                 
@@ -778,6 +795,172 @@ class GameInitializer {
                 playerIndex++;
             }
         }
+        
+        console.log(`[阵容生成] ${team.name}: ${teamLevel}级别, ${team.roster.length}人, 策略: ${positionStrategy.name}`);
+    }
+    
+    /**
+     * 根据球队级别获取阵容配置
+     * @param {string} teamLevel - 球队级别
+     * @returns {Object} 阵容配置
+     */
+    getRosterConfigByTeamLevel(teamLevel) {
+        const configs = {
+            champion: { min: 13, max: 15, targetSize: 15 },    // 冠军级：满编15人
+            strong: { min: 12, max: 15, targetSize: 14 },      // 强队：14人
+            average: { min: 11, max: 14, targetSize: 13 },     // 普通队：13人
+            weak: { min: 10, max: 13, targetSize: 12 }         // 弱队：12人
+        };
+        
+        const config = configs[teamLevel] || configs.average;
+        
+        // 在范围内随机确定实际规模
+        const targetSize = config.min + Math.floor(Math.random() * (config.max - config.min + 1));
+        
+        return { ...config, targetSize };
+    }
+    
+    /**
+     * 选择位置策略
+     * @param {string} teamLevel - 球队级别
+     * @param {Object} style - 球队风格
+     * @returns {Object} 位置策略
+     */
+    selectPositionStrategy(teamLevel, style) {
+        // 根据球队风格确定倾向性
+        const strategies = {
+            balanced: { name: '均衡配置', weights: { PG: 2, SG: 2, SF: 2, PF: 2, C: 2 } },
+            twin_towers: { name: '双塔阵容', weights: { PG: 2, SG: 2, SF: 2, PF: 2, C: 4 } },
+            small_ball: { name: '小球阵容', weights: { PG: 3, SG: 3, SF: 3, PF: 2, C: 1 } },
+            wing_heavy: { name: '锋线大队', weights: { PG: 2, SG: 3, SF: 4, PF: 2, C: 1 } },
+            guard_heavy: { name: '后卫线优势', weights: { PG: 3, SG: 3, SF: 2, PF: 2, C: 1 } }
+        };
+        
+        // 根据风格ID选择策略
+        const styleToStrategy = {
+            'ELITE_DYNASTY': 'balanced',
+            'OFFENSIVE_SHOWTIME': 'small_ball',
+            'DEFENSIVE_JUGGERNAUT': 'twin_towers',
+            'ACADEMIC_POWERHOUSE': 'balanced',
+            'BALANCED_PROGRAM': 'balanced',
+            'UNDERDOG_GRIT': 'guard_heavy',
+            'DEVELOPMENT_FOCUSED': 'wing_heavy'
+        };
+        
+        const strategyKey = styleToStrategy[style.id] || 'balanced';
+        return strategies[strategyKey];
+    }
+    
+    /**
+     * 计算各位置目标人数
+     * @param {number} targetSize - 目标阵容规模
+     * @param {Object} strategy - 位置策略
+     * @returns {Object} 各位置人数
+     */
+    calculatePositionTargets(targetSize, strategy) {
+        const weights = strategy.weights;
+        const totalWeight = Object.values(weights).reduce((sum, w) => sum + w, 0);
+        
+        const targets = {};
+        let assigned = 0;
+        
+        // 先按比例分配
+        for (const [pos, weight] of Object.entries(weights)) {
+            const count = Math.round((weight / totalWeight) * targetSize);
+            targets[pos] = Math.max(1, count); // 每个位置至少1人
+            assigned += targets[pos];
+        }
+        
+        // 调整总数到目标规模
+        const diff = targetSize - assigned;
+        if (diff !== 0) {
+            const positions = Object.keys(targets);
+            for (let i = 0; i < Math.abs(diff); i++) {
+                const pos = positions[i % positions.length];
+                if (diff > 0) {
+                    targets[pos]++;
+                } else if (targets[pos] > 1) {
+                    targets[pos]--;
+                }
+            }
+        }
+        
+        return targets;
+    }
+    
+    /**
+     * 根据位置获取潜力范围
+     * @param {string} teamLevel - 球队级别
+     * @param {string} position - 位置
+     * @param {number} index - 该位置的序号
+     * @returns {Object} 潜力范围
+     */
+    getPotentialRangeForPosition(teamLevel, position, index) {
+        // 基础潜力范围按球队级别
+        const baseRanges = {
+            champion: { min: 75, max: 95 },
+            strong: { min: 70, max: 90 },
+            average: { min: 65, max: 85 },
+            weak: { min: 60, max: 80 }
+        };
+        
+        const base = baseRanges[teamLevel] || baseRanges.average;
+        
+        // 第一个该位置的球员潜力更高（主力）
+        if (index === 0) {
+            return { min: base.min + 10, max: base.max };
+        } else if (index === 1) {
+            return { min: base.min + 5, max: base.max - 3 };
+        } else {
+            return { min: base.min, max: base.max - 5 };
+        }
+    }
+    
+    /**
+     * 在范围内生成潜力值
+     * @param {Object} range - 范围
+     * @returns {number} 潜力值
+     */
+    generatePotentialInRange(range) {
+        return Math.floor(Math.random() * (range.max - range.min + 1)) + range.min;
+    }
+    
+    /**
+     * 根据能力值获取奖学金（而非潜力）
+     * @param {number} rating - 能力值
+     * @returns {Object} 奖学金信息
+     */
+    getScholarshipByRating(rating) {
+        if (rating >= 80) return { level: 'full', percentage: 1.0 };
+        if (rating >= 72) return { level: 'major', percentage: 0.6 };
+        if (rating >= 65) return { level: 'partial', percentage: 0.35 };
+        if (rating >= 58) return { level: 'minimal', percentage: 0.15 };
+        return { level: 'none', percentage: 0 };
+    }
+    
+    /**
+     * 根据阵容位置确定年级 - 改进版
+     * @param {number} index - 球员索引
+     * @param {number} rosterSize - 阵容规模
+     * @returns {number} 年级 1-4
+     */
+    getYearByRosterPosition(index, rosterSize = 15) {
+        // 根据阵容规模调整年级分布
+        const ratios = {
+            1: 0.28,  // 大一约28%
+            2: 0.27,  // 大二约27%
+            3: 0.26,  // 大三约26%
+            4: 0.19   // 大四约19%
+        };
+        
+        const freshmanCount = Math.round(rosterSize * ratios[1]);
+        const sophomoreCount = Math.round(rosterSize * ratios[2]);
+        const juniorCount = Math.round(rosterSize * ratios[3]);
+        
+        if (index < freshmanCount) return 1;
+        if (index < freshmanCount + sophomoreCount) return 2;
+        if (index < freshmanCount + sophomoreCount + juniorCount) return 3;
+        return 4;
     }
     
     /**

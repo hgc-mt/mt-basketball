@@ -38,6 +38,14 @@ class BasketballManagerApp {
         this.eventSystem = new EventSystem(this.gameStateManager);
         // 游戏模拟功能已移至独立的TV模式页面
         this.gameInitializer = new GameInitializer(this.gameStateManager);
+        
+        // 初始化新的阵容管理系统
+        this.teamRosterSystem = new TeamRosterSystem(this.gameStateManager);
+        window.teamRosterSystem = this.teamRosterSystem;
+        
+        // 初始化休赛期管理系统
+        this.offseasonManager = new OffseasonManager(this.gameStateManager);
+        window.offseasonManager = this.offseasonManager;
         this.negotiationManager = new NegotiationManager(this.gameStateManager);
         this.enhancedNegotiationManager = new EnhancedNegotiationManager(this.gameStateManager);
         this.skipRuleManager = new SkipRuleManager(this.gameStateManager);
@@ -2160,15 +2168,184 @@ function fastForwardDays(days) {
         return;
     }
 
+    // ===== 显示加载动画和遮罩层 =====
+    showFastForwardLoading(days);
+
+    // 使用 setTimeout 让加载动画先显示，再执行快进逻辑
+    setTimeout(() => {
+        executeFastForward(days);
+    }, 100);
+}
+
+/**
+ * 显示快进加载动画
+ * @param {number} days - 快进天数
+ */
+function showFastForwardLoading(days) {
+    // 创建遮罩层
+    const overlay = document.createElement('div');
+    overlay.id = 'fast-forward-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(3px);
+    `;
+
+    // 创建加载动画容器
+    const loadingContainer = document.createElement('div');
+    loadingContainer.style.cssText = `
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        padding: 40px 60px;
+        border-radius: 16px;
+        border: 1px solid rgba(102, 126, 234, 0.3);
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    `;
+
+    // 加载动画
+    const spinner = document.createElement('div');
+    spinner.style.cssText = `
+        width: 60px;
+        height: 60px;
+        border: 4px solid rgba(102, 126, 234, 0.2);
+        border-top-color: #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+    `;
+
+    // 添加旋转动画
+    const style = document.createElement('style');
+    style.textContent = `
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    `;
+    document.head.appendChild(style);
+
+    // 文字信息
+    const title = document.createElement('div');
+    title.textContent = '⏭️ 时间快进中';
+    title.style.cssText = `
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 10px;
+    `;
+
+    const subtitle = document.createElement('div');
+    subtitle.textContent = `正在推进 ${days} 天...`;
+    subtitle.style.cssText = `
+        font-size: 1rem;
+        color: #888;
+        margin-bottom: 20px;
+    `;
+
+    // 进度条容器
+    const progressContainer = document.createElement('div');
+    progressContainer.style.cssText = `
+        width: 300px;
+        height: 6px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+        overflow: hidden;
+        margin-top: 10px;
+    `;
+
+    const progressBar = document.createElement('div');
+    progressBar.id = 'fast-forward-progress';
+    progressBar.style.cssText = `
+        width: 0%;
+        height: 100%;
+        background: linear-gradient(90deg, #667eea, #764ba2);
+        border-radius: 3px;
+        transition: width 0.3s ease;
+    `;
+
+    progressContainer.appendChild(progressBar);
+
+    // 状态文字
+    const statusText = document.createElement('div');
+    statusText.id = 'fast-forward-status';
+    statusText.textContent = '处理市场动态...';
+    statusText.style.cssText = `
+        font-size: 0.85rem;
+        color: #667eea;
+        margin-top: 15px;
+        min-height: 20px;
+    `;
+
+    loadingContainer.appendChild(spinner);
+    loadingContainer.appendChild(title);
+    loadingContainer.appendChild(subtitle);
+    loadingContainer.appendChild(progressContainer);
+    loadingContainer.appendChild(statusText);
+    overlay.appendChild(loadingContainer);
+
+    document.body.appendChild(overlay);
+}
+
+/**
+ * 更新快进进度
+ * @param {number} percent - 进度百分比
+ * @param {string} status - 状态文字
+ */
+function updateFastForwardProgress(percent, status) {
+    const progressBar = document.getElementById('fast-forward-progress');
+    const statusText = document.getElementById('fast-forward-status');
+    
+    if (progressBar) {
+        progressBar.style.width = `${percent}%`;
+    }
+    if (statusText && status) {
+        statusText.textContent = status;
+    }
+}
+
+/**
+ * 隐藏快进加载动画
+ */
+function hideFastForwardLoading() {
+    const overlay = document.getElementById('fast-forward-overlay');
+    if (overlay) {
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => {
+            overlay.remove();
+        }, 300);
+    }
+}
+
+/**
+ * 执行快进逻辑
+ * @param {number} days - 快进天数
+ */
+function executeFastForward(days) {
+    updateFastForwardProgress(20, '模拟AI球队签约...');
+
     const result = window.app.marketManager.fastForward(days);
 
     if (!result.success) {
+        hideFastForwardLoading();
         showNotification(result.message, 'warning');
         return;
     }
 
+    updateFastForwardProgress(50, '更新球队人员...');
+
     // 执行球队人员更新
     updateTeamPlayerAgesAndRetirements();
+
+    updateFastForwardProgress(70, '刷新界面...');
 
     updateOffseasonPanel();
 
@@ -2301,28 +2478,76 @@ function fastForwardDays(days) {
         }
     }
 
-    showModal('快速前进摘要', summaryHTML);
+    updateFastForwardProgress(90, '完成...');
 
-    if (window.app && window.app.recruitmentInterface) {
-        window.app.recruitmentInterface.loadPlayers();
-        window.app.recruitmentInterface.renderAll();
+    // ===== 检查是否有用户正在谈判的球员被签走 =====
+    const signedNegotiations = result.signedByAI || [];
+    if (signedNegotiations.length > 0) {
+        const playerNames = signedNegotiations.map(p => p.playerName).join('、');
+        
+        // 添加警告到摘要
+        summaryHTML += `
+            <div style="margin-top: 20px; padding: 15px; background: rgba(239, 68, 68, 0.15); border-radius: 8px; border: 2px solid rgba(239, 68, 68, 0.5);">
+                <div style="font-size: 1rem; font-weight: 700; color: #ef4444; margin-bottom: 8px;">
+                    ⚠️ 你谈判中的球员被签走了！
+                </div>
+                <div style="font-size: 0.9rem; color: var(--text-secondary); margin-bottom: 10px;">
+                    以下球员在快进期间被其他球队签下：
+                </div>
+                <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+                    ${signedNegotiations.map(p => `
+                        <span style="padding: 6px 12px; background: rgba(239, 68, 68, 0.2); border-radius: 6px; font-size: 0.85rem; color: #ef4444; font-weight: 600;">
+                            ${p.playerName}
+                        </span>
+                    `).join('')}
+                </div>
+                <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(239, 68, 68, 0.2); font-size: 0.85rem; color: #f59e0b;">
+                    💡 建议：尽快寻找替代球员填补空缺！
+                </div>
+            </div>
+        `;
+        
+        // 显示通知
+        showNotification(`⚠️ ${signedNegotiations.length}名谈判中的球员被其他球队签走！`, 'warning');
     }
 
-    if (window.app && window.app.scheduleManager) {
-        window.app.scheduleManager.renderSchedule();
-    }
+    // 延迟一点再隐藏加载动画，让用户看到完成状态
+    setTimeout(() => {
+        hideFastForwardLoading();
+        
+        // 显示摘要弹窗
+        showModal('快速前进摘要', summaryHTML);
 
-    // Update header info (date, funds, etc.)
-    if (window.app && window.app.uiManager) {
-        window.app.uiManager.updateGameInfoHeader();
-    }
+        // ===== 关键修复：强制刷新招募界面 =====
+        if (window.app && window.app.recruitmentInterface) {
+            console.log('[快进] 刷新招募界面...');
+            window.app.recruitmentInterface.loadPlayers();
+            window.app.recruitmentInterface.renderAll();
+            
+            // 额外刷新球员卡片列表
+            const playerList = document.getElementById('player-list');
+            if (playerList) {
+                playerList.innerHTML = '';
+                window.app.recruitmentInterface.renderPlayerCards();
+            }
+        }
 
-    // Auto-save after fast forward
-    if (window.app && window.app.gameStateManager) {
-        window.app.gameStateManager.saveGameState();
-    }
+        if (window.app && window.app.scheduleManager) {
+            window.app.scheduleManager.renderSchedule();
+        }
 
-    console.log(`[快速前进] 跳过 ${result.daysSkipped} 天，${result.playersPickedUp} 名球员被签走`);
+        // Update header info (date, funds, etc.)
+        if (window.app && window.app.uiManager) {
+            window.app.uiManager.updateGameInfoHeader();
+        }
+
+        // Auto-save after fast forward
+        if (window.app && window.app.gameStateManager) {
+            window.app.gameStateManager.saveGameState();
+        }
+
+        console.log(`[快速前进] 跳过 ${result.daysSkipped} 天，${result.playersPickedUp} 名球员被签走`);
+    }, 300);
 }
 
 /**

@@ -21,27 +21,43 @@ class RecruitmentCompetitionSystem {
         // 竞争配置
         this.competitionConfig = {
             // 基础竞争强度
-            baseCompetitionIntensity: 0.6,
+            baseCompetitionIntensity: 0.4,
             
             // 根据球员潜力调整竞争强度
             potentialCompetitionMultiplier: {
-                elite: 1.5,      // 90+ 潜力：极高竞争
-                excellent: 1.2,  // 80-89 潜力：高竞争
-                good: 0.9,       // 70-79 潜力：中等竞争
-                normal: 0.6      // <70 潜力：低竞争
+                elite: 1.3,      // 90+ 潜力：极高竞争
+                excellent: 1.0,  // 80-89 潜力：高竞争
+                good: 0.7,       // 70-79 潜力：中等竞争
+                normal: 0.4      // <70 潜力：低竞争
             },
             
             // AI球队数量配置
             aiTeamCount: {
-                min: 2,
-                max: 5
+                min: 1,
+                max: 3
             },
             
             // 兴趣度衰减配置
             interestDecay: {
-                dailyDecay: 2,           // 每日自然衰减
-                competingOfferPenalty: 5, // 竞争对手报价惩罚
-                timePressureBonus: 3     // 时间紧迫奖励
+                dailyDecay: 3,           // 每日自然衰减（增加）
+                competingOfferPenalty: 3, // 竞争对手报价惩罚（降低）
+                timePressureBonus: 2     // 时间紧迫奖励（降低）
+            },
+            
+            // AI签约配置
+            aiSigning: {
+                minInterestThreshold: 75,    // 最低兴趣度阈值（降低到75，让AI能正常签约）
+                leadGapRequired: 15,          // 领先差距要求（降低到15）
+                signingProbability: 0.35,     // 签约概率（提高到35%）
+                actionProbability: {          // AI行动概率
+                    high: 0.15,               // 高优先级（提高）
+                    medium: 0.08,             // 中优先级（提高）
+                    low: 0.03                 // 低优先级
+                },
+                interestIncrease: {           // AI兴趣度增加量
+                    high: { min: 3, max: 6 },   // 高优先级（提高）
+                    medium: { min: 2, max: 4 }  // 中优先级（提高）
+                }
             },
             
             // 招募周期配置 - 与完整休赛期对齐（约7个月）
@@ -136,21 +152,64 @@ class RecruitmentCompetitionSystem {
     }
     
     /**
-     * 计算球队声望
+     * 计算球队声望 - 改进版
+     * 基于球队实力而非潜力，考虑历史战绩和阵容深度
      */
-    calculateTeamReputation(roster) {
-        if (!roster || roster.length === 0) return 50;
+    calculateTeamReputation(roster, teamHistory = null) {
+        if (!roster || roster.length === 0) return 40;
         
-        // 计算平均能力值
-        const avgRating = roster.reduce((sum, p) => {
-            const rating = p.rating || (p.getOverallRating ? p.getOverallRating() : 60);
-            return sum + rating;
-        }, 0) / roster.length;
+        // 按能力值排序（不是潜力）
+        const sortedRoster = [...roster].sort((a, b) => {
+            const ratingA = a.rating || (a.getOverallRating ? a.getOverallRating() : 50);
+            const ratingB = b.rating || (b.getOverallRating ? b.getOverallRating() : 50);
+            return ratingB - ratingA;
+        });
         
-        // 考虑球队战绩历史（如果有）
-        const historicalBonus = 0; // 可以从球队历史数据中获取
+        // 计算加权实力（首发70%，替补20%，边缘10%）
+        const top5 = sortedRoster.slice(0, 5);
+        const bench = sortedRoster.slice(5, 10);
+        const deep = sortedRoster.slice(10);
         
-        return Math.min(95, Math.max(50, Math.round(avgRating + historicalBonus)));
+        let baseStrength = 0;
+        
+        if (top5.length > 0) {
+            const top5Avg = top5.reduce((sum, p) => {
+                return sum + (p.rating || (p.getOverallRating ? p.getOverallRating() : 50));
+            }, 0) / top5.length;
+            baseStrength += top5Avg * 0.70;
+        }
+        
+        if (bench.length > 0) {
+            const benchAvg = bench.reduce((sum, p) => {
+                return sum + (p.rating || (p.getOverallRating ? p.getOverallRating() : 50));
+            }, 0) / bench.length;
+            baseStrength += benchAvg * 0.20;
+        }
+        
+        if (deep.length > 0) {
+            const deepAvg = deep.reduce((sum, p) => {
+                return sum + (p.rating || (p.getOverallRating ? p.getOverallRating() : 50));
+            }, 0) / deep.length;
+            baseStrength += deepAvg * 0.10;
+        }
+        
+        // 基础声望：实力占80%
+        let reputation = baseStrength * 0.80;
+        
+        // 历史战绩加成（如果有）
+        if (teamHistory) {
+            const championshipBonus = (teamHistory.championships || 0) * 3;
+            const playoffBonus = (teamHistory.playoffAppearances || 0) * 0.5;
+            const recentSuccess = (teamHistory.recentWinRate || 0) * 10;
+            reputation += championshipBonus + playoffBonus + recentSuccess;
+        }
+        
+        // 阵容深度加成
+        const rosterSize = roster.length;
+        if (rosterSize >= 13) reputation += 2;
+        else if (rosterSize < 11) reputation -= 3;
+        
+        return Math.min(99, Math.max(30, Math.round(reputation)));
     }
     
     /**
@@ -464,14 +523,22 @@ class RecruitmentCompetitionSystem {
             }
         }
         
-        // 潜力影响兴趣度
-        if (player.potential >= 90) baseInterest += 10;
-        else if (player.potential >= 80) baseInterest += 5;
-        
-        // 当前能力值影响
+        // 当前能力值影响（权重更高）
         const rating = player.rating || (player.getOverallRating ? player.getOverallRating() : 50);
-        if (rating >= 80) baseInterest += 8;
+        if (rating >= 80) baseInterest += 12;
+        else if (rating >= 75) baseInterest += 8;
         else if (rating >= 70) baseInterest += 4;
+        else if (rating >= 65) baseInterest += 2;
+        
+        // 潜力影响兴趣度（权重降低）
+        if (player.potential >= 90) baseInterest += 6;
+        else if (player.potential >= 85) baseInterest += 4;
+        else if (player.potential >= 80) baseInterest += 2;
+        
+        // 综合评估：高实力+高潜力 = 超级目标
+        if (rating >= 75 && player.potential >= 85) {
+            baseInterest += 5; // 额外加成
+        }
         
         return Math.max(10, Math.min(90, Math.round(baseInterest)));
     }
@@ -537,9 +604,14 @@ class RecruitmentCompetitionSystem {
                 score += 20;
             }
             
-            // 声望匹配（高潜力球员更倾向于高声望球队）
-            if (player.potential >= 85) {
-                score += (team.recruitment.reputation - 50) * 0.3;
+            // 声望匹配（基于球员实力而非潜力）
+            const playerRating = player.rating || (player.getOverallRating ? player.getOverallRating() : 50);
+            if (playerRating >= 75) {
+                // 实力强的球员更倾向于高声望球队
+                score += (team.recruitment.reputation - 50) * 0.4;
+            } else if (player.potential >= 85) {
+                // 高潜力但实力一般的球员也考虑声望，但权重较低
+                score += (team.recruitment.reputation - 50) * 0.2;
             }
             
             suitableTeams.push({ teamId, score });
@@ -551,28 +623,45 @@ class RecruitmentCompetitionSystem {
     }
     
     /**
-     * 估算招募成本
+     * 估算招募成本 - 改进版
+     * 基于实力为主，潜力为辅
      */
     estimateRecruitmentCost(player) {
         const baseCost = 50000;
-        const potentialBonus = (player.potential - 60) * 2000;
+        
+        // 当前能力值权重更高（60%）
         const rating = player.rating || (player.getOverallRating ? player.getOverallRating() : 50);
-        const ratingBonus = (rating - 50) * 1500;
-        return baseCost + potentialBonus + ratingBonus;
+        const ratingBonus = (rating - 50) * 2000;
+        
+        // 潜力权重降低（40%）
+        const potentialBonus = (player.potential - 60) * 1000;
+        
+        // 年级因素（大四球员成本更低，因为只能打一年）
+        const year = player.year || 1;
+        const yearDiscount = year === 4 ? 0.8 : (year === 3 ? 0.9 : 1.0);
+        
+        return Math.round((baseCost + ratingBonus + potentialBonus) * yearDiscount);
     }
     
     /**
-     * 计算竞争强度
+     * 计算竞争强度 - 改进版
+     * 平衡潜力和实力的权重
      */
     calculateCompetitionIntensity(player) {
         let intensity = this.competitionConfig.baseCompetitionIntensity;
         
-        // 根据潜力调整
-        if (player.potential >= 90) {
+        const rating = player.rating || (player.getOverallRating ? player.getOverallRating() : 50);
+        const potential = player.potential || 70;
+        
+        // 综合评分（实力60%，潜力40%）
+        const compositeScore = rating * 0.6 + potential * 0.4;
+        
+        // 根据综合评分调整竞争强度
+        if (compositeScore >= 85) {
             intensity *= this.competitionConfig.potentialCompetitionMultiplier.elite;
-        } else if (player.potential >= 80) {
+        } else if (compositeScore >= 75) {
             intensity *= this.competitionConfig.potentialCompetitionMultiplier.excellent;
-        } else if (player.potential >= 70) {
+        } else if (compositeScore >= 65) {
             intensity *= this.competitionConfig.potentialCompetitionMultiplier.good;
         } else {
             intensity *= this.competitionConfig.potentialCompetitionMultiplier.normal;
@@ -583,10 +672,17 @@ class RecruitmentCompetitionSystem {
             intensity *= 1.3; // 转学生竞争更激烈
         }
         
-        // 根据当前能力值调整
-        const rating = player.rating || (player.getOverallRating ? player.getOverallRating() : 50);
+        // 纯实力加成（即战力高的球员竞争更激烈）
         if (rating >= 80) {
-            intensity *= 1.2;
+            intensity *= 1.25;
+        } else if (rating >= 75) {
+            intensity *= 1.15;
+        }
+        
+        // 年级因素（低年级高潜力球员竞争更激烈）
+        const year = player.year || 1;
+        if (year === 1 && potential >= 85) {
+            intensity *= 1.2; // 大一高潜力新星竞争激烈
         }
         
         return Math.min(1.0, intensity);
@@ -775,9 +871,11 @@ class RecruitmentCompetitionSystem {
     
     /**
      * 处理AI球队行动
-     * 降低AI行动频率，让玩家有更多时间反应
+     * 大幅降低AI行动频率，让玩家有更多时间反应
      */
     processAITeamActions(status) {
+        const aiConfig = this.competitionConfig.aiSigning;
+        
         status.competingTeams.forEach(teamId => {
             const team = this.aiTeams.get(teamId);
             if (!team) return;
@@ -790,23 +888,22 @@ class RecruitmentCompetitionSystem {
                 potential: 75 // 简化处理
             });
             
-            // ===== 降低AI行动频率 =====
-            // 高优先级：40% -> 15%，增加更多随机性
-            if (priority === 'high' && Math.random() < 0.15) {
-                // 高优先级：大幅增加兴趣度，但幅度降低
-                const increase = 3 + Math.floor(Math.random() * 5); // 5-10 -> 3-7
+            // ===== 大幅降低AI行动频率 =====
+            const actionProb = aiConfig.actionProbability[priority] || 0;
+            
+            if (Math.random() < actionProb) {
+                // 根据优先级增加兴趣度
+                const increaseRange = aiConfig.interestIncrease[priority] || { min: 1, max: 2 };
+                const increase = increaseRange.min + Math.floor(Math.random() * (increaseRange.max - increaseRange.min + 1));
                 status.teamInterest.set(teamId, Math.min(100, currentInterest + increase));
                 
                 // 消耗预算
-                team.recruitment.recruitmentBudget -= 10000;
+                team.recruitment.recruitmentBudget -= 5000;
                 
-                console.log(`[AI行动] ${team.name} 加大招募投入，兴趣度提升至 ${status.teamInterest.get(teamId)}`);
-            } else if (priority === 'medium' && Math.random() < 0.08) {
-                // 中优先级：20% -> 8%
-                const increase = 2 + Math.floor(Math.random() * 3); // 3-5 -> 2-4
-                status.teamInterest.set(teamId, Math.min(100, currentInterest + increase));
+                if (priority === 'high') {
+                    console.log(`[AI行动] ${team.name} 加大招募投入，兴趣度提升至 ${status.teamInterest.get(teamId)}`);
+                }
             }
-            // 低优先级：不采取行动
         });
     }
     
@@ -834,9 +931,61 @@ class RecruitmentCompetitionSystem {
     }
     
     /**
-     * 检查是否可以签约
+     * 检查是否可以签约 - 优化玩家优先机制
+     * 当玩家兴趣度满100时，获得显著优势保护
      */
     checkForCommitment(status) {
+        const aiConfig = this.competitionConfig.aiSigning;
+        const playerInterest = status.playerInterestInUser;
+        
+        // ===== 玩家兴趣度满100时的优先保护机制 =====
+        if (playerInterest >= 100) {
+            // 玩家兴趣满时，AI几乎不可能签约
+            let aiMaxInterest = 0;
+            let leadingAITeam = null;
+            
+            status.teamInterest.forEach((interest, teamId) => {
+                if (interest > aiMaxInterest) {
+                    aiMaxInterest = interest;
+                    leadingAITeam = teamId;
+                }
+            });
+            
+            // AI必须兴趣满100且领先玩家20点以上才能抢人
+            if (aiMaxInterest >= 100 && aiMaxInterest - playerInterest >= 20) {
+                // 极低的概率（5%）AI能抢走
+                if (Math.random() < 0.05) {
+                    this.resolveRecruitment(status.playerId, 'commitment', leadingAITeam);
+                    console.log(`[AI签约-罕见] 球员 ${status.playerName} 被 ${this.aiTeams.get(leadingAITeam)?.name} 抢走（玩家兴趣满但被超越）`);
+                }
+            }
+            
+            // 玩家兴趣满时，保护期内AI无法签约
+            return;
+        }
+        
+        // ===== 玩家兴趣度90-99时的保护机制 =====
+        if (playerInterest >= 90) {
+            let aiMaxInterest = 0;
+            let leadingAITeam = null;
+            
+            status.teamInterest.forEach((interest, teamId) => {
+                if (interest > aiMaxInterest) {
+                    aiMaxInterest = interest;
+                    leadingAITeam = teamId;
+                }
+            });
+            
+            // AI必须兴趣满95且领先玩家15点以上
+            if (aiMaxInterest >= 95 && aiMaxInterest - playerInterest >= 15) {
+                if (Math.random() < aiConfig.signingProbability * 0.5) {
+                    this.resolveRecruitment(status.playerId, 'commitment', leadingAITeam);
+                    console.log(`[AI签约] 球员 ${status.playerName} 被 ${this.aiTeams.get(leadingAITeam)?.name} 签下`);
+                }
+            }
+            return;
+        }
+        
         // 检查是否有承诺锁定
         const commitment = this.getPlayerCommitment(status.playerId);
         if (commitment) {
@@ -864,16 +1013,17 @@ class RecruitmentCompetitionSystem {
             }
         });
         
-        // ===== 提高AI签约门槛，降低签约频率 =====
-        // 如果兴趣度达到阈值且领先明显，可以签约
-        // 提高阈值：80 -> 90，领先差距：15 -> 25
-        if (maxInterest >= 90) {
+        // ===== 普通情况：AI签约门槛 =====
+        // 只有AI球队可以自动签约，玩家球队需要手动操作
+        if (leadingTeam !== 'user' && maxInterest >= aiConfig.minInterestThreshold) {
             const secondMax = this.getSecondHighestInterest(status);
-            // 需要明显领先优势（25点以上）
-            if (maxInterest - secondMax >= 25) {
-                // 额外随机检查，避免AI过快签约（30%概率）
-                if (Math.random() < 0.3) {
+            
+            // 需要非常大的领先优势
+            if (maxInterest - secondMax >= aiConfig.leadGapRequired) {
+                // 很低的签约概率，给玩家更多机会
+                if (Math.random() < aiConfig.signingProbability) {
                     this.resolveRecruitment(status.playerId, 'commitment', leadingTeam);
+                    console.log(`[AI签约] 球员 ${status.playerName} 被 ${this.aiTeams.get(leadingTeam)?.name || leadingTeam} 签下`);
                 }
             }
         }
@@ -912,6 +1062,9 @@ class RecruitmentCompetitionSystem {
                 
                 // ===== 关键修复：更新AI球队的阵容和奖学金数量 =====
                 this.updateAITeamRosterAfterSigning(winningTeam, status);
+                
+                // ===== 关键修复：从availablePlayers中移除已签约球员 =====
+                this.removePlayerFromAvailable(playerId);
             }
         } else if (reason === 'timeout') {
             console.log(`[招募结果] ${status.playerName} 招募期结束，未签约`);
@@ -924,6 +1077,36 @@ class RecruitmentCompetitionSystem {
                 team.recruitment.activeTargets.delete(playerId);
             }
         });
+    }
+    
+    /**
+     * 从可用球员列表中移除已签约球员
+     * @param {string|number} playerId - 球员ID
+     */
+    removePlayerFromAvailable(playerId) {
+        const state = this.gameStateManager.getState();
+        if (state.availablePlayers) {
+            const index = state.availablePlayers.findIndex(p => p.id === playerId);
+            if (index !== -1) {
+                const player = state.availablePlayers[index];
+                state.availablePlayers.splice(index, 1);
+                console.log(`[招募结果] 已从可用球员列表移除: ${player.name}`);
+                
+                // 同时从recruitmentInterface的players中移除
+                if (window.recruitmentInterface && window.recruitmentInterface.players) {
+                    const riIndex = window.recruitmentInterface.players.findIndex(p => p.id === playerId);
+                    if (riIndex !== -1) {
+                        window.recruitmentInterface.players.splice(riIndex, 1);
+                        console.log(`[招募结果] 已从招募界面移除: ${player.name}`);
+                    }
+                }
+                
+                // 刷新招募界面显示
+                if (window.recruitmentInterface) {
+                    window.recruitmentInterface.renderAll();
+                }
+            }
+        }
     }
     
     /**
@@ -942,14 +1125,21 @@ class RecruitmentCompetitionSystem {
         if (player) {
             // 添加到AI球队阵容
             const playerInfo = player.getInfo ? player.getInfo() : player;
-            team.roster.push({
+            const playerData = {
                 id: playerInfo.id,
                 name: playerInfo.name,
                 position: playerInfo.position,
                 rating: playerInfo.overallRating,
                 potential: playerInfo.potential || playerInfo.overallRating,
-                year: playerInfo.year || 1
-            });
+                year: playerInfo.year || 1,
+                isNewSigning: true,
+                signedThisSeason: true
+            };
+            
+            team.roster.push(playerData);
+            
+            // ===== 关键修复：同步到 gameStateManager 的 allTeams =====
+            this.syncAITeamToGameState(teamId, playerData);
             
             // 减少奖学金数量
             team.recruitment.scholarshipsAvailable = Math.max(0, team.recruitment.scholarshipsAvailable - 1);
@@ -960,7 +1150,45 @@ class RecruitmentCompetitionSystem {
             // 更新球队声望
             team.recruitment.reputation = this.calculateTeamReputation(team.roster);
             
-            console.log(`[AI阵容更新] ${team.name} 签下 ${playerInfo.name}，剩余奖学金: ${team.recruitment.scholarshipsAvailable}，阵容需求已更新`);
+            console.log(`[AI阵容更新] ${team.name} 签下 ${playerInfo.name}，剩余奖学金: ${team.recruitment.scholarshipsAvailable}，已同步到allTeams`);
+        }
+    }
+    
+    /**
+     * 同步AI球队阵容到 gameStateManager 的 allTeams
+     * 这是关键修复，确保GM工具能看到正确的阵容
+     * @param {string} teamId - AI球队ID
+     * @param {Object} playerData - 新签约球员数据
+     */
+    syncAITeamToGameState(teamId, playerData) {
+        const state = this.gameStateManager.getState();
+        // 创建 allTeams 的深拷贝
+        const allTeams = JSON.parse(JSON.stringify(state.allTeams || []));
+        
+        // 在 allTeams 中找到对应的球队
+        const teamIndex = allTeams.findIndex(t => t.id === teamId);
+        if (teamIndex !== -1) {
+            const gameTeam = allTeams[teamIndex];
+            
+            // 确保 roster 数组存在
+            if (!gameTeam.roster) {
+                gameTeam.roster = [];
+            }
+            
+            // 添加球员到游戏球队的阵容
+            gameTeam.roster.push(playerData);
+            
+            // 更新奖学金数量
+            if (gameTeam.scholarshipsAvailable !== undefined) {
+                gameTeam.scholarshipsAvailable = Math.max(0, gameTeam.scholarshipsAvailable - 1);
+            }
+            
+            // 保存更新后的 allTeams（使用深拷贝后的数组）
+            this.gameStateManager.set('allTeams', allTeams);
+            
+            console.log(`[阵容同步] ${gameTeam.name} 阵容已更新，现在共 ${gameTeam.roster.length} 人`);
+        } else {
+            console.warn(`[阵容同步] 未在allTeams中找到球队 ${teamId}`);
         }
     }
     
@@ -1000,7 +1228,8 @@ class RecruitmentCompetitionSystem {
     }
     
     /**
-     * 玩家采取行动提升兴趣度
+     * 玩家采取行动提升兴趣度 - 优化版本
+     * 增加更多策略性选项和个性化反馈
      */
     playerTakeAction(playerId, actionType, actionData = {}) {
         const status = this.playerRecruitmentStatus.get(playerId);
@@ -1008,55 +1237,198 @@ class RecruitmentCompetitionSystem {
             return { success: false, message: '该球员已不可招募' };
         }
         
+        // 获取球员信息用于个性化计算
+        const state = this.gameStateManager.getState();
+        const player = state.availablePlayers?.find(p => p.id === playerId);
+        
         let interestIncrease = 0;
         let cost = 0;
         let message = '';
+        let specialEffect = null;
         
-        switch (actionType) {
-            case 'campus_visit':
-                // 校园参观
-                interestIncrease = 8 + Math.floor(Math.random() * 7);
-                cost = 5000;
-                message = '校园参观给球员留下了深刻印象';
-                break;
-                
-            case 'home_visit':
-                // 家访
-                interestIncrease = 10 + Math.floor(Math.random() * 10);
-                cost = 8000;
-                message = '家访增进了彼此了解';
-                break;
-                
-            case 'introduce_team_culture':
-                // 介绍球队文化
-                interestIncrease = 10 + Math.floor(Math.random() * 8);
-                cost = 0;
-                message = '球队文化深深吸引了球员';
-                break;
-                
-            case 'promise_playing_time':
-                // 承诺上场时间
-                interestIncrease = 5 + Math.floor(Math.random() * 10);
-                cost = 0;
-                message = '上场时间承诺增加了吸引力';
-                break;
-                
-            case 'highlight_facilities':
-                // 展示设施
-                interestIncrease = 6 + Math.floor(Math.random() * 6);
-                cost = 2000;
-                message = '先进的训练设施令人印象深刻';
-                break;
-                
-            case 'emphasize_academics':
-                // 强调学术
-                interestIncrease = 4 + Math.floor(Math.random() * 6);
-                cost = 1000;
-                message = '学术优势得到了认可';
-                break;
-                
-            default:
-                return { success: false, message: '未知的行动类型' };
+        // 基础行动配置
+        const actionConfigs = {
+            campus_visit: {
+                baseIncrease: 8,
+                randomRange: 7,
+                cost: 5000,
+                baseMessage: '校园参观给球员留下了深刻印象',
+                // 对注重体验的球员效果更好
+                personalityBonus: { 'ambitious': -2, 'team_oriented': 2, 'flashy': 3 }
+            },
+            home_visit: {
+                baseIncrease: 10,
+                randomRange: 10,
+                cost: 8000,
+                baseMessage: '家访增进了彼此了解',
+                // 对重视家庭的球员效果更好
+                personalityBonus: { 'loyal': 3, 'team_oriented': 2, 'flashy': -1 }
+            },
+            introduce_team_culture: {
+                baseIncrease: 10,
+                randomRange: 8,
+                cost: 0,
+                baseMessage: '球队文化深深吸引了球员',
+                // 对团队型球员效果更好
+                personalityBonus: { 'team_oriented': 4, 'loyal': 2, 'ambitious': -1 }
+            },
+            promise_playing_time: {
+                baseIncrease: 5,
+                randomRange: 10,
+                cost: 0,
+                baseMessage: '上场时间承诺增加了吸引力',
+                // 对野心型球员效果更好
+                personalityBonus: { 'ambitious': 5, 'flashy': 3, 'team_oriented': -2 }
+            },
+            highlight_facilities: {
+                baseIncrease: 6,
+                randomRange: 6,
+                cost: 2000,
+                baseMessage: '先进的训练设施令人印象深刻',
+                // 对华丽型球员效果更好
+                personalityBonus: { 'flashy': 4, 'ambitious': 2 }
+            },
+            emphasize_academics: {
+                baseIncrease: 4,
+                randomRange: 6,
+                cost: 1000,
+                baseMessage: '学术优势得到了认可',
+                // 对忠诚型球员效果更好
+                personalityBonus: { 'loyal': 3, 'team_oriented': 2 }
+            },
+            // ===== 新增招募行动 =====
+            invite_to_game: {
+                baseIncrease: 12,
+                randomRange: 8,
+                cost: 3000,
+                baseMessage: '现场观赛让球员对球队实力有了直观认识',
+                personalityBonus: { 'ambitious': 4, 'flashy': 3, 'team_oriented': 2 },
+                specialEffect: 'momentum', // 产生势头效果
+                cooldown: 7 // 7天冷却
+            },
+            connect_with_alumni: {
+                baseIncrease: 8,
+                randomRange: 6,
+                cost: 4000,
+                baseMessage: '校友的成功故事激励了球员',
+                personalityBonus: { 'loyal': 4, 'ambitious': 3 },
+                specialEffect: 'trust', // 增加信任度
+                cooldown: 5
+            },
+            offer_scholarship: {
+                baseIncrease: 15,
+                randomRange: 10,
+                cost: 0,
+                baseMessage: '正式奖学金offer展现了球队的诚意',
+                personalityBonus: { 'loyal': 5, 'team_oriented': 3 },
+                specialEffect: 'commitment_boost', // 加速承诺
+                oncePerRecruitment: true // 每个招募周期只能使用一次
+            },
+            social_media_campaign: {
+                baseIncrease: 6,
+                randomRange: 5,
+                cost: 1500,
+                baseMessage: '社交媒体宣传提升了球员的关注度',
+                personalityBonus: { 'flashy': 5, 'ambitious': 2 },
+                specialEffect: 'visibility', // 增加曝光度
+                cooldown: 3
+            },
+            one_on_one_training: {
+                baseIncrease: 10,
+                randomRange: 7,
+                cost: 6000,
+                baseMessage: '一对一训练展示了对球员发展的重视',
+                personalityBonus: { 'ambitious': 5, 'flashy': 2 },
+                specialEffect: 'development', // 展示发展承诺
+                cooldown: 10
+            },
+            family_dinner: {
+                baseIncrease: 14,
+                randomRange: 8,
+                cost: 7000,
+                baseMessage: '家庭晚宴建立了深厚的个人关系',
+                personalityBonus: { 'loyal': 5, 'team_oriented': 4 },
+                specialEffect: 'relationship', // 加深关系
+                cooldown: 14
+            }
+        };
+        
+        const config = actionConfigs[actionType];
+        if (!config) {
+            return { success: false, message: '未知的行动类型' };
+        }
+        
+        // 检查冷却时间
+        if (config.cooldown) {
+            const lastUsed = status.actionCooldowns?.[actionType];
+            if (lastUsed) {
+                const daysSinceLastUse = (Date.now() - lastUsed) / (24 * 60 * 60 * 1000);
+                if (daysSinceLastUse < config.cooldown) {
+                    const daysRemaining = Math.ceil(config.cooldown - daysSinceLastUse);
+                    return { 
+                        success: false, 
+                        message: `该行动需要冷却，${daysRemaining}天后可再次使用`,
+                        cooldown: daysRemaining
+                    };
+                }
+            }
+        }
+        
+        // 检查是否每个招募周期只能使用一次
+        if (config.oncePerRecruitment && status.usedActions?.includes(actionType)) {
+            return { 
+                success: false, 
+                message: '该行动在本招募周期内已使用过' 
+            };
+        }
+        
+        // 计算基础兴趣增长
+        interestIncrease = config.baseIncrease + Math.floor(Math.random() * config.randomRange);
+        cost = config.cost;
+        message = config.baseMessage;
+        specialEffect = config.specialEffect;
+        
+        // 应用性格加成
+        if (player?.personality && config.personalityBonus) {
+            const personality = player.personality;
+            let bonus = 0;
+            let bonusMessage = '';
+            
+            // 检查主要性格特征
+            if (personality.primary && config.personalityBonus[personality.primary]) {
+                bonus += config.personalityBonus[personality.primary];
+                bonusMessage = this.getPersonalityReaction(personality.primary, actionType);
+            }
+            
+            // 检查次要性格特征
+            if (personality.secondary && config.personalityBonus[personality.secondary]) {
+                bonus += config.personalityBonus[personality.secondary] * 0.5;
+            }
+            
+            // 应用加成
+            if (bonus !== 0) {
+                interestIncrease += Math.round(bonus);
+                if (bonusMessage) {
+                    message += `。${bonusMessage}`;
+                }
+            }
+        }
+        
+        // 根据球员当前兴趣度调整效果（边际递减）
+        if (status.playerInterestInUser >= 80) {
+            interestIncrease = Math.floor(interestIncrease * 0.7); // 高兴趣时效果降低
+            message += '（球员已对你很感兴趣，进一步提升变得困难）';
+        } else if (status.playerInterestInUser >= 60) {
+            interestIncrease = Math.floor(interestIncrease * 0.85);
+        }
+        
+        // 记录行动使用
+        if (!status.actionCooldowns) status.actionCooldowns = {};
+        status.actionCooldowns[actionType] = Date.now();
+        
+        if (!status.usedActions) status.usedActions = [];
+        if (config.oncePerRecruitment) {
+            status.usedActions.push(actionType);
         }
         
         // 扣除预算（先检查预算是否足够）
@@ -1097,13 +1469,202 @@ class RecruitmentCompetitionSystem {
         status.playerInterestInUser = Math.min(100, status.playerInterestInUser + interestIncrease);
         const actualIncrease = status.playerInterestInUser - oldInterest;
         
+        // 处理特殊效果
+        let specialEffectResult = null;
+        if (specialEffect) {
+            specialEffectResult = this.applySpecialEffect(status, specialEffect, player);
+        }
+        
         return {
             success: true,
             interestIncrease: actualIncrease,
             newInterest: status.playerInterestInUser,
             cost,
-            message
+            message,
+            specialEffect: specialEffectResult,
+            playerReaction: this.generatePlayerReaction(player, actualIncrease, status.playerInterestInUser)
         };
+    }
+    
+    /**
+     * 根据性格获取反应消息
+     */
+    getPersonalityReaction(personality, actionType) {
+        const reactions = {
+            ambitious: {
+                campus_visit: '球员对学校的竞技水平印象深刻',
+                home_visit: '球员更关注职业发展机会',
+                introduce_team_culture: '球员希望了解赢球文化',
+                promise_playing_time: '这正是球员想要的！',
+                highlight_facilities: '球员对训练条件很满意',
+                emphasize_academics: '球员对此不太感兴趣',
+                invite_to_game: '球员被球队的竞争力吸引',
+                connect_with_alumni: '球员关注校友的职业成就',
+                offer_scholarship: '球员认为这是对他能力的认可',
+                social_media_campaign: '球员喜欢这种关注度',
+                one_on_one_training: '球员渴望这种发展机会',
+                family_dinner: '球员感谢这种重视'
+            },
+            loyal: {
+                campus_visit: '球员感受到了学校的温暖',
+                home_visit: '这种重视让球员很感动',
+                introduce_team_culture: '球员喜欢这种归属感',
+                promise_playing_time: '球员承诺会全力以赴',
+                highlight_facilities: '球员对此反应一般',
+                emphasize_academics: '这正是球员看重的！',
+                invite_to_game: '球员对球队氛围很有好感',
+                connect_with_alumni: '球员被校友的忠诚打动',
+                offer_scholarship: '球员认为这是信任的证明',
+                social_media_campaign: '球员对此不太感冒',
+                one_on_one_training: '球员感谢这种投入',
+                family_dinner: '这种关怀让球员很温暖！'
+            },
+            flashy: {
+                campus_visit: '球员喜欢这种体验',
+                home_visit: '球员希望有更多曝光',
+                introduce_team_culture: '球员想了解明星球员',
+                promise_playing_time: '球员想成为焦点',
+                highlight_facilities: '这种展示很合球员胃口！',
+                emphasize_academics: '球员对此不太感兴趣',
+                invite_to_game: '球员被现场氛围感染',
+                connect_with_alumni: '球员关注知名校友',
+                offer_scholarship: '球员喜欢这种正式感',
+                social_media_campaign: '这正是球员想要的！',
+                one_on_one_training: '球员希望被特别关注',
+                family_dinner: '球员觉得这样很酷'
+            },
+            team_oriented: {
+                campus_visit: '球员感受到了团队精神',
+                home_visit: '这种重视让球员很感激',
+                introduce_team_culture: '这正是球员追求的！',
+                promise_playing_time: '球员更在意团队角色',
+                highlight_facilities: '球员关注团队设施',
+                emphasize_academics: '球员认可这种平衡',
+                invite_to_game: '球员被团队配合打动',
+                connect_with_alumni: '球员关注团队成就',
+                offer_scholarship: '球员认为这是团队邀请',
+                social_media_campaign: '球员对此反应一般',
+                one_on_one_training: '球员希望融入团队',
+                family_dinner: '这种关怀让球员很感动！'
+            }
+        };
+        
+        return reactions[personality]?.[actionType] || '';
+    }
+    
+    /**
+     * 应用特殊效果
+     */
+    applySpecialEffect(status, effectType, player) {
+        switch (effectType) {
+            case 'momentum':
+                // 势头效果：接下来3天AI兴趣增长减半
+                status.momentumBoost = {
+                    expires: Date.now() + 3 * 24 * 60 * 60 * 1000,
+                    aiDecayMultiplier: 0.5
+                };
+                return { type: 'momentum', message: '你获得了招募势头，AI竞争暂时减弱' };
+                
+            case 'trust':
+                // 信任效果：兴趣衰减减少
+                status.trustBonus = {
+                    expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+                    decayReduction: 0.3
+                };
+                return { type: 'trust', message: '球员对你的信任度提升了' };
+                
+            case 'commitment_boost':
+                // 承诺加速：降低签约所需的兴趣度阈值
+                status.commitmentThreshold = 85; // 正常是95
+                return { type: 'commitment_boost', message: '球员更愿意提前做出承诺' };
+                
+            case 'visibility':
+                // 曝光度：增加球员对其他AI的吸引力（但玩家保持领先）
+                status.visibilityBoost = true;
+                return { type: 'visibility', message: '球员的知名度提升了，更多球队会关注他' };
+                
+            case 'development':
+                // 发展承诺：对高潜力球员效果更好
+                if (player?.potential >= 80) {
+                    status.developmentCommitment = true;
+                    return { type: 'development', message: '高潜力球员对这种发展机会特别感兴趣！' };
+                }
+                return { type: 'development', message: '球员认可这种发展投入' };
+                
+            case 'relationship':
+                // 关系加深：大幅提升，但成本也高
+                status.relationshipLevel = (status.relationshipLevel || 0) + 1;
+                return { type: 'relationship', message: `你们的关系加深到了${status.relationshipLevel}级` };
+                
+            default:
+                return null;
+        }
+    }
+    
+    /**
+     * 生成球员反应消息
+     */
+    generatePlayerReaction(player, increase, currentInterest) {
+        const reactions = {
+            low: ['球员似乎有些犹豫', '球员还在考虑中', '球员反应平淡'],
+            medium: ['球员表现出了兴趣', '球员开始认真考虑', '球员对你更感兴趣了'],
+            high: ['球员非常兴奋！', '球员迫不及待想加入', '球员认为这是最好的选择'],
+            very_high: ['球员已经把你当作首选！', '球员几乎要做出承诺了', '球员对你完全信任']
+        };
+        
+        let category = 'low';
+        if (currentInterest >= 90) category = 'very_high';
+        else if (currentInterest >= 70) category = 'high';
+        else if (currentInterest >= 50) category = 'medium';
+        
+        const reactionList = reactions[category];
+        return reactionList[Math.floor(Math.random() * reactionList.length)];
+    }
+    
+    /**
+     * 获取可用的招募行动列表（供UI使用）
+     */
+    getAvailableActions(playerId) {
+        const status = this.playerRecruitmentStatus.get(playerId);
+        if (!status) return [];
+        
+        const actions = [
+            { id: 'campus_visit', name: '🏫 校园参观', cost: 5000, desc: '展示校园设施和文化', cooldown: 0 },
+            { id: 'home_visit', name: '🏠 家访', cost: 8000, desc: '深入了解球员家庭', cooldown: 0 },
+            { id: 'introduce_team_culture', name: '🏆 介绍球队文化', cost: 0, desc: '展示球队历史和荣誉', cooldown: 0 },
+            { id: 'promise_playing_time', name: '⏱️ 承诺上场时间', cost: 0, desc: '保证赛季出场时间', cooldown: 0 },
+            { id: 'highlight_facilities', name: '🏋️ 展示设施', cost: 2000, desc: '展示训练设施', cooldown: 0 },
+            { id: 'emphasize_academics', name: '📚 强调学术', cost: 1000, desc: '突出学术优势', cooldown: 0 },
+            { id: 'invite_to_game', name: '🎫 邀请观赛', cost: 3000, desc: '邀请观看主场比赛', cooldown: 7 },
+            { id: 'connect_with_alumni', name: '🤝 校友交流', cost: 4000, desc: '安排与成功校友见面', cooldown: 5 },
+            { id: 'offer_scholarship', name: '🎓 提供奖学金', cost: 0, desc: '正式提供奖学金offer', cooldown: 0, once: true },
+            { id: 'social_media_campaign', name: '📱 社媒宣传', cost: 1500, desc: '在社交媒体宣传', cooldown: 3 },
+            { id: 'one_on_one_training', name: '💪 一对一训练', cost: 6000, desc: '展示个人发展计划', cooldown: 10 },
+            { id: 'family_dinner', name: '🍽️ 家庭晚宴', cost: 7000, desc: '与球员家庭共进晚餐', cooldown: 14 }
+        ];
+        
+        // 检查冷却时间和使用次数
+        return actions.map(action => {
+            let disabled = false;
+            let disabledReason = '';
+            
+            // 检查冷却
+            if (action.cooldown > 0 && status.actionCooldowns?.[action.id]) {
+                const daysSince = (Date.now() - status.actionCooldowns[action.id]) / (24 * 60 * 60 * 1000);
+                if (daysSince < action.cooldown) {
+                    disabled = true;
+                    disabledReason = `${Math.ceil(action.cooldown - daysSince)}天后可用`;
+                }
+            }
+            
+            // 检查是否已使用
+            if (action.once && status.usedActions?.includes(action.id)) {
+                disabled = true;
+                disabledReason = '本周期已使用';
+            }
+            
+            return { ...action, disabled, disabledReason };
+        });
     }
     
     /**

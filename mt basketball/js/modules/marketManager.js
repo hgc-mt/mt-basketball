@@ -99,13 +99,17 @@ class MarketManager {
     signPlayer(playerId) {
         const state = this.gameStateManager.getState();
         const userTeam = state.userTeam;
-        const availablePlayers = state.availablePlayers;
+        // 创建数组的副本，避免直接修改原始数组
+        const availablePlayers = [...(state.availablePlayers || [])];
 
         if (!userTeam) return;
 
         // Find player in available players
         const playerIndex = availablePlayers.findIndex(p => p.id === playerId);
-        if (playerIndex === -1) return;
+        if (playerIndex === -1) {
+            console.error(`[signPlayer] 球员 ${playerId} 不在可用球员列表中`);
+            return;
+        }
 
         const player = availablePlayers[playerIndex];
 
@@ -115,13 +119,15 @@ class MarketManager {
             availablePlayers.splice(playerIndex, 1);
 
             // Update game state
-            this.gameStateManager.set('availablePlayers', [...availablePlayers]);
+            this.gameStateManager.set('availablePlayers', availablePlayers);
 
             // Update UI
             this.displayAvailablePlayers();
 
             // Show notification
             this.showNotification(`成功签约 ${player.name}`, 'success');
+            
+            console.log(`[signPlayer] 球员 ${player.name} 已签约并从市场移除，剩余可用球员: ${availablePlayers.length}`);
 
             // Save game state
             this.gameStateManager.saveGameState();
@@ -229,14 +235,18 @@ class MarketManager {
             return { pickedUp: 0, changes: [] };
         }
 
-        const availablePlayers = state.availablePlayers;
-        if (!availablePlayers || availablePlayers.length === 0) {
+        // 创建数组的副本，避免直接修改原始数组
+        const availablePlayers = [...(state.availablePlayers || [])];
+        if (availablePlayers.length === 0) {
             return { pickedUp: 0, changes: [] };
         }
 
         const progress = this.getOffseasonProgress();
         const userTeam = state.userTeam;
         const userRosterIds = userTeam?.roster?.map(p => p.id) || [];
+        
+        // ===== 关键修复：获取需要补强的AI球队 =====
+        const aiTeamsNeedingPlayers = this.getAITeamsNeedingPlayers();
 
         const pickedUp = [];
         const changes = [];
@@ -248,17 +258,34 @@ class MarketManager {
 
             const pickupProb = this.calculatePickupProbability(player);
             
-            if (Math.random() < pickupProb * 0.3) {
+            // ===== 提高AI签约概率，确保球队能正常补强 =====
+            // 基础概率 * 时间因子（越往后签约概率越高）
+            const progress = this.getOffseasonProgress();
+            const timeBoost = 0.5 + (progress * 0.5); // 0.5-1.0
+            const finalProb = pickupProb * timeBoost;
+            
+            if (Math.random() < finalProb) {
                 const playerInfo = player.getInfo ? player.getInfo() : player;
+                
+                // ===== 关键修复：选择一个需要球员的AI球队 =====
+                const signingTeam = this.selectAITeamForPlayer(playerInfo, aiTeamsNeedingPlayers);
+                
                 pickedUp.push({
                     id: playerInfo.id,
                     name: playerInfo.name,
                     rating: playerInfo.overallRating,
-                    position: playerInfo.position
+                    position: playerInfo.position,
+                    teamId: signingTeam?.id,
+                    teamName: signingTeam?.name
                 });
                 
                 availablePlayers.splice(i, 1);
-                changes.push(`${playerInfo.name} 被其他球队签走了`);
+                changes.push(`${playerInfo.name} 被 ${signingTeam?.name || '其他球队'} 签走了`);
+                
+                // ===== 关键修复：将球员实际添加到AI球队阵容 =====
+                if (signingTeam) {
+                    this.addPlayerToAITeam(signingTeam, playerInfo);
+                }
                 
                 // ===== 关键修复：通知skipRuleManager该球员被签走 =====
                 this.notifySkipRuleManagerOfSignedPlayer(playerInfo.id, playerInfo.name);
@@ -266,14 +293,15 @@ class MarketManager {
         }
 
         if (changes.length > 0) {
-            this.gameStateManager.set('availablePlayers', [...availablePlayers]);
+            // 保存更新后的可用球员列表（已经是副本，不需要再展开）
+            this.gameStateManager.set('availablePlayers', availablePlayers);
             this.gameStateManager.saveGameState();
             
             if (window.app && window.app.recruitmentInterface) {
                 window.app.recruitmentInterface.refreshPlayerList();
             }
             
-            console.log(`[市场动态] ${changes.length} 名球员被其他球队签走`);
+            console.log(`[市场动态] ${changes.length} 名球员被其他球队签走，剩余可用球员: ${availablePlayers.length}`);
         }
 
         return {
@@ -281,6 +309,107 @@ class MarketManager {
             players: pickedUp,
             changes: changes
         };
+    }
+    
+    /**
+     * 获取需要补强的AI球队列表
+     * @returns {Array} 需要球员的球队列表
+     */
+    getAITeamsNeedingPlayers() {
+        const state = this.gameStateManager.getState();
+        const allTeams = state.allTeams || [];
+        const userTeam = state.userTeam;
+        
+        return allTeams.filter(team => {
+            // 跳过玩家球队
+            if (userTeam && team.id === userTeam.id) return false;
+            
+            const roster = team.roster || [];
+            const scholarships = team.scholarshipsAvailable !== undefined 
+                ? team.scholarshipsAvailable 
+                : Math.max(0, 13 - roster.length);
+            
+            // 阵容不足13人且还有奖学金的球队
+            return roster.length < 13 && scholarships > 0;
+        }).map(team => ({
+            id: team.id,
+            name: team.name,
+            roster: team.roster || [],
+            scholarshipsAvailable: team.scholarshipsAvailable !== undefined 
+                ? team.scholarshipsAvailable 
+                : Math.max(0, 13 - (team.roster || []).length)
+        }));
+    }
+    
+    /**
+     * 为球员选择合适的AI球队
+     * @param {Object} player - 球员信息
+     * @param {Array} aiTeams - 可选的AI球队列表
+     * @returns {Object|null} 选中的球队
+     */
+    selectAITeamForPlayer(player, aiTeams) {
+        if (!aiTeams || aiTeams.length === 0) return null;
+        
+        // 优先选择阵容人数较少的球队（更急需补强）
+        const sortedTeams = [...aiTeams].sort((a, b) => a.roster.length - b.roster.length);
+        
+        // 从前50%的球队中随机选择
+        const candidateCount = Math.max(1, Math.ceil(sortedTeams.length * 0.5));
+        const candidates = sortedTeams.slice(0, candidateCount);
+        
+        return candidates[Math.floor(Math.random() * candidates.length)];
+    }
+    
+    /**
+     * 将球员添加到AI球队阵容
+     * @param {Object} team - AI球队信息
+     * @param {Object} playerInfo - 球员信息
+     */
+    addPlayerToAITeam(team, playerInfo) {
+        const state = this.gameStateManager.getState();
+        // 创建 allTeams 的深拷贝
+        const allTeams = JSON.parse(JSON.stringify(state.allTeams || []));
+        
+        // 在 allTeams 中找到对应的球队
+        const teamIndex = allTeams.findIndex(t => t.id === team.id);
+        if (teamIndex === -1) {
+            console.warn(`[市场管理器] 未在allTeams中找到球队 ${team.id}`);
+            return;
+        }
+        
+        const gameTeam = allTeams[teamIndex];
+        
+        // 确保 roster 数组存在
+        if (!gameTeam.roster) {
+            gameTeam.roster = [];
+        }
+        
+        // 创建球员数据
+        const playerData = {
+            id: playerInfo.id,
+            name: playerInfo.name,
+            position: playerInfo.position,
+            rating: playerInfo.overallRating || playerInfo.rating || 70,
+            potential: playerInfo.potential || playerInfo.overallRating || 70,
+            year: playerInfo.year || 1,
+            isNewSigning: true,
+            signedThisSeason: true
+        };
+        
+        // 添加到阵容
+        gameTeam.roster.push(playerData);
+        
+        // 更新奖学金数量
+        if (gameTeam.scholarshipsAvailable !== undefined) {
+            gameTeam.scholarshipsAvailable = Math.max(0, gameTeam.scholarshipsAvailable - 1);
+        } else {
+            gameTeam.scholarshipsAvailable = Math.max(0, 13 - gameTeam.roster.length);
+        }
+        
+        // 保存更新（使用深拷贝后的数组）
+        this.gameStateManager.set('allTeams', allTeams);
+        
+        console.log(`[市场管理器] ${playerInfo.name} 已加入 ${gameTeam.name}，阵容: ${gameTeam.roster.length}人`);
     }
     
     /**
@@ -306,6 +435,7 @@ class MarketManager {
      * 当RecruitmentUtils不可用时使用
      */
     _fallbackNotifySkipRuleManager(playerId, playerName) {
+        // 1. 更新 state.negotiations.playerNegotiations
         const state = this.gameStateManager.getState();
         const playerNegotiations = state.negotiations?.playerNegotiations || [];
         const negotiationIndex = playerNegotiations.findIndex(n => n.targetId === playerId);
@@ -315,6 +445,29 @@ class MarketManager {
             playerNegotiations[negotiationIndex].expiredReason = '被其他球队签走';
             playerNegotiations[negotiationIndex].expiredAt = new Date().toISOString();
             console.log(`[市场管理器] 已更新谈判状态: ${playerName} 被标记为过期`);
+        }
+        
+        // 2. 更新 window.negotiationManager.negotiations
+        if (window.negotiationManager?.negotiations) {
+            const managerNegotiation = window.negotiationManager.negotiations.find(
+                n => n.playerId === playerId && n.status === 'active'
+            );
+            if (managerNegotiation) {
+                managerNegotiation.status = 'expired';
+                managerNegotiation.expiredReason = '被其他球队签走';
+                managerNegotiation.expiredAt = new Date().toISOString();
+                managerNegotiation.lastUpdated = new Date().toISOString();
+                console.log(`[市场管理器] 已更新 negotiationManager: ${playerName} 被标记为过期`);
+                
+                // 保存谈判状态
+                window.negotiationManager.saveNegotiations?.();
+                
+                // 刷新谈判列表
+                if (typeof window.recruitmentInterface !== 'undefined') {
+                    window.recruitmentInterface.renderNegotiationList();
+                    window.recruitmentInterface.updateAllTabCounts();
+                }
+            }
         }
     }
 
@@ -432,15 +585,148 @@ class MarketManager {
         const pickupResult = this.simulateMarketDaily();
         const demandResult = this.updatePlayerDemands();
 
-        if (pickupResult.pickedUp > 0 || demandResult.adjusted > 0) {
-            console.log(`[市场日报] 被签走: ${pickupResult.pickedUp}, 难度降低: ${demandResult.adjusted}`);
+        // ===== 补充新球员到市场 =====
+        const replenishResult = this.replenishPlayerPool();
+
+        if (pickupResult.pickedUp > 0 || demandResult.adjusted > 0 || replenishResult.added > 0) {
+            console.log(`[市场日报] 被签走: ${pickupResult.pickedUp}, 新补充: ${replenishResult.added}, 难度降低: ${demandResult.adjusted}`);
         }
 
         return {
             pickups: pickupResult.pickedUp,
             demandAdjustments: demandResult.adjusted,
+            replenished: replenishResult.added,
             marketStatus: this.getMarketStatus()
         };
+    }
+
+    /**
+     * 补充球员池
+     * 当球员数量不足时，自动补充新球员
+     * 基于32支球队的实际需求：75%大一新生，25%转学生
+     */
+    replenishPlayerPool() {
+        const state = this.gameStateManager.getState();
+        // 创建数组的副本，避免直接修改原始数组
+        const availablePlayers = [...(state.availablePlayers || [])];
+
+        // 最低球员数量阈值 - 基于32支球队的需求
+        // 每队需要约5名球员，总计约160名
+        const MIN_PLAYERS = 120;
+        const TARGET_PLAYERS = 160;
+
+        if (availablePlayers.length < MIN_PLAYERS) {
+            const needed = TARGET_PLAYERS - availablePlayers.length;
+            
+            // 75%大一新生，25%转学生
+            const freshmenCount = Math.round(needed * 0.75);
+            const transferCount = needed - freshmenCount;
+            
+            const freshmenPlayers = this.generateNewPlayers(freshmenCount, 1);
+            const transferPlayers = this.generateNewPlayers(transferCount, 'mixed');
+            
+            const newPlayers = [...freshmenPlayers, ...transferPlayers];
+
+            // 添加到市场（使用副本）
+            availablePlayers.push(...newPlayers);
+            
+            // 保存更新后的列表
+            this.gameStateManager.set('availablePlayers', availablePlayers);
+
+            console.log(`[市场补充] 球员数量不足(${availablePlayers.length - newPlayers.length}人)，补充 ${newPlayers.length} 名新球员(大一:${freshmenCount}, 转学:${transferCount})，现在共 ${availablePlayers.length} 人`);
+            return { added: newPlayers.length };
+        }
+
+        return { added: 0 };
+    }
+
+    /**
+     * 生成新球员
+     * @param {number} count - 需要生成的球员数量
+     * @param {number|string} yearConfig - 年级配置: 1=大一, 'mixed'=混合(大二大三大四)
+     * @returns {Array} 新球员数组
+     */
+    generateNewPlayers(count, yearConfig = 1) {
+        const players = [];
+        const positions = ['PG', 'SG', 'SF', 'PF', 'C'];
+        const chineseSurnames = ['王', '李', '张', '刘', '陈', '杨', '赵', '黄', '周', '吴', '徐', '孙', '胡', '朱', '高', '林', '何', '郭', '马', '罗'];
+        const chineseGivenNames = ['小明', '建国', '建军', '志强', '伟', '强', '勇', '杰', '磊', '浩', '宇', '鹏', '超', '峰', '亮', '涛', '斌', '刚', '明', '平', '文', '武', '龙', '虎', '飞', '翔', '华', '东', '南', '西', '北'];
+
+        for (let i = 0; i < count; i++) {
+            const surname = chineseSurnames[Math.floor(Math.random() * chineseSurnames.length)];
+            const givenName = chineseGivenNames[Math.floor(Math.random() * chineseGivenNames.length)];
+            const position = positions[Math.floor(Math.random() * positions.length)];
+
+            // 确定年级
+            let year, age, status, rating, potential;
+            
+            if (yearConfig === 1) {
+                // 大一新生
+                year = 1;
+                age = 17 + Math.floor(Math.random() * 2); // 17-18岁
+                status = 'free_agent';
+                rating = 50 + Math.floor(Math.random() * 25); // 50-75
+                potential = 60 + Math.floor(Math.random() * 30); // 60-90
+            } else if (yearConfig === 'mixed') {
+                // 转学生 - 大二大三大四
+                const yearRand = Math.random();
+                if (yearRand < 0.5) {
+                    year = 2; // 50%大二
+                    age = 19;
+                } else if (yearRand < 0.8) {
+                    year = 3; // 30%大三
+                    age = 20;
+                } else {
+                    year = 4; // 20%大四
+                    age = 21;
+                }
+                status = 'transfer_wanted';
+                rating = 60 + Math.floor(Math.random() * 20); // 60-80，转学生实力更强
+                potential = 55 + Math.floor(Math.random() * 25); // 55-80
+            } else {
+                // 默认大一
+                year = 1;
+                age = 18;
+                status = 'free_agent';
+                rating = 55 + Math.floor(Math.random() * 20);
+                potential = 65 + Math.floor(Math.random() * 25);
+            }
+
+            const player = {
+                id: this.gameStateManager.getPlayerId(),
+                name: `${surname}${givenName}`,
+                position: position,
+                age: age,
+                year: year,
+                status: status,
+                rating: rating,
+                potential: potential,
+                attributes: {
+                    scoring: 30 + Math.floor(Math.random() * 40),
+                    shooting: 30 + Math.floor(Math.random() * 40),
+                    threePoint: 30 + Math.floor(Math.random() * 40),
+                    freeThrow: 30 + Math.floor(Math.random() * 40),
+                    passing: 30 + Math.floor(Math.random() * 40),
+                    dribbling: 30 + Math.floor(Math.random() * 40),
+                    defense: 30 + Math.floor(Math.random() * 40),
+                    rebounding: 30 + Math.floor(Math.random() * 40),
+                    stealing: 30 + Math.floor(Math.random() * 40),
+                    blocking: 30 + Math.floor(Math.random() * 40),
+                    speed: 30 + Math.floor(Math.random() * 40),
+                    stamina: 30 + Math.floor(Math.random() * 40),
+                    strength: 30 + Math.floor(Math.random() * 40),
+                    basketballIQ: 30 + Math.floor(Math.random() * 40)
+                },
+                talents: [],
+                skills: [],
+                stats: { games: 0, points: 0, rebounds: 0, assists: 0 },
+                seasonStats: { games: 0, points: 0, rebounds: 0, assists: 0, minutes: 0 }
+            };
+
+            players.push(player);
+        }
+
+        return players;
     }
 
     /**
@@ -498,12 +784,26 @@ class MarketManager {
             }
         }
 
+        // ===== 快进期间补充球员池 =====
+        const replenishResult = this.replenishPlayerPool();
+        if (replenishResult.added > 0) {
+            console.log(`[MarketManager] 快进期间补充 ${replenishResult.added} 名新球员`);
+        }
+
         const finalPlayerCount = (state.availablePlayers || []).length;
         const avgDifficultyReduction = this.calculateAverageDifficultyReduction();
 
         const newDate = new Date(state.currentDate);
         newDate.setDate(newDate.getDate() + days);
         this.gameStateManager.set('currentDate', newDate);
+
+        // ===== 快进结束时处理谈判中的球员 =====
+        let negotiationResult = { signed: 0, failed: 0, details: [] };
+        if (window.seasonManager) {
+            console.log('[MarketManager] 快进结束，处理谈判中的球员...');
+            negotiationResult = window.seasonManager.processPendingNegotiations();
+            console.log(`[MarketManager] 谈判处理完成：${negotiationResult.signed}人签约，${negotiationResult.failed}人谈判失败`);
+        }
 
         this.gameStateManager.set('availablePlayers', [...state.availablePlayers]);
         this.gameStateManager.saveGameState();
@@ -516,6 +816,7 @@ class MarketManager {
             playersPickedUp: pickedUpPlayers.length,
             pickedUpDetails: pickedUpPlayers,
             signedByAI: signedByAI, // 新增：被AI签走的谈判中球员
+            negotiationsResolved: negotiationResult, // 新增：谈判处理结果
             initialCount: initialPlayerCount,
             finalCount: finalPlayerCount,
             difficultyReduced: avgDifficultyReduction,
@@ -583,7 +884,11 @@ class MarketManager {
 
             const pickupProb = this.calculatePickupProbability(player);
             
-            if (Math.random() < pickupProb * 0.3) {
+            // ===== 提高AI签约概率，确保球队能正常补强 =====
+            const timeBoost = 0.5 + (progress * 0.5); // 0.5-1.0
+            const finalProb = pickupProb * timeBoost;
+            
+            if (Math.random() < finalProb) {
                 const playerInfo = player.getInfo ? player.getInfo() : player;
                 pickedUp.push({
                     id: playerInfo.id,
@@ -650,15 +955,20 @@ class MarketManager {
         if (selectedTeam) {
             const { teamId, team } = selectedTeam;
             
-            // 添加到球队阵容
-            team.roster.push({
+            // 创建球员数据
+            const playerData = {
                 id: playerInfo.id,
                 name: playerInfo.name,
                 position: playerInfo.position,
                 rating: playerInfo.overallRating,
                 potential: playerInfo.potential || playerInfo.overallRating,
-                year: playerInfo.year || 1
-            });
+                year: playerInfo.year || 1,
+                isNewSigning: true,
+                signedThisSeason: true
+            };
+            
+            // 添加到球队阵容
+            team.roster.push(playerData);
             
             // 减少奖学金数量
             team.recruitment.scholarshipsAvailable = Math.max(0, team.recruitment.scholarshipsAvailable - 1);
@@ -666,7 +976,54 @@ class MarketManager {
             // 重新计算阵容需求
             team.recruitment.priorityNeeds = window.recruitmentCompetitionSystem.identifyTeamNeeds(team.roster);
             
-            console.log(`[市场签约] ${team.name} 签下 ${playerInfo.name}，剩余奖学金: ${team.recruitment.scholarshipsAvailable}`);
+            // ===== 关键修复：同步到 gameStateManager 的 allTeams =====
+            this.syncAITeamToGameState(teamId, playerData);
+            
+            console.log(`[市场签约] ${team.name} 签下 ${playerInfo.name}，剩余奖学金: ${team.recruitment.scholarshipsAvailable}，已同步到allTeams`);
+        }
+    }
+
+    /**
+     * 同步AI球队阵容到 gameStateManager 的 allTeams
+     * 这是关键修复，确保GM工具能看到正确的阵容
+     * @param {string} teamId - AI球队ID
+     * @param {Object} playerData - 新签约球员数据
+     */
+    syncAITeamToGameState(teamId, playerData) {
+        const state = this.gameStateManager.getState();
+        // 创建 allTeams 的深拷贝
+        const allTeams = JSON.parse(JSON.stringify(state.allTeams || []));
+        
+        // 在 allTeams 中找到对应的球队
+        const teamIndex = allTeams.findIndex(t => t.id === teamId);
+        if (teamIndex !== -1) {
+            const gameTeam = allTeams[teamIndex];
+            
+            // 确保 roster 数组存在
+            if (!gameTeam.roster) {
+                gameTeam.roster = [];
+            }
+            
+            // 检查球员是否已存在（避免重复添加）
+            const existingIndex = gameTeam.roster.findIndex(p => p.id === playerData.id);
+            if (existingIndex === -1) {
+                // 添加球员到游戏球队的阵容
+                gameTeam.roster.push(playerData);
+                
+                // 更新奖学金数量
+                if (gameTeam.scholarshipsAvailable !== undefined) {
+                    gameTeam.scholarshipsAvailable = Math.max(0, gameTeam.scholarshipsAvailable - 1);
+                }
+                
+                // 保存更新后的 allTeams（使用深拷贝后的数组）
+                this.gameStateManager.set('allTeams', allTeams);
+                
+                console.log(`[阵容同步] ${gameTeam.name} 阵容已更新，现在共 ${gameTeam.roster.length} 人`);
+            } else {
+                console.log(`[阵容同步] 球员 ${playerData.name} 已存在于 ${gameTeam.name} 阵容中`);
+            }
+        } else {
+            console.warn(`[阵容同步] 未在allTeams中找到球队 ${teamId}`);
         }
     }
 

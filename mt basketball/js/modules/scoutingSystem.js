@@ -59,18 +59,180 @@ class ScoutingSystem {
         const rosterContainer = document.getElementById('roster-details');
         if (!rosterContainer) return;
 
-        const rosterHtml = team.roster.map(player => `
-            <div class="scout-player-card">
-                <div class="player-header">
-                    <h4 class="player-name">${player.name}</h4>
-                    <span class="player-position">${player.position}</span>
+        // 计算球队统计数据
+        const roster = team.roster || [];
+        const avgRating = roster.length > 0 
+            ? Math.round(roster.reduce((sum, p) => sum + (p.rating || p.getOverallRating?.() || 70), 0) / roster.length)
+            : 0;
+        const avgPotential = roster.length > 0
+            ? Math.round(roster.reduce((sum, p) => sum + (p.potential || 70), 0) / roster.length)
+            : 0;
+        
+        // 按位置分组
+        const positions = ['PG', 'SG', 'SF', 'PF', 'C'];
+        const positionNames = { 'PG': '控球后卫', 'SG': '得分后卫', 'SF': '小前锋', 'PF': '大前锋', 'C': '中锋' };
+        const positionEmojis = { 'PG': '🏀', 'SG': '🎯', 'SF': '⚡', 'PF': '💪', 'C': '🛡️' };
+        const yearLabels = { 1: '大一', 2: '大二', 3: '大三', 4: '大四' };
+        
+        const groupedPlayers = {};
+        positions.forEach(pos => {
+            groupedPlayers[pos] = roster.filter(p => p.position === pos);
+        });
+        const ungrouped = roster.filter(p => !positions.includes(p.position));
+
+        // 生成阵容统计头部
+        let rosterHtml = `
+            <div class="roster-header-stats">
+                <div class="roster-stat-card">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-info">
+                        <div class="stat-value">${roster.length}</div>
+                        <div class="stat-label">球员总数</div>
+                    </div>
                 </div>
-                <div class="player-rating">
-                    <div class="overall-rating">${player.getOverallRating()}</div>
-                    <div class="potential">潜力: ${player.potential}</div>
+                <div class="roster-stat-card">
+                    <div class="stat-icon">⭐</div>
+                    <div class="stat-info">
+                        <div class="stat-value">${avgRating}</div>
+                        <div class="stat-label">平均能力</div>
+                    </div>
+                </div>
+                <div class="roster-stat-card">
+                    <div class="stat-icon">📈</div>
+                    <div class="stat-info">
+                        <div class="stat-value">${avgPotential}</div>
+                        <div class="stat-label">平均潜力</div>
+                    </div>
                 </div>
             </div>
-        `).join('');
+        `;
+
+        // 如果没有球员
+        if (roster.length === 0) {
+            rosterHtml += `
+                <div class="empty-roster-message">
+                    <div class="empty-icon">📋</div>
+                    <div class="empty-title">暂无球员</div>
+                    <div class="empty-desc">该球队还没有签约任何球员</div>
+                </div>
+            `;
+            rosterContainer.innerHTML = rosterHtml;
+            return;
+        }
+
+        // 按位置渲染球员
+        positions.forEach(pos => {
+            const players = groupedPlayers[pos];
+            if (players.length > 0) {
+                // 按能力值排序
+                players.sort((a, b) => (b.rating || b.getOverallRating?.() || 0) - (a.rating || a.getOverallRating?.() || 0));
+                
+                rosterHtml += `
+                    <div class="position-section">
+                        <div class="position-header">
+                            <div class="position-title">
+                                <span class="position-emoji">${positionEmojis[pos]}</span>
+                                <span class="position-name">${positionNames[pos]}</span>
+                                <span class="position-code">${pos}</span>
+                            </div>
+                            <span class="position-count">${players.length} 人</span>
+                        </div>
+                        <div class="position-players-grid">
+                            ${players.map((player, idx) => {
+                                const rating = player.rating || player.getOverallRating?.() || 70;
+                                const potential = player.potential || 70;
+                                const year = player.year || 1;
+                                const isNewSigning = player.isNewSigning || player.signedThisSeason;
+                                
+                                // 能力值颜色
+                                const ratingColor = rating >= 80 ? '#10b981' : rating >= 70 ? '#f59e0b' : rating >= 60 ? '#3b82f6' : '#6b7280';
+                                const potentialColor = potential >= 85 ? '#ef4444' : potential >= 75 ? '#f59e0b' : potential >= 65 ? '#3b82f6' : '#6b7280';
+                                
+                                return `
+                                    <div class="roster-player-card ${isNewSigning ? 'new-signing' : ''}">
+                                        ${isNewSigning ? '<div class="new-badge">🆕 新签约</div>' : ''}
+                                        <div class="player-rank">#${idx + 1}</div>
+                                        <div class="player-avatar">
+                                            <span class="avatar-text">${player.name.charAt(0)}</span>
+                                        </div>
+                                        <div class="player-info">
+                                            <div class="player-name">${player.name}</div>
+                                            <div class="player-meta">
+                                                <span class="year-badge year-${year}">${yearLabels[year]}</span>
+                                                ${player.age ? `<span class="age-badge">${player.age}岁</span>` : ''}
+                                            </div>
+                                        </div>
+                                        <div class="player-ratings">
+                                            <div class="rating-box">
+                                                <div class="rating-label">能力</div>
+                                                <div class="rating-value" style="color: ${ratingColor}">${rating}</div>
+                                            </div>
+                                            <div class="rating-box">
+                                                <div class="rating-label">潜力</div>
+                                                <div class="rating-value" style="color: ${potentialColor}">${potential}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+        });
+
+        // 渲染未分类球员
+        if (ungrouped.length > 0) {
+            ungrouped.sort((a, b) => (b.rating || b.getOverallRating?.() || 0) - (a.rating || a.getOverallRating?.() || 0));
+            rosterHtml += `
+                <div class="position-section">
+                    <div class="position-header">
+                        <div class="position-title">
+                            <span class="position-emoji">❓</span>
+                            <span class="position-name">其他位置</span>
+                        </div>
+                        <span class="position-count">${ungrouped.length} 人</span>
+                    </div>
+                    <div class="position-players-grid">
+                        ${ungrouped.map((player, idx) => {
+                            const rating = player.rating || player.getOverallRating?.() || 70;
+                            const potential = player.potential || 70;
+                            const year = player.year || 1;
+                            const isNewSigning = player.isNewSigning || player.signedThisSeason;
+                            const ratingColor = rating >= 80 ? '#10b981' : rating >= 70 ? '#f59e0b' : rating >= 60 ? '#3b82f6' : '#6b7280';
+                            const potentialColor = potential >= 85 ? '#ef4444' : potential >= 75 ? '#f59e0b' : potential >= 65 ? '#3b82f6' : '#6b7280';
+                            
+                            return `
+                                <div class="roster-player-card ${isNewSigning ? 'new-signing' : ''}">
+                                    ${isNewSigning ? '<div class="new-badge">🆕 新签约</div>' : ''}
+                                    <div class="player-rank">#${idx + 1}</div>
+                                    <div class="player-avatar">
+                                        <span class="avatar-text">${player.name.charAt(0)}</span>
+                                    </div>
+                                    <div class="player-info">
+                                        <div class="player-name">${player.name}</div>
+                                        <div class="player-meta">
+                                            <span class="year-badge year-${year}">${yearLabels[year]}</span>
+                                            ${player.age ? `<span class="age-badge">${player.age}岁</span>` : ''}
+                                        </div>
+                                    </div>
+                                    <div class="player-ratings">
+                                        <div class="rating-box">
+                                            <div class="rating-label">能力</div>
+                                            <div class="rating-value" style="color: ${ratingColor}">${rating}</div>
+                                        </div>
+                                        <div class="rating-box">
+                                            <div class="rating-label">潜力</div>
+                                            <div class="rating-value" style="color: ${potentialColor}">${potential}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        }
 
         rosterContainer.innerHTML = rosterHtml;
     }

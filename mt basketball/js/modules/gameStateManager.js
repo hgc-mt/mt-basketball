@@ -518,6 +518,18 @@ class GameStateManager {
             window.recruitmentCompetitionSystem.dailyUpdate();
         }
         
+        // ===== 处理谈判中的球员（单日推进时概率签约）=====
+        let negotiationResult = null;
+        if (window.seasonManager && negotiatingPlayers.length > 0) {
+            // 只有推进多天或随机概率时才处理谈判
+            // 避免单日推进时过于频繁地处理
+            if (days >= 7 || Math.random() < 0.3) {
+                console.log('[GameStateManager] 推进日期，处理谈判中的球员...');
+                negotiationResult = window.seasonManager.processPendingNegotiations();
+                console.log(`[GameStateManager] 谈判处理：${negotiationResult.signed}人签约，${negotiationResult.failed}人失败`);
+            }
+        }
+        
         // 检查是否有正在谈判的球员被AI签走
         const signedByAI = this.checkPlayersSignedByAI(negotiatingPlayers);
         
@@ -527,7 +539,17 @@ class GameStateManager {
             return {
                 interrupted: true,
                 signedPlayers: signedByAI,
+                negotiationResult: negotiationResult,
                 message: `谈判中的 ${signedByAI.map(p => p.playerName).join('、')} 已被其他球队签下！`
+            };
+        }
+        
+        // 如果有谈判处理结果，返回相关信息
+        if (negotiationResult && (negotiationResult.signed > 0 || negotiationResult.failed > 0)) {
+            return {
+                interrupted: false,
+                negotiationResult: negotiationResult,
+                message: `谈判更新：${negotiationResult.signed}人签约成功，${negotiationResult.failed}人谈判失败`
             };
         }
         

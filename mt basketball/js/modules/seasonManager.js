@@ -266,11 +266,35 @@ class SeasonManager {
     advanceSeason() {
         const state = this.gameStateManager.getState();
 
-        // Age players
-        this.agePlayers();
+        // ===== 处理谈判中的球员（必须在 offseasonManager 之前）=====
+        console.log('[SeasonManager] 处理谈判中的球员...');
+        const negotiationResult = this.processPendingNegotiations();
+        console.log(`[SeasonManager] 谈判处理完成：${negotiationResult.signed}人签约，${negotiationResult.failed}人谈判失败`);
 
-        // Process contracts
-        this.processContracts();
+        // ===== 使用新的休赛期管理系统处理球员变动 =====
+        if (window.offseasonManager) {
+            console.log('[SeasonManager] 使用 offseasonManager 处理休赛期变动（赛季结束）');
+            // isInitialSetup: false 表示这是赛季结束后的处理
+            const offseasonReport = window.offseasonManager.processOffseason({ isInitialSetup: false });
+            
+            // 显示休赛期变动摘要
+            const summary = window.offseasonManager.generateOffseasonSummary(offseasonReport);
+            this.showNotification(`休赛期变动：${summary}`, 'info');
+            
+            // 详细记录
+            console.log('[Offseason Report]', offseasonReport);
+            
+            // 如果有AI球队重建，显示额外信息
+            if (offseasonReport.aiRebuilds && offseasonReport.aiRebuilds.length > 0) {
+                const rebuildCount = offseasonReport.aiRebuilds.length;
+                console.log(`[SeasonManager] ${rebuildCount} 支AI球队进行了阵容重建`);
+            }
+        } else {
+            // 降级处理：使用旧逻辑
+            console.warn('[SeasonManager] offseasonManager 未初始化，使用旧逻辑');
+            this.agePlayers();
+            this.processContracts();
+        }
 
         // Generate new free agents
         this.generateNewFreeAgents();
@@ -316,16 +340,26 @@ class SeasonManager {
 
     generateNewFreeAgents() {
         const state = this.gameStateManager.getState();
-        const availablePlayers = state.availablePlayers;
+        const availablePlayers = state.availablePlayers || [];
 
-        // Generate new players
-        const newPlayers = this.generatePlayers(20);
+        // 基于32支球队的需求生成新球员
+        // 每队需要约5名球员，总计约160名
+        // 75%大一新生，25%转学生
+        const totalNeeded = 140 + Math.floor(Math.random() * 40); // 140-180人
+        const freshmenCount = Math.round(totalNeeded * 0.75);
+        const transferCount = totalNeeded - freshmenCount;
+        
+        const freshmenPlayers = this.generatePlayers(freshmenCount, 1);
+        const transferPlayers = this.generatePlayers(transferCount, 'mixed');
+        const newPlayers = [...freshmenPlayers, ...transferPlayers];
+
+        console.log(`[SeasonManager] 新赛季生成 ${newPlayers.length} 名球员(大一:${freshmenCount}, 转学:${transferCount})`);
 
         // Update game state
         this.gameStateManager.set('availablePlayers', [...availablePlayers, ...newPlayers]);
     }
 
-    generatePlayers(count) {
+    generatePlayers(count, yearConfig = 1) {
         const players = [];
         const positions = ['PG', 'SG', 'SF', 'PF', 'C'];
         const chineseSurnames = ['王', '李', '张', '刘', '陈', '杨', '赵', '黄', '周', '吴', '徐', '孙', '胡', '朱', '高', '林', '何', '郭', '马', '罗'];
@@ -336,12 +370,49 @@ class SeasonManager {
             const givenName = chineseGivenNames[Math.floor(Math.random() * chineseGivenNames.length)];
             const position = positions[Math.floor(Math.random() * positions.length)];
 
+            // 确定年级和属性
+            let year, age, status, rating, potential;
+            
+            if (yearConfig === 1) {
+                // 大一新生
+                year = 1;
+                age = 17 + Math.floor(Math.random() * 2);
+                status = 'free_agent';
+                rating = 50 + Math.floor(Math.random() * 25);
+                potential = 60 + Math.floor(Math.random() * 30);
+            } else if (yearConfig === 'mixed') {
+                // 转学生 - 大二大三大四
+                const yearRand = Math.random();
+                if (yearRand < 0.5) {
+                    year = 2;
+                    age = 19;
+                } else if (yearRand < 0.8) {
+                    year = 3;
+                    age = 20;
+                } else {
+                    year = 4;
+                    age = 21;
+                }
+                status = 'transfer_wanted';
+                rating = 60 + Math.floor(Math.random() * 20);
+                potential = 55 + Math.floor(Math.random() * 25);
+            } else {
+                year = 1;
+                age = 18;
+                status = 'free_agent';
+                rating = 55 + Math.floor(Math.random() * 20);
+                potential = 65 + Math.floor(Math.random() * 25);
+            }
+
             const player = {
                 id: this.gameStateManager.getPlayerId(),
                 name: `${surname}${givenName}`,
                 position: position,
-                age: 17 + Math.floor(Math.random() * 3),
-                year: 1,
+                age: age,
+                year: year,
+                status: status,
+                rating: rating,
+                potential: potential,
                 attributes: {
                     scoring: 30 + Math.floor(Math.random() * 40),
                     shooting: 30 + Math.floor(Math.random() * 40),
@@ -358,7 +429,6 @@ class SeasonManager {
                     strength: 30 + Math.floor(Math.random() * 40),
                     basketballIQ: 30 + Math.floor(Math.random() * 40)
                 },
-                potential: 50 + Math.floor(Math.random() * 40),
                 talents: [],
                 skills: [],
                 stats: {
@@ -409,6 +479,291 @@ class SeasonManager {
 
     formatDate(date) {
         return `${date.getFullYear()}-${(date.getMonth() + 1).toString().padStart(2, '0')}-${date.getDate().toString().padStart(2, '0')}`;
+    }
+
+    /**
+     * 处理谈判中的球员（跳过休赛期/开始新赛季时调用）
+     * 自动处理所有进行中的谈判：成功签约或谈判失败
+     * @returns {Object} 处理结果 { signed: number, failed: number, details: Array }
+     */
+    processPendingNegotiations() {
+        const state = this.gameStateManager.getState();
+        const userTeam = state.userTeam;
+        
+        // 从多个可能的位置获取谈判数据
+        let negotiations = [];
+        
+        // 1. 从 state.activeNegotiations 获取（negotiationManager 使用）
+        if (state.activeNegotiations && Array.isArray(state.activeNegotiations)) {
+            negotiations = [...state.activeNegotiations];
+        }
+        
+        // 2. 从 state.negotiations?.playerNegotiations 获取（兼容旧版）
+        if (state.negotiations?.playerNegotiations && Array.isArray(state.negotiations.playerNegotiations)) {
+            negotiations = [...negotiations, ...state.negotiations.playerNegotiations];
+        }
+        
+        // 3. 从 window.negotiationManager 直接获取
+        if (window.negotiationManager?.negotiations && Array.isArray(window.negotiationManager.negotiations)) {
+            const managerNegotiations = window.negotiationManager.negotiations.filter(n => 
+                !negotiations.find(existing => existing.playerId === n.playerId || existing.targetId === n.targetId)
+            );
+            negotiations = [...negotiations, ...managerNegotiations];
+        }
+        
+        const result = {
+            signed: 0,
+            failed: 0,
+            details: []
+        };
+        
+        if (!userTeam || negotiations.length === 0) {
+            console.log('[SeasonManager] 没有需要处理的谈判');
+            return result;
+        }
+        
+        console.log(`[SeasonManager] 总共找到 ${negotiations.length} 个谈判记录`);
+        
+        // 过滤出活跃的谈判
+        const activeNegotiations = negotiations.filter(n => {
+            const status = n.status || 'pending';
+            return status === 'active' || status === 'pending' || status === 'paused' || status === 'in_progress';
+        });
+        
+        console.log(`[SeasonManager] 发现 ${activeNegotiations.length} 个活跃谈判需要处理`);
+        
+        if (activeNegotiations.length === 0) {
+            return result;
+        }
+        
+        for (const negotiation of activeNegotiations) {
+            // 兼容不同的字段命名
+            const playerId = negotiation.playerId || negotiation.targetId;
+            const playerName = negotiation.playerName || negotiation.targetName;
+            
+            if (!playerId) {
+                console.warn('[SeasonManager] 谈判记录缺少playerId:', negotiation);
+                continue;
+            }
+            
+            // 查找球员
+            let player = null;
+            
+            // 从 availablePlayers 中找
+            if (state.availablePlayers) {
+                player = state.availablePlayers.find(p => p.id === playerId);
+            }
+            
+            // 如果没找到，可能是 Player 对象
+            if (!player && window.playerPool) {
+                player = window.playerPool.getPlayerById(playerId);
+            }
+            
+            // 从 negotiation 对象本身获取球员信息
+            if (!player && negotiation.player) {
+                player = negotiation.player;
+            }
+            
+            if (!player) {
+                console.warn(`[SeasonManager] 找不到谈判球员: ${playerName}(${playerId})`);
+                result.failed++;
+                result.details.push({ playerName, status: 'failed', reason: '找不到球员' });
+                // 标记为完成
+                this.markNegotiationCompleted(negotiation, 'failed');
+                continue;
+            }
+            
+            // 计算签约成功率
+            const successChance = this.calculateSigningChance(negotiation, player);
+            console.log(`[SeasonManager] ${playerName} 签约成功率: ${(successChance * 100).toFixed(1)}%`);
+            
+            if (Math.random() < successChance) {
+                // 签约成功
+                const success = this.signPlayerToTeam(player, userTeam, negotiation);
+                if (success) {
+                    result.signed++;
+                    result.details.push({ playerName, status: 'signed', reason: '谈判成功' });
+                    this.showNotification(`${playerName} 签约成功！`, 'success');
+                    this.markNegotiationCompleted(negotiation, 'signed');
+                } else {
+                    result.failed++;
+                    result.details.push({ playerName, status: 'failed', reason: '签约失败' });
+                    this.markNegotiationCompleted(negotiation, 'failed');
+                }
+            } else {
+                // 签约失败
+                result.failed++;
+                result.details.push({ playerName, status: 'failed', reason: '谈判破裂' });
+                
+                // 从 availablePlayers 中移除（被其他球队签走）
+                if (state.availablePlayers) {
+                    const idx = state.availablePlayers.findIndex(p => p.id === playerId);
+                    if (idx !== -1) {
+                        state.availablePlayers.splice(idx, 1);
+                        console.log(`[SeasonManager] ${playerName} 被其他球队签走`);
+                    }
+                }
+                
+                this.markNegotiationCompleted(negotiation, 'failed');
+            }
+        }
+        
+        // 保存状态
+        this.gameStateManager.saveGameState();
+        
+        return result;
+    }
+    
+    /**
+     * 标记谈判为已完成
+     * @param {Object} negotiation - 谈判对象
+     * @param {string} result - 结果类型 'signed' | 'failed'
+     */
+    markNegotiationCompleted(negotiation, result) {
+        const playerId = negotiation.playerId || negotiation.targetId;
+        
+        // 更新 state.activeNegotiations
+        const state = this.gameStateManager.getState();
+        if (state.activeNegotiations) {
+            const idx = state.activeNegotiations.findIndex(n => 
+                (n.playerId === playerId) || (n.targetId === playerId)
+            );
+            if (idx !== -1) {
+                state.activeNegotiations[idx].status = result === 'signed' ? 'completed' : 'failed';
+                state.activeNegotiations[idx].completedAt = new Date().toISOString();
+                state.activeNegotiations[idx].result = result;
+            }
+        }
+        
+        // 更新 state.negotiations.playerNegotiations
+        if (state.negotiations?.playerNegotiations) {
+            const idx = state.negotiations.playerNegotiations.findIndex(n => 
+                (n.playerId === playerId) || (n.targetId === playerId)
+            );
+            if (idx !== -1) {
+                state.negotiations.playerNegotiations[idx].status = result === 'signed' ? 'completed' : 'failed';
+                state.negotiations.playerNegotiations[idx].completedAt = new Date().toISOString();
+                state.negotiations.playerNegotiations[idx].result = result;
+            }
+        }
+        
+        // 更新 window.negotiationManager
+        if (window.negotiationManager?.negotiations) {
+            const idx = window.negotiationManager.negotiations.findIndex(n => 
+                (n.playerId === playerId) || (n.targetId === playerId)
+            );
+            if (idx !== -1) {
+                window.negotiationManager.negotiations[idx].status = result === 'signed' ? 'completed' : 'failed';
+                window.negotiationManager.negotiations[idx].completedAt = new Date().toISOString();
+                window.negotiationManager.negotiations[idx].result = result;
+            }
+        }
+        
+        console.log(`[SeasonManager] 谈判 ${result}: ${negotiation.playerName || negotiation.targetName}`);
+    }
+    
+    /**
+     * 计算签约成功率
+     * @param {Object} negotiation - 谈判对象
+     * @param {Object} player - 球员对象
+     * @returns {number} 成功率 (0-1)
+     */
+    calculateSigningChance(negotiation, player) {
+        let chance = 0.5; // 基础50%成功率
+        
+        // 根据谈判进度调整
+        const progress = negotiation.progress || 0;
+        chance += progress * 0.3; // 进度越高，成功率越高
+        
+        // 根据球员兴趣度调整
+        const interest = negotiation.playerInterest || 50;
+        chance += (interest - 50) / 100; // 兴趣度每高10点，成功率+10%
+        
+        // 根据奖学金报价调整
+        const scholarship = negotiation.scholarship || 0.5;
+        const playerRequirement = player.scholarshipRequirement || 0.5;
+        if (scholarship >= playerRequirement) {
+            chance += 0.2; // 满足奖学金要求+20%
+        } else {
+            chance -= 0.3; // 不满足-30%
+        }
+        
+        // 根据球员质量调整（好球员更难签）
+        const rating = player.rating || player.getOverallRating?.() || 70;
+        if (rating >= 80) {
+            chance -= 0.15; // 顶级球员-15%
+        } else if (rating >= 75) {
+            chance -= 0.05; // 优秀球员-5%
+        }
+        
+        // 限制在合理范围
+        return Math.max(0.1, Math.min(0.9, chance));
+    }
+    
+    /**
+     * 将球员签约到球队
+     * @param {Object} player - 球员对象
+     * @param {Object} team - 球队对象
+     * @param {Object} negotiation - 谈判对象
+     * @returns {boolean} 是否成功
+     */
+    signPlayerToTeam(player, team, negotiation) {
+        try {
+            // 检查球队阵容空间
+            const currentRosterSize = team.roster?.length || 0;
+            if (currentRosterSize >= 15) {
+                console.warn(`[SeasonManager] 球队阵容已满，无法签约 ${player.name}`);
+                return false;
+            }
+            
+            // 检查奖学金空间
+            const scholarshipNeeded = negotiation.scholarship || player.scholarshipRequirement || 0.5;
+            const totalScholarships = team.scholarships?.total || 5;
+            const usedScholarships = team.roster?.reduce((sum, p) => sum + (p.scholarship || 0), 0) || 0;
+            
+            if (usedScholarships + scholarshipNeeded > totalScholarships + 0.01) {
+                console.warn(`[SeasonManager] 奖学金不足，无法签约 ${player.name}`);
+                return false;
+            }
+            
+            // 准备球员数据
+            const playerData = {
+                id: player.id,
+                name: player.name,
+                position: player.position,
+                year: player.year || 1,
+                age: player.age || 18,
+                rating: player.rating || player.getOverallRating?.() || 70,
+                potential: player.potential || 75,
+                scholarship: scholarshipNeeded,
+                scholarshipRequirement: player.scholarshipRequirement || scholarshipNeeded,
+                attributes: player.attributes || {},
+                stats: player.stats || { games: 0, points: 0, rebounds: 0, assists: 0 },
+                seasonStats: player.seasonStats || { games: 0, points: 0, rebounds: 0, assists: 0, minutes: 0 }
+            };
+            
+            // 添加到球队阵容
+            if (!team.roster) {
+                team.roster = [];
+            }
+            team.roster.push(playerData);
+            
+            // 从 availablePlayers 中移除
+            const state = this.gameStateManager.getState();
+            if (state.availablePlayers) {
+                const idx = state.availablePlayers.findIndex(p => p.id === player.id);
+                if (idx !== -1) {
+                    state.availablePlayers.splice(idx, 1);
+                }
+            }
+            
+            console.log(`[SeasonManager] ${player.name} 成功签约到 ${team.name}`);
+            return true;
+            
+        } catch (error) {
+            console.error(`[SeasonManager] 签约球员失败:`, error);
+            return false;
+        }
     }
 
     showNotification(message, type = 'info') {

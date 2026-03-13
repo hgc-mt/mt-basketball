@@ -423,6 +423,8 @@ class TeamManager {
 
         // 按位置分组球员
         const positions = ['PG', 'SG', 'SF', 'PF', 'C'];
+        const positionNames = { 'PG': '控球后卫', 'SG': '得分后卫', 'SF': '小前锋', 'PF': '大前锋', 'C': '中锋' };
+        const positionEmojis = { 'PG': '🏀', 'SG': '🎯', 'SF': '⚡', 'PF': '💪', 'C': '🛡️' };
         const groupedPlayers = {};
         
         positions.forEach(pos => {
@@ -442,12 +444,16 @@ class TeamManager {
                 positionSection.className = 'position-group';
                 
                 positionSection.innerHTML = `
-                    <div class="position-header">
-                        <h3 class="position-title">${position}</h3>
-                        <span class="position-count">(${playersInPos.length}人)</span>
+                    <div class="position-header-new">
+                        <div class="position-title-new">
+                            <span class="position-emoji">${positionEmojis[position]}</span>
+                            <span class="position-name-cn">${positionNames[position]}</span>
+                            <span class="position-code">${position}</span>
+                        </div>
+                        <span class="position-count-badge">${playersInPos.length} 人</span>
                     </div>
-                    <div class="position-players">
-                        ${playersInPos.map((player, idx) => this.createPlayerCardElement(player, idx + 1)).join('')}
+                    <div class="position-players-new">
+                        ${playersInPos.map((player, idx) => this.createPlayerCardElementNew(player, idx + 1)).join('')}
                     </div>
                 `;
                 
@@ -462,12 +468,15 @@ class TeamManager {
             ungroupedSection.className = 'position-group';
             
             ungroupedSection.innerHTML = `
-                <div class="position-header">
-                    <h3 class="position-title">其他</h3>
-                    <span class="position-count">(${ungroupedPlayers.length}人)</span>
+                <div class="position-header-new">
+                    <div class="position-title-new">
+                        <span class="position-emoji">❓</span>
+                        <span class="position-name-cn">其他位置</span>
+                    </div>
+                    <span class="position-count-badge">${ungroupedPlayers.length} 人</span>
                 </div>
-                <div class="position-players">
-                    ${ungroupedPlayers.map((player, idx) => this.createPlayerCardElement(player, idx + 1)).join('')}
+                <div class="position-players-new">
+                    ${ungroupedPlayers.map((player, idx) => this.createPlayerCardElementNew(player, idx + 1)).join('')}
                 </div>
             `;
             
@@ -544,6 +553,70 @@ class TeamManager {
                     <button class="action-btn release-btn" data-player-id="${player.id}" data-player-name="${player.name}" title="解约球员">
                         <span class="btn-icon">📤</span>
                         <span class="btn-text">解约</span>
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    // 新的球员卡片设计 - 更清晰、更专业
+    createPlayerCardElementNew(player, index) {
+        const yearLabels = { 1: '大一', 2: '大二', 3: '大三', 4: '大四' };
+        const yearColors = { 1: '#3b82f6', 2: '#10b981', 3: '#f59e0b', 4: '#ef4444' };
+        const overallRating = player.getOverallRating();
+        const potentialRating = player.potential;
+        const year = player.year || 1;
+
+        // 能力值颜色
+        const ratingColor = overallRating >= 80 ? '#10b981' : 
+                           overallRating >= 70 ? '#f59e0b' : 
+                           overallRating >= 60 ? '#3b82f6' : '#6b7280';
+        // 潜力颜色
+        const potentialColor = potentialRating >= 85 ? '#ef4444' : 
+                              potentialRating >= 75 ? '#f59e0b' : 
+                              potentialRating >= 65 ? '#3b82f6' : '#6b7280';
+
+        return `
+            <div class="roster-player-card-new" data-player-id="${player.id}">
+                <div class="player-rank-badge">#${index}</div>
+                
+                <div class="player-avatar-section">
+                    <div class="player-avatar-new">
+                        <span class="avatar-text">${player.name.charAt(0)}</span>
+                    </div>
+                    <div class="player-year-badge" style="background: ${yearColors[year]}">
+                        ${yearLabels[year]}
+                    </div>
+                </div>
+                
+                <div class="player-info-section">
+                    <div class="player-name-new">${player.name}</div>
+                    <div class="player-age-line">${player.age}岁</div>
+                </div>
+                
+                <div class="player-ratings-section">
+                    <div class="rating-item-new">
+                        <div class="rating-label-new">能力</div>
+                        <div class="rating-value-new" style="color: ${ratingColor}; font-weight: 700;">${overallRating}</div>
+                        <div class="rating-bar-bg">
+                            <div class="rating-bar-fill" style="width: ${overallRating}%; background: ${ratingColor};"></div>
+                        </div>
+                    </div>
+                    <div class="rating-item-new">
+                        <div class="rating-label-new">潜力</div>
+                        <div class="rating-value-new" style="color: ${potentialColor}; font-weight: 700;">${potentialRating}</div>
+                        <div class="rating-bar-bg">
+                            <div class="rating-bar-fill" style="width: ${potentialRating}%; background: ${potentialColor};"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="player-actions-section">
+                    <button class="action-btn-new view-btn-new" data-player-id="${player.id}" title="查看详情">
+                        <span>👁️</span>
+                    </button>
+                    <button class="action-btn-new release-btn-new" data-player-id="${player.id}" data-player-name="${player.name}" title="解约球员">
+                        <span>📤</span>
                     </button>
                 </div>
             </div>

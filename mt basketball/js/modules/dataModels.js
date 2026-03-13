@@ -2011,6 +2011,11 @@ class Team {
      */
     calculateUsedScholarshipShare() {
         return this.roster.reduce((total, player) => {
+            // 优先使用 scholarship (0-1之间的小数)，如果没有则使用 scholarshipLevel
+            if (player.scholarship !== undefined && player.scholarship !== null) {
+                return total + player.scholarship;
+            }
+            // 兼容旧数据：使用 scholarshipLevel 字符串
             return total + this.getScholarshipValue(player.scholarshipLevel);
         }, 0);
     }

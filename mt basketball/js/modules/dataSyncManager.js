@@ -334,9 +334,32 @@ class DataSyncManager {
         if (scholarshipRemaining) {
             const state = this.gameStateManager.getState();
             const userTeam = state.userTeam;
-            const used = userTeam?.roster?.length || 0;
+            
+            // 使用新的5级奖学金系统计算
+            const usedInRoster = userTeam?.calculateUsedScholarshipShare ? 
+                userTeam.calculateUsedScholarshipShare() : 
+                (userTeam?.roster?.length || 0);
+            
+            // 计算正在谈判中占用的奖学金（转换为份额）
+            const negotiations = state.activeNegotiations || [];
+            const usedInNegotiations = negotiations.reduce((sum, neg) => {
+                if (neg.status === 'active' || neg.status === 'pending' || neg.status === 'countered') {
+                    const scholarshipPercent = neg.offer?.scholarship || 0;
+                    let scholarshipShare = 0;
+                    if (scholarshipPercent >= 0.8) scholarshipShare = 1.0;
+                    else if (scholarshipPercent >= 0.6) scholarshipShare = 0.75;
+                    else if (scholarshipPercent >= 0.4) scholarshipShare = 0.5;
+                    else if (scholarshipPercent >= 0.2) scholarshipShare = 0.25;
+                    else scholarshipShare = 0;
+                    return sum + scholarshipShare;
+                }
+                return sum;
+            }, 0);
+            
+            const totalUsed = usedInRoster + usedInNegotiations;
             const max = 5;
-            scholarshipRemaining.textContent = `${max - used}/${max}`;
+            const remaining = Math.max(0, max - totalUsed);
+            scholarshipRemaining.textContent = `${remaining.toFixed(1)}/${max}`;
         }
     }
 
